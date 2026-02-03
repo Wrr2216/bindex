@@ -1,0 +1,26 @@
+{
+  "name": "bindex",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-hosted inventory. Scan anything, find it anywhere.",
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"pnpm dev:server\" \"pnpm dev:client\"",
+    "dev:server": "pnpm --filter bindex-server dev",
+    "dev:client": "pnpm --filter bindex-client dev",
+    "build": "pnpm --filter bindex-client build && pnpm --filter bindex-server build",
+    "start": "pnpm --filter bindex-server start",
+    "migrate": "pnpm --filter bindex-server migrate",
+    "typecheck": "pnpm --filter bindex-server typecheck && pnpm --filter bindex-client typecheck",
+    "test": "pnpm --filter bindex-server test",
+    "db:up": "docker compose -f docker-compose.dev.yml up -d",
+    "db:down": "docker compose -f docker-compose.dev.yml down"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

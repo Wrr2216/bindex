@@ -1,0 +1,40 @@
+{
+  "name": "bindex-server",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "migrate": "tsx src/db/migrate.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^1.0.0",
+    "bwip-js": "^4.11.1",
+    "compression": "^1.7.5",
+    "connect-pg-simple": "^10.0.0",
+    "dejavu-fonts-ttf": "^2.37.3",
+    "drizzle-orm": "^0.45.2",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "express-session": "^1.18.1",
+    "helmet": "^8.2.0",
+    "openid-client": "^5.7.1",
+    "pdf-lib": "^1.17.1",
+    "pg": "^8.13.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/compression": "^1.8.0",
+    "@types/connect-pg-simple": "^7.0.3",
+    "@types/express": "^5.0.0",
+    "@types/express-session": "^1.18.0",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.22.4",
+    "typescript": "^5.7.0"
+  }
+}

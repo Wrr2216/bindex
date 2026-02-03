@@ -1,0 +1,22 @@
+# Postgres for local development. The app itself runs on the host with
+# `pnpm dev`, so a code change reloads without rebuilding an image.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bindex
+      POSTGRES_PASSWORD: bindex
+      POSTGRES_DB: bindex
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bindex -d bindex"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata_dev:
