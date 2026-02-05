@@ -1,0 +1,187 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { z } from "zod";
+
+// Load a .env from the server directory or the repo root when one exists. In a
+// container the variables are already in the environment and no file is found.
+const loadEnvFile = (process as { loadEnvFile?: (p: string) => void }).loadEnvFile;
+if (loadEnvFile) {
+  for (const candidate of [
+    path.resolve(process.cwd(), ".env"),
+    path.resolve(process.cwd(), "../.env"),
+  ]) {
+    if (existsSync(candidate)) {
+      try {
+        loadEnvFile(candidate);
+      } catch {
+        // A malformed or locked file should not stop the process from starting.
+      }
+      break;
+    }
+  }
+}
+
+const bool = (fallback = false) =>
+  z
+    .string()
+    .optional()
+    .transform((v) => (v === undefined || v === "" ? fallback : v === "true" || v === "1"));
+
+const list = (value: string) =>
+  value
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+const schema = z.object({
+  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  PORT: z.coerce.number().int().positive().default(3000),
+  APP_BASE_URL: z.string().url().default("http://localhost:3000"),
+
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+  // Cap on Postgres connections held by this process. Keep it well under the
+  // max_connections of the server: every replica opens its own pool, and a
+  // shared Postgres that runs out answers new connections with "too many
+  // clients".
+  DATABASE_POOL_MAX: z.coerce.number().int().positive().default(8),
+  SESSION_SECRET: z.string().min(16, "SESSION_SECRET must be at least 16 chars"),
+
+  // ---- Authentication ----------------------------------------------------
+  // local    email + password accounts managed in this app (default)
+  // oidc     any OpenID Connect provider (Entra, Google, Keycloak, Authentik)
+  // trusted  no sign-in at all; every request is the same user. Only safe when
+  //          something in front of the app already authenticates the caller.
+  AUTH_MODE: z.enum(["local", "oidc", "trusted"]).default("local"),
+  // Both can run at once: AUTH_MODE=oidc with LOCAL_LOGIN_ENABLED=true keeps a
+  // break-glass password account alongside SSO.
+  LOCAL_LOGIN_ENABLED: bool(false),
+  // Bootstrap account created on first boot when no users exist yet. Leave the
+  // password blank to use the in-app setup screen instead.
+  ADMIN_EMAIL: z.string().default(""),
+  ADMIN_PASSWORD: z.string().default(""),
+  ADMIN_NAME: z.string().default("Administrator"),
+
+  OIDC_ISSUER_URL: z.string().default(""),
+  OIDC_CLIENT_ID: z.string().default(""),
+  OIDC_CLIENT_SECRET: z.string().default(""),
+  OIDC_REDIRECT_URI: z.string().default(""),
+  OIDC_SCOPES: z.string().default("openid profile email"),
+  OIDC_BUTTON_LABEL: z.string().default("Sign in with SSO"),
+  // Create an account for any successful SSO login. Turn off to require that an
+  // administrator adds the person first.
+  OIDC_AUTO_PROVISION: bool(true),
+  // Optional comma-separated allowlist applied to every sign-in method.
+  ALLOWED_EMAILS: z.string().default(""),
+  // Identity requests run as under AUTH_MODE=trusted.
+  TRUSTED_USER_EMAIL: z.string().default("owner@localhost"),
+  TRUSTED_USER_NAME: z.string().default("Owner"),
+
+  // ---- Defaults for first boot -------------------------------------------
+  // These seed the editable settings the first time the database comes up.
+  // Afterwards the stored values win and changing these has no effect.
+  APP_NAME: z.string().default("Bindex"),
+  ORG_NAME: z.string().default(""),
+  ASSET_CODE_PREFIX: z.string().default("INV"),
+
+  // ---- Product lookup ----------------------------------------------------
+  // Barcode lookup provider. The trial endpoint works without a key at a low
+  // rate limit; supplying a key switches to the paid endpoint.
+  UPC_API_PROVIDER: z.string().default("upcitemdb"),
+  UPC_API_KEY: z.string().default(""),
+  // Optional web search, used for product photos and street prices.
+  BRAVE_API_KEY: z.string().default(""),
+  // Optional language-model provider, used to summarize a product from search
+  // results and to turn a typed question into a search filter. Any
+  // OpenAI-compatible chat endpoint works.
+  LLM_BASE_URL: z.string().default("https://openrouter.ai/api/v1"),
+  LLM_API_KEY: z.string().default(""),
+  LLM_MODEL: z.string().default("deepseek/deepseek-chat"),
+
+  // ---- Device management sync (NinjaOne) ---------------------------------
+  NINJAONE_ENABLED: bool(false),
+  NINJAONE_BASE_URL: z.string().default("https://us2.ninjarmm.com"),
+  NINJAONE_CLIENT_ID: z.string().default(""),
+  NINJAONE_CLIENT_SECRET: z.string().default(""),
+  // Authorization-code grant. offline_access is required to receive a refresh
+  // token, without which unattended sync stops working after the first hour.
+  NINJAONE_SCOPES: z.string().default("monitoring management offline_access"),
+  NINJAONE_REDIRECT_URI: z.string().default(""),
+  NINJAONE_ASSET_ID_FIELD: z.string().default("assetId"),
+  NINJAONE_SYNC_INTERVAL_MIN: z.coerce.number().int().nonnegative().default(720),
+
+  // ---- Domain registrar sync ---------------------------------------------
+  CLOUDFLARE_API_TOKEN: z.string().default(""),
+  PORKBUN_API_KEY: z.string().default(""),
+  PORKBUN_SECRET_KEY: z.string().default(""),
+  REGISTRAR_SYNC_INTERVAL_MIN: z.coerce.number().int().nonnegative().default(1440),
+  // Window for the expiry digest; 0 disables it.
+  DOMAIN_EXPIRY_ALERT_DAYS: z.coerce.number().int().nonnegative().default(30),
+
+  // ---- Label printing ----------------------------------------------------
+  // Printed label size in mm (width across the tape by feed length). The
+  // default matches a 62 mm continuous roll cut to one inch.
+  LABEL_WIDTH_MM: z.coerce.number().positive().default(62),
+  LABEL_HEIGHT_MM: z.coerce.number().positive().default(25.4),
+  // Escape hatch for drivers that rotate the page (0/90/180/270).
+  LABEL_ROTATE_DEG: z.coerce.number().int().default(0),
+
+  // ---- Reader bridge ingest ----------------------------------------------
+  // Comma-separated tokens a reader bridge sends as an Authorization bearer
+  // header. Empty disables the ingest endpoint.
+  INGEST_TOKEN: z.string().default(""),
+
+  // ---- Logging and notifications -----------------------------------------
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  LOG_FORMAT: z.enum(["text", "json"]).default("text"),
+  // Optional ntfy topic for background alerts such as the domain expiry digest.
+  NTFY_URL: z.string().default(""),
+  NTFY_TOPIC: z.string().default(""),
+  NTFY_TOKEN: z.string().default(""),
+});
+
+const parsed = schema.safeParse(process.env);
+if (!parsed.success) {
+  const issues = parsed.error.issues
+    .map((i) => `  - ${i.path.join(".") || "(root)"}: ${i.message}`)
+    .join("\n");
+  throw new Error(`Invalid environment configuration:\n${issues}`);
+}
+
+const raw = parsed.data;
+
+export const env = {
+  ...raw,
+  isProd: raw.NODE_ENV === "production",
+
+  oidcConfigured: Boolean(
+    raw.OIDC_ISSUER_URL && raw.OIDC_CLIENT_ID && raw.OIDC_CLIENT_SECRET,
+  ),
+  oidcRedirectUri: raw.OIDC_REDIRECT_URI || `${raw.APP_BASE_URL}/auth/callback`,
+  oidcScopes: raw.OIDC_SCOPES.trim() || "openid profile email",
+  // Password sign-in is implied by AUTH_MODE=local and can also be added to an
+  // SSO deployment as a break-glass path.
+  localLoginEnabled: raw.AUTH_MODE === "local" || raw.LOCAL_LOGIN_ENABLED,
+  trustedAuth: raw.AUTH_MODE === "trusted",
+  allowedEmails: list(raw.ALLOWED_EMAILS).map((e) => e.toLowerCase()),
+  ingestTokens: list(raw.INGEST_TOKEN),
+
+  ninjaoneConfigured: Boolean(
+    raw.NINJAONE_ENABLED && raw.NINJAONE_CLIENT_ID && raw.NINJAONE_CLIENT_SECRET,
+  ),
+  ninjaoneRedirectUri:
+    raw.NINJAONE_REDIRECT_URI || `${raw.APP_BASE_URL}/api/ninjaone/callback`,
+  ninjaoneAssetUrl: (assetId: string) =>
+    `${raw.NINJAONE_BASE_URL.replace(/\/+$/, "")}/#/assetManagement/search?assetId=${encodeURIComponent(assetId)}`,
+
+  cloudflareConfigured: Boolean(raw.CLOUDFLARE_API_TOKEN),
+  porkbunConfigured: Boolean(raw.PORKBUN_API_KEY && raw.PORKBUN_SECRET_KEY),
+  registrarsConfigured: Boolean(
+    raw.CLOUDFLARE_API_TOKEN || (raw.PORKBUN_API_KEY && raw.PORKBUN_SECRET_KEY),
+  ),
+
+  llmConfigured: Boolean(raw.LLM_API_KEY),
+  webSearchConfigured: Boolean(raw.BRAVE_API_KEY),
+  ntfyConfigured: Boolean(raw.NTFY_URL && raw.NTFY_TOPIC),
+};
+
+export type Env = typeof env;
