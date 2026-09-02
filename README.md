@@ -133,6 +133,17 @@ Point your reverse proxy at port 3000. Migrations run on boot, so upgrading is:
 docker compose pull && docker compose up -d
 ```
 
+### Coolify
+
+[Coolify](https://github.com/coollabsio/coolify) handles the reverse proxy,
+certificates and redeploy on push for you. Create a resource from this
+repository with the **Docker Compose** build pack, or from the pre-built image
+below, then set the domain and environment variables in its interface.
+
+[docs/deployment.md](docs/deployment.md#coolify) covers the two settings that
+are easy to get wrong: removing the published port so the proxy handles
+routing, and matching `APP_BASE_URL` to the real public URL.
+
 ### Pre-built images
 
 ```
@@ -233,7 +244,7 @@ See [docs/hardware.md](docs/hardware.md) for tested equipment and setup.
 ## Documentation
 
 - [Configuration reference](docs/configuration.md)
-- [Deployment, backups and upgrades](docs/deployment.md)
+- [Deployment with Docker Compose or Coolify, backups and upgrades](docs/deployment.md)
 - [Scanners, printers and tags](docs/hardware.md)
 - [HTTP API](docs/api.md)
 
