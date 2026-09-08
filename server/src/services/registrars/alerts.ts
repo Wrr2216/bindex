@@ -14,7 +14,7 @@ function describeDue(name: string, expiresAt: Date, registrar: unknown): string 
 }
 
 /**
- * Ntfy digest of domains expiring within DOMAIN_EXPIRY_ALERT_DAYS whose
+ * Pushover and Wazuh digest of domains expiring within DOMAIN_EXPIRY_ALERT_DAYS whose
  * auto-renew is off, which is the lapse-by-accident case. Auto-renewing domains
  * are excluded; the registrar will handle those.
  */
@@ -42,12 +42,12 @@ export async function sendExpiryDigest(): Promise<{ alerted: number }> {
   if (!due.length) return { alerted: 0 };
 
   const hasUrgent = due[0]!.expiresAt!.getTime() - Date.now() <= 7 * DAY_MS;
-  await notify({
+  const delivered = await notify({
     title: `${due.length} domain${due.length === 1 ? "" : "s"} need renewal`,
     message: due.map((r) => describeDue(r.name, r.expiresAt!, r.metadata.registrar)).join("\n"),
-    tags: ["globe_with_meridians", "warning"],
-    ...(hasUrgent ? { priority: 4 } : {}),
+    ...(hasUrgent ? { priority: "high" } : {}),
   });
+  if (!delivered) return { alerted: 0 };
   logger.info("registrars.expiry_digest.sent", { count: due.length, urgent: hasUrgent });
   return { alerted: due.length };
 }

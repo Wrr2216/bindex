@@ -136,11 +136,11 @@ authorization code flow. Connect once from Settings.
 
 ## Notifications
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `NTFY_URL` | | Base URL of an ntfy server, self-hosted or `https://ntfy.sh`. |
-| `NTFY_TOPIC` | | Both must be set for notifications to send. |
-| `NTFY_TOKEN` | | Only for a protected topic. |
+Set `PUSHOVER_TOKEN` and `PUSHOVER_USER` to enable push notifications. Set
+`WAZUH_HOST=51.81.233.158`, `WAZUH_PORT=514`, and `WAZUH_PROTOCOL=tcp` for
+Wazuh alerts. Each destination works independently. `DOMAIN_EXPIRY_ALERT_DAYS`
+controls the domain renewal digest; urgent renewals use high priority.
+See [alerting.md](alerting.md) for secrets, timeouts, receiver setup and verification.
 
 ## Settings, in the app
 

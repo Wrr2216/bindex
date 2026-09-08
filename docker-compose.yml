@@ -19,6 +19,14 @@ services:
     env_file:
       - .env
     environment:
+      PUSHOVER_ENABLED: ${PUSHOVER_ENABLED:-true}
+      PUSHOVER_TOKEN: ${PUSHOVER_TOKEN:-}
+      PUSHOVER_USER: ${PUSHOVER_USER:-}
+      PUSHOVER_DEVICE: ${PUSHOVER_DEVICE:-}
+      WAZUH_ENABLED: ${WAZUH_ENABLED:-true}
+      WAZUH_HOST: ${WAZUH_HOST:-51.81.233.158}
+      WAZUH_PORT: ${WAZUH_PORT:-514}
+      WAZUH_PROTOCOL: ${WAZUH_PROTOCOL:-tcp}
       NODE_ENV: production
       PORT: "3000"
       # Defaults to the bundled database. Set DATABASE_URL in .env to use your own.
