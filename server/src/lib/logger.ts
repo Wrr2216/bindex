@@ -1,3 +1,4 @@
+import { sendWazuh } from "@loganmct/lm-observability";
 import { env } from "../env";
 
 type Meta = Record<string, unknown>;
@@ -30,6 +31,10 @@ function render(value: unknown): string {
 
 function emit(level: Level, event: string, meta?: Meta): void {
   if (RANK[level] < threshold) return;
+  if (level === "warn" || level === "error") {
+    void sendWazuh({ app: env.APP_NAME, title: `${env.APP_NAME}: ${level}`,
+      message: event, priority: level === "error" ? 1 : 0 });
+  }
   const stream = level === "error" || level === "warn" ? process.stderr : process.stdout;
 
   if (env.LOG_FORMAT === "json") {

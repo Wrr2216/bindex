@@ -133,10 +133,10 @@ const schema = z.object({
   // ---- Logging and notifications -----------------------------------------
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   LOG_FORMAT: z.enum(["text", "json"]).default("text"),
-  // Optional ntfy topic for background alerts such as the domain expiry digest.
-  NTFY_URL: z.string().default(""),
-  NTFY_TOPIC: z.string().default(""),
-  NTFY_TOKEN: z.string().default(""),
+  // Independent Pushover and Wazuh destinations for background alerts.
+  PUSHOVER_TOKEN: z.string().default(""),
+  PUSHOVER_USER: z.string().default(""),
+  WAZUH_HOST: z.string().default(""),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -181,7 +181,8 @@ export const env = {
 
   llmConfigured: Boolean(raw.LLM_API_KEY),
   webSearchConfigured: Boolean(raw.BRAVE_API_KEY),
-  ntfyConfigured: Boolean(raw.NTFY_URL && raw.NTFY_TOPIC),
+  pushoverConfigured: Boolean(raw.PUSHOVER_TOKEN && raw.PUSHOVER_USER),
+  wazuhConfigured: Boolean(raw.WAZUH_HOST),
 };
 
 export type Env = typeof env;

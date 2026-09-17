@@ -1,0 +1,5 @@
+<!-- Shared decoder: install once on the Wazuh manager. -->
+<decoder name="mct-alert">
+  <program_name>^mct-alert$</program_name>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>

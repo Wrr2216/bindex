@@ -1,0 +1,18 @@
+<!-- Shared block 100300-100399. Check manager rule IDs before installing. -->
+<group name="mct_app_alerts,">
+  <rule id="100300" level="3">
+    <decoded_as>mct-alert</decoded_as>
+    <field name="event">^notification$</field>
+    <description>$(app): $(title)</description>
+  </rule>
+  <rule id="100301" level="8">
+    <if_sid>100300</if_sid>
+    <field name="priority">^1$</field>
+    <description>High priority application alert: $(app): $(title)</description>
+  </rule>
+  <rule id="100302" level="12">
+    <if_sid>100300</if_sid>
+    <field name="priority">^2$</field>
+    <description>Emergency application alert: $(app): $(title)</description>
+  </rule>
+</group>
