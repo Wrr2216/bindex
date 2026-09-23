@@ -3,6 +3,7 @@ import { z } from "zod";
 import { asyncHandler, param, parse } from "../lib/http";
 import { badRequest } from "../lib/errors";
 import { currentUser, requireAdmin } from "../auth/middleware";
+import { rateLimit } from "../lib/rateLimit";
 import {
   changeOwnPassword,
   createUser,
@@ -18,9 +19,17 @@ const passwordChange = z.object({
   newPassword: z.string().min(1).max(512),
 });
 
+// The current password is checked here too, so guessing it is limited per account.
+const passwordChangeLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  key: (req) => `oid:${currentUser(req).oid}`,
+});
+
 /** Anyone may change their own password; everything below is administrator-only. */
 usersRouter.post(
   "/me/password",
+  passwordChangeLimit,
   asyncHandler(async (req, res) => {
     const me = currentUser(req);
     const { currentPassword, newPassword } = parse(passwordChange, req.body);

@@ -136,9 +136,11 @@ authorization code flow. Connect once from Settings.
 
 ## Notifications
 
-Set `PUSHOVER_TOKEN` and `PUSHOVER_USER` to enable push notifications. Set
-`WAZUH_HOST=51.81.233.158`, `WAZUH_PORT=514`, and `WAZUH_PROTOCOL=tcp` for
-Wazuh alerts. Each destination works independently. `DOMAIN_EXPIRY_ALERT_DAYS`
+Both destinations are off by default. Set `PUSHOVER_TOKEN` and `PUSHOVER_USER`
+to enable push notifications. Set `WAZUH_HOST` to your Wazuh manager's address
+(with `WAZUH_PORT`, default `514`, and `WAZUH_PROTOCOL`, default `tcp`) for
+Wazuh alerts. `PUSHOVER_ENABLED=false` or `WAZUH_ENABLED=false` switches a
+configured destination off. Each destination works independently. `DOMAIN_EXPIRY_ALERT_DAYS`
 controls the domain renewal digest; urgent renewals use high priority.
 See [alerting.md](alerting.md) for secrets, timeouts, receiver setup and verification.
 

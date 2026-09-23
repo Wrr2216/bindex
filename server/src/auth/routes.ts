@@ -4,6 +4,7 @@ import { env } from "../env";
 import { logger } from "../lib/logger";
 import { asyncHandler, parse } from "../lib/http";
 import { badRequest, forbidden } from "../lib/errors";
+import { rateLimit } from "../lib/rateLimit";
 import { getOidcClient, generators, subjectId } from "./oidc";
 import {
   authenticate,
@@ -42,8 +43,24 @@ const credentials = z.object({
   password: z.string().min(1).max(512),
 });
 
+// Slow down password guessing: per address, so one account cannot be ground
+// through from many IPs, and per IP, so one client cannot spray many accounts.
+const FIFTEEN_MINUTES = 15 * 60 * 1000;
+const loginPerIp = rateLimit({ windowMs: FIFTEEN_MINUTES, max: 30, key: (req) => `ip:${req.ip}` });
+const loginPerEmail = rateLimit({
+  windowMs: FIFTEEN_MINUTES,
+  max: 10,
+  key: (req) => {
+    const email: unknown = req.body?.email;
+    return typeof email === "string" ? `email:${email.trim().toLowerCase()}` : null;
+  },
+});
+const setupPerIp = rateLimit({ windowMs: FIFTEEN_MINUTES, max: 10, key: (req) => `ip:${req.ip}` });
+
 authRouter.post(
   "/login",
+  loginPerIp,
+  loginPerEmail,
   asyncHandler(async (req, res) => {
     if (!env.localLoginEnabled) throw forbidden("Password sign-in is turned off.");
     const { email, password } = parse(credentials, req.body);
@@ -79,6 +96,7 @@ const setup = z.object({
  */
 authRouter.post(
   "/setup",
+  setupPerIp,
   asyncHandler(async (req, res) => {
     if (!env.localLoginEnabled) throw forbidden("Password sign-in is turned off.");
     if ((await countUsers()) > 0) throw forbidden("This instance is already set up.");

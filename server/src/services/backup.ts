@@ -1,7 +1,8 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import {
   items,
+  itemUnits,
   itemIdentifiers,
   itemImages,
   itemEvents,
@@ -13,15 +14,18 @@ import {
 import { badRequest } from "../lib/errors";
 
 /**
- * A JSON snapshot that round-trips: relationships, metadata, identifiers,
- * images and history all survive an export and re-import.
+ * A JSON snapshot that round-trips: relationships, metadata, units,
+ * identifiers, images and history all survive an export and re-import.
  *
- * Three things are left out on purpose. Accounts and integration tokens,
+ * Some things are left out on purpose. Accounts and integration tokens,
  * because a backup file travels and secrets should not. Caches and sync
- * history, because they rebuild themselves.
+ * history, because they rebuild themselves. Uploaded photo bytes, because they
+ * are binary; a restore keeps the photos of every item that still exists
+ * afterwards, and a database dump covers the rest.
  */
 export const BACKUP_FORMAT = "bindex.backup";
-export const BACKUP_VERSION = 3;
+// 4 added item_units.
+export const BACKUP_VERSION = 4;
 
 // Files written before this project was renamed. Accepted on import so an
 // existing backup is not stranded; never written.
@@ -33,6 +37,7 @@ const TABLES = [
   "locations",
   "entities",
   "items",
+  "item_units",
   "item_identifiers",
   "item_images",
   "item_events",
@@ -46,6 +51,7 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   locations: ["createdAt"],
   entities: ["createdAt"],
   items: ["expiresAt", "ninjaoneSyncedAt", "lastSpotCheckedAt", "createdAt", "updatedAt"],
+  item_units: ["createdAt", "updatedAt"],
   item_identifiers: ["createdAt"],
   item_images: [],
   item_events: ["createdAt"],
@@ -61,11 +67,12 @@ export type Backup = {
 };
 
 export async function buildBackup(): Promise<Backup> {
-  const [co, loc, ent, it, ids, imgs, evts, asg] = await Promise.all([
+  const [co, loc, ent, it, units, ids, imgs, evts, asg] = await Promise.all([
     db.select().from(companies),
     db.select().from(locations),
     db.select().from(entities),
     db.select().from(items),
+    db.select().from(itemUnits),
     db.select().from(itemIdentifiers),
     db.select().from(itemImages),
     db.select().from(itemEvents),
@@ -76,6 +83,7 @@ export async function buildBackup(): Promise<Backup> {
     locations: loc,
     entities: ent,
     items: it,
+    item_units: units,
     item_identifiers: ids,
     item_images: imgs,
     item_events: evts,
@@ -135,13 +143,28 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     return { ...row, parentItemId: null };
   });
 
+  // Files written before version 4 predate units in the backup. Like groups
+  // below, keep the existing units rather than wipe them for a table the file
+  // never had.
+  const keepUnits = backup.version < 4;
+  let unitCount = 0;
+
   await db.transaction(async (tx) => {
+    // Photo bytes are not in the file, and deleting items cascades to them.
+    // Park them for the length of the transaction and put back those whose
+    // item is in the snapshot, so /api/photos/:id links keep resolving.
+    await tx.execute(sql`CREATE TEMP TABLE backup_kept_photos ON COMMIT DROP AS SELECT * FROM item_photos`);
+    if (keepUnits) {
+      await tx.execute(sql`CREATE TEMP TABLE backup_kept_units ON COMMIT DROP AS SELECT * FROM item_units`);
+    }
+
     // Children before parents. The foreign keys would cascade anyway; doing it
     // explicitly keeps the order visible.
     await tx.delete(itemAssignments);
     await tx.delete(itemEvents);
     await tx.delete(itemImages);
     await tx.delete(itemIdentifiers);
+    await tx.delete(itemUnits);
     await tx.delete(items);
     await tx.delete(entities);
     await tx.delete(locations);
@@ -158,11 +181,40 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     for (const [id, parentId] of parentLinks) {
       await tx.update(items).set({ parentItemId: parentId }).where(eq(items.id, id));
     }
+    await tx.execute(
+      sql`INSERT INTO item_photos SELECT k.* FROM backup_kept_photos k WHERE EXISTS (SELECT 1 FROM items i WHERE i.id = k.item_id)`,
+    );
+    // Units before assignments (item_assignments.unit_id references item_units).
+    if (keepUnits) {
+      // A kept unit may point at a location or holder the snapshot no longer has.
+      await tx.execute(sql`
+        UPDATE backup_kept_units k SET location_id = NULL
+        WHERE location_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM locations l WHERE l.id = k.location_id)`);
+      await tx.execute(sql`
+        UPDATE backup_kept_units k SET utilized_by_entity_id = NULL
+        WHERE utilized_by_entity_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM entities e WHERE e.id = k.utilized_by_entity_id)`);
+      await tx.execute(
+        sql`INSERT INTO item_units SELECT k.* FROM backup_kept_units k WHERE EXISTS (SELECT 1 FROM items i WHERE i.id = k.item_id)`,
+      );
+    } else {
+      for (const part of chunk(d.item_units, 500)) await tx.insert(itemUnits).values(part as never);
+    }
     for (const part of chunk(d.item_identifiers, 500)) await tx.insert(itemIdentifiers).values(part as never);
     for (const part of chunk(d.item_images, 500)) await tx.insert(itemImages).values(part as never);
     for (const part of chunk(d.item_events, 500)) await tx.insert(itemEvents).values(part as never);
+
+    // A unit assignment needs its unit. One whose unit is gone (an older file
+    // restored over an instance that never had that unit) cannot be restored;
+    // drop it rather than fail the whole restore on the foreign key.
+    const present = new Set((await tx.select({ id: itemUnits.id }).from(itemUnits)).map((u) => u.id));
+    d.item_assignments = d.item_assignments.filter((a) => !a.unitId || present.has(a.unitId as string));
     for (const part of chunk(d.item_assignments, 500)) await tx.insert(itemAssignments).values(part as never);
+    unitCount = present.size;
   });
 
-  return { restored: backup.counts };
+  // Counted from what was inserted: an older file's counts lack newer tables,
+  // and dropped assignments are not restored.
+  const restored = Object.fromEntries(TABLES.map((t) => [t, d[t].length])) as Record<TableName, number>;
+  restored.item_units = unitCount;
+  return { restored };
 }

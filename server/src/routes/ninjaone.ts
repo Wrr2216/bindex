@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../lib/http";
 import { env } from "../env";
-import { currentUser } from "../auth/middleware";
+import { currentUser, requireAdmin } from "../auth/middleware";
 import { logger } from "../lib/logger";
 import { generators } from "../auth/oidc";
 import { latestSyncStatus, runNinjaSync } from "../services/ninjaone/sync";
@@ -27,6 +27,7 @@ ninjaoneRouter.get(
 // Start the interactive authorization-code flow.
 ninjaoneRouter.get(
   "/connect",
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const state = generators.state();
     req.session.ninjaOauth = { state };
@@ -37,6 +38,7 @@ ninjaoneRouter.get(
 // Redirect target: exchange the code, then return to Settings.
 ninjaoneRouter.get(
   "/callback",
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const saved = req.session.ninjaOauth;
     delete req.session.ninjaOauth;
@@ -61,6 +63,7 @@ ninjaoneRouter.get(
 
 ninjaoneRouter.post(
   "/disconnect",
+  requireAdmin,
   asyncHandler(async (_req, res) => {
     await clearConnection();
     res.json({ ok: true });
@@ -69,6 +72,7 @@ ninjaoneRouter.post(
 
 ninjaoneRouter.post(
   "/sync",
+  requireAdmin,
   asyncHandler(async (req, res) => {
     res.json(await runNinjaSync(currentUser(req).oid));
   }),
