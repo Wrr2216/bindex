@@ -1,12 +1,33 @@
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 
-const scryptAsync = promisify(scrypt) as (
+const scryptRaw = promisify(scrypt) as (
   password: string,
   salt: Buffer,
   keylen: number,
   options: { N: number; r: number; p: number; maxmem: number },
 ) => Promise<Buffer>;
+
+// Each scrypt call holds about 128 MB while it runs, so a burst of sign-in
+// attempts could otherwise exhaust memory. Run at most this many at once and
+// queue the rest; the queue only costs a closure per waiting request.
+const MAX_CONCURRENT = 2;
+let running = 0;
+const waiting: (() => void)[] = [];
+
+async function scryptAsync(...args: Parameters<typeof scryptRaw>): Promise<Buffer> {
+  // A finishing call hands its slot straight to the next waiter, so a new
+  // arrival can never slip in between and push the count over the cap.
+  if (running >= MAX_CONCURRENT) await new Promise<void>((resolve) => waiting.push(resolve));
+  else running++;
+  try {
+    return await scryptRaw(...args);
+  } finally {
+    const next = waiting.shift();
+    if (next) next();
+    else running--;
+  }
+}
 
 // scrypt ships with Node, so there is no native module to build and no extra
 // dependency to audit. The cost parameters follow the OWASP recommendation of

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireApiAuth, currentUser } from "../auth/middleware";
+import { requireApiAuth, requireAdmin, currentUser } from "../auth/middleware";
 import { attachApiKeyUser } from "../auth/apiKey";
 import { asyncHandler, param } from "../lib/http";
 import { removeIdentifier } from "../services/items";
@@ -41,7 +41,7 @@ apiRouter.use("/stats", statsRouter);
 apiRouter.use("/reports", reportsRouter);
 apiRouter.use("/settings", settingsRouter);
 apiRouter.use("/search", searchRouter);
-apiRouter.use("/backup", backupRouter);
+apiRouter.use("/backup", requireAdmin, backupRouter);
 apiRouter.use("/image", imageRouter);
 apiRouter.use("/photos", photosRouter);
 

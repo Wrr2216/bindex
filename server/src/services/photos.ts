@@ -9,7 +9,8 @@ import { getItemDetail } from "./items";
  * Store a captured/uploaded photo as the item's primary image. Bytes live in
  * Postgres (item_photos); the served URL is local (/api/photos/:id) so it loads
  * from our own origin and survives external link-rot. Excluded from the JSON
- * backup by design, being binary. A database dump covers them instead.
+ * backup by design, being binary; a restore keeps the photos of items that
+ * survive it, and a database dump covers the rest.
  */
 export async function savePhoto(itemId: string, mime: string, bytes: Buffer) {
   const { rows } = await pool.query<{ id: string }>(

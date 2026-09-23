@@ -1,7 +1,9 @@
 # Operational alerts
 
-Alerts go independently to Pushover and Wazuh at **51.81.233.158:514 TCP**.
-One destination being absent or unavailable does not disable the other.
+Alerts go independently to Pushover and to a Wazuh manager over syslog. Both
+are off until configured. One destination being absent or unavailable does not
+disable the other. The examples below use `51.81.233.158:514 TCP`; substitute
+your own manager's address.
 Existing `SYSLOG_*` settings remain a separate log destination.
 
 ## Deployment settings
@@ -12,7 +14,7 @@ Existing `SYSLOG_*` settings remain a separate log destination.
 | `PUSHOVER_USER` | User/group key; store as a secret |
 | `PUSHOVER_DEVICE` | Optional device name |
 | `PUSHOVER_ENABLED` | Set `false` to disable Pushover |
-| `WAZUH_HOST` | `51.81.233.158`; unset disables Wazuh |
+| `WAZUH_HOST` | Your Wazuh manager, e.g. `51.81.233.158`; empty (the default) disables Wazuh |
 | `WAZUH_PORT` | `514` |
 | `WAZUH_PROTOCOL` | `tcp`; `udp` is also supported when the receiver is configured for it |
 | `WAZUH_ENABLED` | Set `false` to disable Wazuh |
