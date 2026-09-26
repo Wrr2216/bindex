@@ -131,6 +131,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Condition reports with before and after comparison, handling notes, condition sweeps, and container pack lists that add a box's contents in one step. The AI drafts need a vision model to be configured.",
   },
+  {
+    key: "opsIntel",
+    title: "Operations insights",
+    description:
+      "Rules that catch cartons left behind, duplicate records and tags in two places at once; dwell time and slotting suggestions; load plans against vehicle capacity.",
+  },
 ];
 
 export function InstanceSettings() {
