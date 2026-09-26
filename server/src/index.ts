@@ -29,6 +29,7 @@ import { startLowStockDigest } from "./services/consumables/lowstock";
 import { inspectionShareRouter } from "./routes/inspections";
 import { startValuationDigest } from "./services/valuation";
 import { startCrewDigest } from "./services/crew";
+import { custodyPublicRouter } from "./routes/custody";
 
 const app = express();
 // One proxy hop, which is what a container behind a reverse proxy sees. Needed
@@ -80,6 +81,8 @@ app.use(offlineFieldPublicRouter);
 // Read-only inspection reports opened from a signed, expiring link, by people
 // without an account.
 app.use("/api/share/inspections", inspectionShareRouter);
+// One-time custody signing links are opened by people with no account.
+app.use(custodyPublicRouter);
 app.use("/api", apiRouter);
 
 // Unmatched API routes answer with JSON rather than the single-page shell.

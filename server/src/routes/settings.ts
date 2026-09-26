@@ -72,6 +72,7 @@ const configPatch = z.object({
       inspections: z.boolean().optional(),
       valuation: z.boolean().optional(),
       crew: z.boolean().optional(),
+      custody: z.boolean().optional(),
     })
     .optional(),
 });

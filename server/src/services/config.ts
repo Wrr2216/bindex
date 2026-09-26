@@ -64,6 +64,8 @@ export type Features = {
   valuation: boolean;
   /** Crew badges, credentials and check-in on jobs. */
   crew: boolean;
+  /** Chain of custody: controlled items, signed handoffs and delivery sign-off. */
+  custody: boolean;
 };
 
 export type AppConfig = {
@@ -126,6 +128,7 @@ const KEYS = {
   featureInspections: "features.inspections",
   featureValuation: "features.valuation",
   featureCrew: "features.crew",
+  featureCustody: "features.custody",
 } as const;
 
 function defaults(): AppConfig {
@@ -168,6 +171,7 @@ function defaults(): AppConfig {
       inspections: false,
       valuation: true,
       crew: false,
+      custody: false,
     },
   };
 }
@@ -239,6 +243,7 @@ function build(stored: Map<string, string>): AppConfig {
       inspections: flag(KEYS.featureInspections, base.features.inspections),
       valuation: flag(KEYS.featureValuation, base.features.valuation),
       crew: flag(KEYS.featureCrew, base.features.crew),
+      custody: flag(KEYS.featureCustody, base.features.custody),
     },
   };
 }
@@ -337,6 +342,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   inspections: KEYS.featureInspections,
   valuation: KEYS.featureValuation,
   crew: KEYS.featureCrew,
+  custody: KEYS.featureCustody,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {

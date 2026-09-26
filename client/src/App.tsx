@@ -40,6 +40,7 @@ import { ConditionPage, SweepPage } from "./features/ai-condition";
 import { InspectionDetailPage, InspectionsListPage } from "./features/inspections";
 import { DeclarationPage, ReceiptPage, ValuationPage } from "./features/valuation";
 import { CrewBadgePage, CrewCheckInPage, CrewPage, CrewSettingsPage, CrewWorkerPage } from "./features/crew";
+import { CustodyPage, NewTransferPage, SignOffPage, TransferPage } from "./features/custody";
 
 function Loading() {
   return (
@@ -112,6 +113,10 @@ function AppShell() {
           {features.crew && <Route path="crew/workers/:id" element={<CrewWorkerPage />} />}
           {features.crew && <Route path="crew/badge/:code" element={<CrewBadgePage />} />}
           {features.crew && <Route path="settings/crew" element={<CrewSettingsPage />} />}
+          {features.custody && <Route path="custody" element={<CustodyPage />} />}
+          {features.custody && <Route path="custody/new" element={<NewTransferPage />} />}
+          {features.custody && <Route path="custody/transfers/:id" element={<TransferPage />} />}
+          {features.custody && <Route path="custody/shipments/:id/sign-off" element={<SignOffPage />} />}
         </Route>
       </Routes>
       <NfcTapLayer />

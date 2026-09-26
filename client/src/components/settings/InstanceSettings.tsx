@@ -149,6 +149,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Badges for workers and subcontractors, their licences and inductions, and scanning them in on a job with each required credential shown green, amber or red. Needs jobs for the check-in itself.",
   },
+  {
+    key: "custody",
+    title: "Chain of custody",
+    description:
+      "Signed handoffs with seals, receipts and an audit trail per item; delivery sign-off for shipments; and items that cannot be marked delivered without one.",
+  },
 ];
 
 export function InstanceSettings() {

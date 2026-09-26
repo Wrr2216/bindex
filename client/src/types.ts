@@ -294,6 +294,7 @@ export interface Features {
   inspections: boolean;
   valuation: boolean;
   crew: boolean;
+  custody: boolean;
 }
 
 /**

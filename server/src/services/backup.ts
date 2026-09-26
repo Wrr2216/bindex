@@ -34,6 +34,7 @@ import {
   valuationTablesPresent,
 } from "./valuation/backup";
 import { clearCrewTables, exportCrewTables, predatesCrew, restoreCrewTables } from "./crew/backup";
+import { clearCustodyTables, exportCustodyTables, restoreCustodyTables } from "./custody/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -98,6 +99,9 @@ const TABLES = [
   "crew_workers",
   "crew_credentials",
   "crew_checkins",
+  "custody_controls",
+  "custody_transfers",
+  "custody_transfer_items",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -142,6 +146,9 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   crew_workers: ["createdAt", "updatedAt"],
   crew_credentials: ["verifiedAt", "createdAt", "updatedAt"],
   crew_checkins: ["checkedInAt", "checkedOutAt", "createdAt", "updatedAt"],
+  custody_controls: ["setAt"],
+  custody_transfers: ["at", "lockedAt", "linkExpiresAt", "linkUsedAt", "voidedAt", "completedAt", "createdAt", "updatedAt"],
+  custody_transfer_items: ["createdAt"],
 };
 
 export type Backup = {
@@ -188,6 +195,7 @@ export async function buildBackup(): Promise<Backup> {
     ...(await exportInspectionTables()),
     ...(await valuationBackupData()),
     ...(await exportCrewTables()),
+    ...(await exportCustodyTables()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -269,6 +277,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     // Children before parents. The foreign keys would cascade anyway; doing it
     // explicitly keeps the order visible.
     await clearCrewTables(tx, { keep: predatesCrew(d) });
+    await clearCustodyTables(tx);
     await clearJobsCoreTables(tx, { keepJobTypes: d.job_types.length === 0 });
     await tx.delete(itemAssignments);
     await tx.delete(trackingDevices);
@@ -364,6 +373,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     await restoreInspectionTables(tx, d);
     await afterValuationRestore(tx, d, valuationPresent);
     await restoreCrewTables(tx, d, { keep: predatesCrew(d) });
+    await restoreCustodyTables(tx, d);
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,

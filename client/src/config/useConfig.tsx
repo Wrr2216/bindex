@@ -48,6 +48,7 @@ const FALLBACK: AppConfig = {
     inspections: false,
     valuation: false,
     crew: false,
+    custody: false,
   },
   label: { widthMm: 62, heightMm: 25.4 },
   integrations: {

@@ -36,6 +36,7 @@ export function Layout() {
     ...(features.inspections ? [{ to: "/inspections", label: "Inspections" }] : []),
     ...(features.valuation ? [{ to: "/valuation", label: "Valuation" }] : []),
     ...(features.crew ? [{ to: "/crew", label: "Crew" }] : []),
+    ...(features.custody ? [{ to: "/custody", label: "Custody" }] : []),
     { to: "/settings", label: "Settings" },
   ];
 

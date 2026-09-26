@@ -17,6 +17,7 @@ import { ItemTagPanel } from "../features/tag-commissioning/ItemTagPanel";
 import { ItemTagChip } from "../features/tag-commissioning/badges";
 import { ItemConditionSection } from "../features/ai-condition";
 import { ItemValuationSection } from "../features/valuation/ItemValuationSection";
+import { ItemCustodySection } from "../features/custody";
 import {
   AlertIcon,
   ArrowLeftIcon,
@@ -413,6 +414,7 @@ export function ItemDetail() {
           )}
 
           {config.features.tracking && !isDomain && <LastSeenCard itemId={item.id} />}
+          {config.features.custody && !isDomain && <ItemCustodySection itemId={item.id} />}
 
           <AssignmentSection item={item} onChange={setItem} />
 
