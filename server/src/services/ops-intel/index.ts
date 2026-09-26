@@ -19,4 +19,7 @@ export {
   type OpsSummary,
 } from "./anomalies";
 export { getSettings, updateSettings } from "./settings";
+export { storageAnalysis, listStorageItems, invalidateStorage, type StorageItemFilters } from "./storageData";
+export type { StorageItem, StorageReport, ZoneStat } from "./storage";
+export type { SlottingResult, SlottingSuggestion } from "./slotting";
 export { registerOpsEventTypes } from "./events";
