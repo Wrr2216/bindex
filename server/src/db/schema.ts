@@ -231,3 +231,4 @@ export * from "./tables/custody";
 export * from "./tables/teardown";
 export * from "./tables/gps";
 export * from "./tables/documents";
+export * from "./tables/portal";

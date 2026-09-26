@@ -40,6 +40,7 @@ import { clearCrewTables, exportCrewTables, predatesCrew, restoreCrewTables } fr
 import { clearCustodyTables, exportCustodyTables, restoreCustodyTables } from "./custody/backup";
 import { clearGpsTables, exportGpsTables, restoreGpsTables } from "./gps/backup";
 import { DOCUMENTS_DATE_FIELDS, exportDocumentsTables, restoreDocumentsTables } from "./documents/backup";
+import { exportPortalTables, keepPortalSecrets, restorePortalTables } from "./portal/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -121,6 +122,8 @@ const TABLES = [
   "document_job_packets",
   "documents",
   "document_exports",
+  "portal_grants",
+  "portal_notes",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -175,6 +178,8 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   gps_trackers: ["statusAt"],
   gps_tracker_links: ["assignedAt", "endedAt"],
   ...DOCUMENTS_DATE_FIELDS,
+  portal_grants: ["expiresAt", "revokedAt", "lastUsedAt", "createdAt", "updatedAt"],
+  portal_notes: ["createdAt"],
 };
 
 export type Backup = {
@@ -231,6 +236,7 @@ export async function buildBackup(): Promise<Backup> {
     teardown_parts: tdParts,
     ...(await exportGpsTables()),
     ...(await exportDocumentsTables()),
+    ...(await exportPortalTables()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -308,6 +314,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     // Condition records point at items, units and locations; set them aside too.
     await parkAiConditionRows(tx);
     await beforeValuationRestore(tx, valuationPresent);
+    await keepPortalSecrets(tx);
 
     // Children before parents. The foreign keys would cascade anyway; doing it
     // explicitly keeps the order visible.
@@ -425,6 +432,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     }
     await restoreGpsTables(tx, d);
     await restoreDocumentsTables(tx, d);
+    await restorePortalTables(tx, d);
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,

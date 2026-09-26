@@ -34,6 +34,8 @@ import { startTeardownWorker } from "./services/teardown";
 import { gpsDeviceRouter } from "./routes/gps";
 import { mapTileSources } from "./services/gps/tiles";
 import { startGpsPrune } from "./services/gps/prune";
+import { portalRouter } from "./routes/portal";
+import { startPortalNotifier } from "./services/portal";
 
 const app = express();
 // One proxy hop, which is what a container behind a reverse proxy sees. Needed
@@ -68,6 +70,9 @@ app.use((req, res, next) => {
   if (req.path === "/api/backup/import" || req.path.startsWith("/api/device/")) return next();
   jsonParser(req, res, next);
 });
+// Portal links are for people without an account. Mounted before the session
+// so a portal request never reads or creates one (see routes/portal.ts).
+app.use("/api/portal", portalRouter);
 app.use(sessionMiddleware);
 app.use(attachTrustedUser);
 
@@ -165,6 +170,7 @@ async function main(): Promise<void> {
     startCrewDigest();
     startTeardownWorker();
     startGpsPrune();
+    startPortalNotifier();
   });
 }
 

@@ -72,6 +72,8 @@ export type Features = {
   gps: boolean;
   /** Document templates, packets attached to jobs, filling and signing. */
   documents: boolean;
+  /** Links for people without an account to follow or work on a job. */
+  portal: boolean;
 };
 
 export type AppConfig = {
@@ -138,6 +140,7 @@ const KEYS = {
   featureTeardown: "features.teardown",
   featureGps: "features.gps",
   featureDocuments: "features.documents",
+  featurePortal: "features.portal",
 } as const;
 
 function defaults(): AppConfig {
@@ -184,6 +187,7 @@ function defaults(): AppConfig {
       teardown: true,
       gps: false,
       documents: false,
+      portal: false,
     },
   };
 }
@@ -259,6 +263,7 @@ function build(stored: Map<string, string>): AppConfig {
       teardown: flag(KEYS.featureTeardown, base.features.teardown),
       gps: flag(KEYS.featureGps, base.features.gps),
       documents: flag(KEYS.featureDocuments, base.features.documents),
+      portal: flag(KEYS.featurePortal, base.features.portal),
     },
   };
 }
@@ -361,6 +366,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   teardown: KEYS.featureTeardown,
   gps: KEYS.featureGps,
   documents: KEYS.featureDocuments,
+  portal: KEYS.featurePortal,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {

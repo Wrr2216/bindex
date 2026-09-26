@@ -204,6 +204,19 @@ const schema = z.object({
   GPS_MAX_SPEED_MPS: z.coerce.number().positive().default(70),
   // Warn when a tracker's battery is at or below this percentage.
   GPS_BATTERY_LOW_PCT: z.coerce.number().int().min(0).max(100).default(20),
+  // ---- T15: external portal ------------------------------------------------
+  // Outgoing mail for portal codes, links and milestone emails, as a URL:
+  // smtp://user:pass@mail.example.com:587 or smtps://…:465. Blank turns email
+  // off: links cannot require a code and nobody is notified.
+  SMTP_URL: z.string().default(""),
+  // The From address, such as "Bindex <inventory@example.com>".
+  SMTP_FROM: z.string().default(""),
+  // Items worth at least this much, in the instance currency, are flagged as
+  // high value on portal pages (the amount itself only shows where allowed).
+  PORTAL_HIGH_VALUE: z.coerce.number().nonnegative().default(1000),
+  // Minimum minutes between two milestone emails to the same person; the
+  // milestones in between go out together.
+  PORTAL_NOTIFY_INTERVAL_MIN: z.coerce.number().nonnegative().default(15),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -258,6 +271,9 @@ export const env = {
   sttBaseUrl: raw.STT_BASE_URL.trim() || raw.LLM_BASE_URL,
   sttApiKey: raw.STT_API_KEY || raw.LLM_API_KEY,
   sttConfigured: Boolean(raw.STT_API_KEY || raw.LLM_API_KEY),
+
+  // T15
+  smtpConfigured: Boolean(raw.SMTP_URL.trim()),
 };
 
 export type Env = typeof env;

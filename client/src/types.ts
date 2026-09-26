@@ -298,6 +298,7 @@ export interface Features {
   teardown: boolean;
   gps: boolean;
   documents: boolean;
+  portal: boolean;
 }
 
 /**

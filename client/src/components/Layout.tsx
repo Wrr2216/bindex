@@ -40,6 +40,7 @@ export function Layout() {
     ...(features.teardown ? [{ to: "/teardown", label: "Teardowns" }] : []),
     ...(features.gps && features.tracking ? [{ to: "/gps", label: "Map" }] : []),
     ...(features.documents ? [{ to: "/documents", label: "Documents" }] : []),
+    ...(features.portal && user?.role === "admin" ? [{ to: "/portal", label: "Portal" }] : []),
     { to: "/settings", label: "Settings" },
   ];
 

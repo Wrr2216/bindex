@@ -173,6 +173,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Templates people fill in and sign, with packets that attach themselves to jobs by type, project, phase or site, and PDFs whose hash is recorded.",
   },
+  {
+    key: "portal",
+    title: "External portal",
+    description:
+      "Share a project, job or shipment with someone outside through a link: customers follow progress, and subcontracted crews scan, add photos and sign. Needs projects, jobs and shipments.",
+  },
 ];
 
 export function InstanceSettings() {

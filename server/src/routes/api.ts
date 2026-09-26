@@ -35,6 +35,7 @@ import { custodyRouter } from "./custody";
 import { teardownRouter } from "./teardown";
 import { gpsRouter } from "./gps";
 import { documentsRouter } from "./documents";
+import { portalAdminRouter } from "./portal";
 
 export const apiRouter = Router();
 
@@ -80,6 +81,7 @@ apiRouter.use(custodyRouter);
 apiRouter.use("/teardown", teardownRouter);
 apiRouter.use("/gps", gpsRouter);
 apiRouter.use(documentsRouter);
+apiRouter.use("/portal-grants", portalAdminRouter);
 
 apiRouter.delete(
   "/identifiers/:id",
