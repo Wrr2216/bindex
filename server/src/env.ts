@@ -175,6 +175,40 @@ const schema = z.object({
   // Most items one "Make available offline" may copy to a device. Guards a
   // phone against a whole large instance; pick a location to go smaller.
   OFFLINE_SNAPSHOT_MAX_ITEMS: z.coerce.number().int().positive().default(10000),
+  // ---- T09: Bluetooth beacons, gateways and room-level presence -----------
+  // Seconds of signal readings kept per gateway for each tag.
+  BLE_WINDOW_SECONDS: z.coerce.number().positive().default(20),
+  // How those readings are smoothed: median (robust to spikes) or ewma.
+  BLE_SMOOTHING: z.enum(["median", "ewma"]).default("median"),
+  // A room must beat the tag's current room by this many dB...
+  BLE_HYSTERESIS_DB: z.coerce.number().nonnegative().default(6),
+  // ...for this many seconds before the tag is moved there.
+  BLE_DWELL_SECONDS: z.coerce.number().nonnegative().default(10),
+  // Readings a gateway needs inside the window before it counts.
+  BLE_MIN_SAMPLES: z.coerce.number().int().positive().default(1),
+  // A tag not heard for this long is marked missing. Tags can override it.
+  BLE_MISSING_MINUTES: z.coerce.number().positive().default(10),
+  // A tag that stays put is stored as a sighting at most this often.
+  BLE_STORE_SECONDS: z.coerce.number().nonnegative().default(60),
+  // How long a phone's room (from the room beacons it heard) stays current.
+  BLE_PHONE_ROOM_SECONDS: z.coerce.number().positive().default(300),
+  // Battery level at or below which a tag, beacon or gateway is reported.
+  BLE_BATTERY_LOW_PCT: z.coerce.number().min(0).max(100).default(20),
+  // Working hours, e.g. "Mon-Fri 07:00-19:00; Sat 08:00-12:00". A tag that
+  // changes room outside them raises an alert. Blank turns that alert off.
+  BLE_WORK_HOURS: z.string().default(""),
+  // IANA time zone for BLE_WORK_HOURS. Blank uses the server's.
+  BLE_TIMEZONE: z.string().default(""),
+  // Minutes between alert digests sent through Pushover or Wazuh. 0 stops them.
+  BLE_ALERT_DIGEST_MINUTES: z.coerce.number().nonnegative().default(15),
+  // Optional MQTT broker that gateways publish to, e.g. mqtt://broker:1883.
+  BLE_MQTT_URL: z.string().default(""),
+  // Topics to subscribe to, comma-separated. A + segment names the gateway.
+  BLE_MQTT_TOPIC: z.string().default("bindex/ble/+"),
+  BLE_MQTT_USERNAME: z.string().default(""),
+  BLE_MQTT_PASSWORD: z.string().default(""),
+  // Payload format on those topics: auto, generic, minew, ingics, kontakt or teltonika.
+  BLE_MQTT_FORMAT: z.enum(["auto", "generic", "minew", "ingics", "kontakt", "teltonika"]).default("auto"),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -229,6 +263,9 @@ export const env = {
   sttBaseUrl: raw.STT_BASE_URL.trim() || raw.LLM_BASE_URL,
   sttApiKey: raw.STT_API_KEY || raw.LLM_API_KEY,
   sttConfigured: Boolean(raw.STT_API_KEY || raw.LLM_API_KEY),
+
+  // T09
+  bleMqttConfigured: Boolean(raw.BLE_MQTT_URL.trim()),
 };
 
 export type Env = typeof env;

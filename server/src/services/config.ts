@@ -58,6 +58,8 @@ export type Features = {
   bulkCapture: boolean;
   /** Condition reports, container capture and condition sweeps (T12). */
   aiCondition: boolean;
+  /** Bluetooth beacons, gateways and room-level presence. Needs tracking. */
+  ble: boolean;
 };
 
 export type AppConfig = {
@@ -117,6 +119,7 @@ const KEYS = {
   featureOffline: "features.offline",
   featureBulkCapture: "features.bulk_capture",
   featureAiCondition: "features.ai_condition",
+  featureBle: "features.ble",
 } as const;
 
 function defaults(): AppConfig {
@@ -156,6 +159,7 @@ function defaults(): AppConfig {
       offline: false,
       bulkCapture: true,
       aiCondition: true,
+      ble: false,
     },
   };
 }
@@ -224,6 +228,8 @@ function build(stored: Map<string, string>): AppConfig {
       offline: flag(KEYS.featureOffline, base.features.offline),
       bulkCapture: flag(KEYS.featureBulkCapture, base.features.bulkCapture),
       aiCondition: flag(KEYS.featureAiCondition, base.features.aiCondition),
+      // Beacons are tracking devices, so they go when tracking does.
+      ble: flag(KEYS.featureBle, base.features.ble) && flag(KEYS.featureTracking, base.features.tracking),
     },
   };
 }
@@ -319,6 +325,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   offline: KEYS.featureOffline,
   bulkCapture: KEYS.featureBulkCapture,
   aiCondition: KEYS.featureAiCondition,
+  ble: KEYS.featureBle,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {
