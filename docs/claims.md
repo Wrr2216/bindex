@@ -168,8 +168,9 @@ edits from the claim, so it is read-only by construction. For each line:
 | **Trip** | The manifest line's stage history: when it was first packed, loaded, delivered and placed (a skipped rung counts as reached at the same moment), and each exception stage. |
 | **Stage history** | Every stage change with time, stage, how (`scan`, `rfid`, `manual`, `portal`…), who, which device, which shipment, and its note. |
 | **Photos and files** | Attachments on the item, on the unit (for a unit line), on the claim line itself, and those a condition report points at. Signature images are shown with their signatures, not as photos. |
-| **Condition notes** | The manifest line's note, every note written with a stage change, photo captions, condition report notes and custody hand-off notes, oldest first. |
+| **Condition notes** | The manifest line's note, every note written with a stage change, photo captions, condition report notes, the pack list and custody hand-off notes, oldest first. |
 | **Condition reports** | When that feature is installed; see below. |
+| **Pack list** | For a container, what was recorded going into it when it was packed: size, the writing on it, handling flags and its contents. When that feature is installed. |
 | **Chain of custody** | When that feature is installed; see below. |
 | **Audit log** | Ids and hashes of the entries about the item and unit, and of the `job.stage_changed` entries that moved this line. |
 
@@ -217,9 +218,10 @@ download the PDF before deleting items that are on an open claim.
 
 ## Other features it reads
 
-Condition reports, custody transfers and portal grants belong to features that
-may not be installed. Their code is never imported: on each request the
-evidence builder looks for their tables in the catalog (`to_regclass`), reads
+Condition reports, container pack lists, custody transfers and portal grants
+belong to features that may not be installed. Their code is never imported:
+on each request the evidence builder looks for their tables in the catalog
+(`to_regclass`), reads
 whole rows as JSON (`to_jsonb(t)`) and normalizes each field from whichever of
 its likely names is present (`services/claims/normalize.ts`, tested with
 fixtures). A row that cannot be read is left out; a table whose shape is not
@@ -229,12 +231,13 @@ recognised is logged once (`claims.evidence.source_unreadable` or
 
 | Table | Needs | Also reads, when present |
 | --- | --- | --- |
-| `condition_reports` | `id`, `item_id` | `unit_id`, `stage`, `rating`, `notes`, `ai_notes`, `defects` (jsonb `[{ area, type, severity, description }]`), `handling_note`, `attachment_ids` (uuid[] or jsonb), `created_by`, `created_at` |
+| `condition_reports` | `id`, `item_id` | `unit_id`, `stage` (and `stage_label` for a custom stage), `rating`, `notes`, `ai_notes`, `defects` (jsonb `[{ area, type, severity, description }]`), `handling_note`, `attachment_ids` (uuid[] or jsonb), `created_by`, `created_at` |
+| `container_captures` | `id`, `item_id` | `size_class`, `handwritten_text`, `room`, `contents_summary`, `contents` (jsonb `[{ name, qty, condition, fragile }]`), `flags`, `attachment_ids`, `created_by`, `created_at` |
 | `custody_transfers` | `id`, and the items it moved: either rows in `custody_transfer_items` (`transfer_id` or `custody_transfer_id`, `item_id`, `unit_id`) or a column `items` / `item_ids` / `item_refs` (jsonb of ids or `{ itemId, unitId }`, or uuid[]) | `at` / `transferred_at` / `created_at`, `from_party` and `to_party` (text, or jsonb with `name`, `org`), `place_location_id`, `lat`, `lng`, `seal_numbers`, `condition_note`, `from_signature_id`, `to_signature_id`, `content_hash`, `audit_log_id` |
 | `portal_grants` | `id`, `token_hash` (sha256 hex of the token, as for API keys) | `scope` and `scope_id`, or one of `shipment_id` / `job_id` / `project_id`; `role`, `grantee_name`, `grantee_email`, `grantee_org`, `expires_at`, `revoked_at`, `last_used_at` (touched on use) |
 
 A condition report on an item counts for every line of that item; one on a
-unit only for that unit's line. A custody transfer of the whole item counts for
+unit only for that unit's line. A pack list belongs to its container. A custody transfer of the whole item counts for
 each of its units, and a transfer of one unit counts for a claim on the item.
 
 Delivery exceptions recorded at sign-off become manifest line stages
@@ -368,8 +371,11 @@ The database suite runs the acceptance flow (a delivered, damaged line whose
 claim shows its pack-day photo and notes with nothing attached by hand), the
 workflow and its permission rules, incidents, the deadline watcher, job
 deletion, the backup, and both the absent and present paths of the optional
-features, using minimal stand-in tables created in the test database and
-dropped afterwards (skipped where the real tables exist).
+features. Condition reports and pack lists are written to the real tables when
+that feature's migration has run, and to stand-ins shaped like them when it
+has not; custody transfers and portal grants always to stand-ins, created in
+the test database and dropped afterwards (that part is skipped where real
+custody or portal tables exist).
 
 ## Code map
 
@@ -382,7 +388,7 @@ server/src/services/claims/
   totals.ts       the arithmetic (pure)
   workflow.ts     transitions, clock stamps, SLA state (pure)
   trip.ts         trip from stage history, before/after placement (pure)
-  normalize.ts    reading other features' rows (pure)
+  normalize.ts    reading other features' rows: condition reports, pack lists, custody, grants (pure)
   shared.ts       codes, who may decide
   sources.ts      finding and querying optional tables
   evidence.ts     the evidence pack and timeline

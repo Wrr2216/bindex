@@ -113,7 +113,11 @@ export function normalizeConditionReport(row: Row): ConditionReport | null {
     id,
     itemId: uuid(pick(row, "item_id", "itemId")),
     unitId: uuid(pick(row, "unit_id", "unitId")),
-    stage: str(pick(row, "stage", "phase")),
+    // A custom stage carries its own name ("pre-sale", "return").
+    stage:
+      str(pick(row, "stage", "phase")) === "custom"
+        ? str(pick(row, "stage_label", "stageLabel")) ?? "custom"
+        : str(pick(row, "stage", "phase")),
     rating: str(pick(row, "rating", "condition")),
     notes: str(pick(row, "notes", "note")),
     aiNotes: str(pick(row, "ai_notes", "aiNotes")),
@@ -123,6 +127,66 @@ export function normalizeConditionReport(row: Row): ConditionReport | null {
     createdBy: str(pick(row, "created_by", "createdBy")),
     createdAt: iso(pick(row, "created_at", "createdAt", "at")),
   };
+}
+
+// --- Container pack lists ------------------------------------------------------------
+
+export type PackListEntry = { name: string; qty: number | null; condition: string | null; fragile: boolean };
+
+/** What was recorded when a box, tote or crate was packed: the writing on it and what went in. */
+export type PackList = {
+  id: string;
+  itemId: string | null;
+  sizeClass: string | null;
+  room: string | null;
+  handwrittenText: string | null;
+  contentsSummary: string | null;
+  contents: PackListEntry[];
+  flags: string[];
+  attachmentIds: string[];
+  createdBy: string | null;
+  createdAt: string | null;
+};
+
+export function normalizeContainerCapture(row: Row): PackList | null {
+  const id = uuid(pick(row, "id"));
+  if (!id) return null;
+  const contents = list(pick(row, "contents"))
+    .filter((c): c is Row => Boolean(c) && typeof c === "object")
+    .map((c) => ({
+      name: str(pick(c, "name", "description")) ?? "",
+      qty: num(pick(c, "qty", "quantity")),
+      condition: str(pick(c, "condition")),
+      fragile: pick(c, "fragile") === true,
+    }))
+    .filter((c) => c.name);
+  return {
+    id,
+    itemId: uuid(pick(row, "item_id", "itemId")),
+    sizeClass: str(pick(row, "size_class", "sizeClass")),
+    room: str(pick(row, "room")),
+    handwrittenText: str(pick(row, "handwritten_text", "handwrittenText")),
+    contentsSummary: str(pick(row, "contents_summary", "contentsSummary")),
+    contents,
+    flags: strings(pick(row, "flags")),
+    attachmentIds: ids(pick(row, "attachment_ids", "attachmentIds"), "id"),
+    createdBy: str(pick(row, "created_by", "createdBy")),
+    createdAt: iso(pick(row, "created_at", "createdAt")),
+  };
+}
+
+/** One line of text for a pack list, for notes and the printed pack. */
+export function packListText(p: PackList): string {
+  const items = p.contents.map((c) => `${c.qty && c.qty > 1 ? `${c.qty} × ` : ""}${c.name}${c.fragile ? " (fragile)" : ""}${c.condition ? `, ${c.condition}` : ""}`);
+  return [
+    p.sizeClass && `${p.sizeClass} container`,
+    p.room && `for ${p.room}`,
+    p.handwrittenText && `marked "${p.handwrittenText}"`,
+    p.flags.length ? `flags: ${p.flags.join(", ").replace(/_/g, " ")}` : null,
+    items.length ? `contents: ${items.join("; ")}` : p.contentsSummary && `contents: ${p.contentsSummary}`,
+  ]
+    .filter(Boolean)
+    .join(", ");
 }
 
 // --- Custody transfers ------------------------------------------------------------

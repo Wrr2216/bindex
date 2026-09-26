@@ -23,7 +23,7 @@ export type ClaimsMeta = {
   incidentCategories: { name: string; label: string }[];
   transitions: Transition[];
   sla: { claimHours: number; incidentHours: number };
-  sources: { conditionReports: boolean; custody: boolean; portal: boolean };
+  sources: { conditionReports: boolean; packLists: boolean; custody: boolean; portal: boolean };
   jobs: boolean;
   currency: string;
 };
@@ -171,7 +171,7 @@ export type Phase = "before" | "during" | "after" | "unknown";
 
 export type EvidenceAttachment = {
   id: string;
-  owner: "item" | "unit" | "claim_line" | "claim" | "condition_report";
+  owner: "item" | "unit" | "claim_line" | "claim" | "condition_report" | "pack_list";
   kind: string;
   stage: string | null;
   phase: Phase;
@@ -185,7 +185,7 @@ export type EvidenceAttachment = {
 };
 
 export type ConditionNote = {
-  source: "stage" | "line" | "condition_report" | "photo" | "custody";
+  source: "stage" | "line" | "condition_report" | "pack_list" | "photo" | "custody";
   at: string | null;
   stage: string | null;
   text: string;
@@ -202,6 +202,17 @@ export type ConditionReport = {
   handlingNote: string | null;
   defects: { area: string | null; type: string | null; severity: string | null; description: string | null }[];
   attachmentIds: string[];
+  createdAt: string | null;
+};
+
+export type PackList = {
+  id: string;
+  sizeClass: string | null;
+  room: string | null;
+  handwrittenText: string | null;
+  contentsSummary: string | null;
+  contents: { name: string; qty: number | null; condition: string | null; fragile: boolean }[];
+  flags: string[];
   createdAt: string | null;
 };
 
@@ -253,6 +264,7 @@ export type LineEvidence = {
   }[];
   conditionNotes: ConditionNote[];
   conditionReports: ConditionReport[];
+  packLists: PackList[];
   custody: CustodyHop[];
   attachments: EvidenceAttachment[];
   audit: AuditRef[];
@@ -273,7 +285,7 @@ export type EvidencePack = {
   hash: string;
   frozen: { hash: string; at: string } | null;
   unchangedSinceSubmission: boolean | null;
-  sources: { conditionReports: boolean; custody: boolean; portal: boolean };
+  sources: { conditionReports: boolean; packLists: boolean; custody: boolean; portal: boolean };
   lines: LineEvidence[];
   claim: {
     attachments: EvidenceAttachment[];

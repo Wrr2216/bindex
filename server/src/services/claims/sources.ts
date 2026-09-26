@@ -5,11 +5,13 @@ import { logger } from "../../lib/logger";
 import {
   hopCovers,
   normalizeConditionReport,
+  normalizeContainerCapture,
   normalizeCustodyTransfer,
   normalizePortalGrant,
   type ConditionReport,
   type CustodyHop,
   type ItemRef,
+  type PackList,
   type PortalGrant,
 } from "./normalize";
 
@@ -24,7 +26,13 @@ import {
  * the catalog before use; nothing a request sends is interpolated.
  */
 
-const TABLES = ["condition_reports", "custody_transfers", "custody_transfer_items", "portal_grants"] as const;
+const TABLES = [
+  "condition_reports",
+  "container_captures",
+  "custody_transfers",
+  "custody_transfer_items",
+  "portal_grants",
+] as const;
 type OptionalTable = (typeof TABLES)[number];
 
 export type Shapes = Map<OptionalTable, Set<string>>;
@@ -49,6 +57,8 @@ export async function detectShapes(): Promise<Shapes> {
 export type SourceAvailability = {
   /** Condition reports (before/after ratings, defects, handling notes). */
   conditionReports: boolean;
+  /** Container pack lists: what went into a box, and what was written on it. */
+  packLists: boolean;
   /** Custody transfers (who handed what to whom, with seals and signatures). */
   custody: boolean;
   /** Portal grants, through which an outside party can file a claim. */
@@ -58,6 +68,7 @@ export type SourceAvailability = {
 export function availability(shapes: Shapes): SourceAvailability {
   return {
     conditionReports: Boolean(shapes.get("condition_reports")?.has("item_id")),
+    packLists: Boolean(shapes.get("container_captures")?.has("item_id")),
     custody: custodyPlan(shapes) !== null,
     portal: Boolean(shapes.get("portal_grants")?.has("token_hash")),
   };
@@ -104,6 +115,31 @@ export async function conditionReportsFor(
     };
   } catch (err) {
     warnOnce("claims.evidence.source_failed", { table: "condition_reports", err: describeError(err) });
+    return { available: false, rows: [] };
+  }
+}
+
+// --- Container pack lists ---------------------------------------------------------------
+
+export async function packListsFor(shapes: Shapes, itemIds: readonly string[]): Promise<SourceResult<PackList>> {
+  const cols = shapes.get("container_captures");
+  if (!cols?.has("item_id")) return { available: false, rows: [] };
+  if (itemIds.length === 0) return { available: true, rows: [] };
+  const order = cols.has("created_at") ? "c.created_at, " : "";
+  try {
+    const { rows } = await pool.query<{ row: Record<string, unknown> }>(
+      `SELECT to_jsonb(c) AS row FROM container_captures c
+        WHERE c.item_id = ANY($1::uuid[])
+        ORDER BY ${order}c.id
+        LIMIT 2000`,
+      [itemIds],
+    );
+    return {
+      available: true,
+      rows: rows.map((r) => normalizeContainerCapture(r.row)).filter((r): r is PackList => r !== null),
+    };
+  } catch (err) {
+    warnOnce("claims.evidence.source_failed", { table: "container_captures", err: describeError(err) });
     return { available: false, rows: [] };
   }
 }

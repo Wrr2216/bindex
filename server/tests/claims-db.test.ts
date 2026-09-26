@@ -355,29 +355,47 @@ describe("claims against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
     assert.ok(backup.data.claim_lines.some((l) => l.claimId === claimId));
   });
 
-  it("works without the condition, custody and portal features", async (t) => {
-    const shapes = claims.availability(await claims.detectShapes());
-    if (shapes.conditionReports || shapes.custody || shapes.portal) {
-      t.skip("one of those features is installed in this database");
-      return;
-    }
+  it("reports which optional features it found, and works without them", async () => {
+    const exists = async (table: string) =>
+      (await pool.query("SELECT to_regclass($1) IS NOT NULL AS ok", [table])).rows[0].ok as boolean;
     const pack = await claims.getEvidence(claimId);
-    assert.deepEqual(pack.sources, { conditionReports: false, custody: false, portal: false });
-    await assert.rejects(claims.portalView("anything"), statusOf(404));
+    assert.equal(pack.sources.conditionReports, await exists("condition_reports"));
+    assert.equal(pack.sources.packLists, await exists("container_captures"));
+    assert.equal(pack.sources.custody, await exists("custody_transfers"));
+    assert.equal(pack.sources.portal, await exists("portal_grants"));
+    if (!pack.sources.portal) await assert.rejects(claims.portalView("anything"), statusOf(404));
+    if (!pack.sources.custody) assert.ok(pack.lines.every((l) => l.custody.length === 0));
   });
 
-  it("gathers condition reports and custody hops, and takes portal claims, when those tables exist", async (t) => {
-    const shapes = await claims.detectShapes();
-    if (shapes.size > 0) {
-      t.skip("real condition, custody or portal tables exist here; stand-ins would not match them");
+  it("gathers condition reports, pack lists and custody hops, and takes portal claims, when those tables exist", async (t) => {
+    const exists = async (table: string) =>
+      (await pool.query("SELECT to_regclass($1) IS NOT NULL AS ok", [table])).rows[0].ok as boolean;
+    if ((await exists("custody_transfers")) || (await exists("portal_grants"))) {
+      t.skip("real custody or portal tables exist here; the stand-ins would not match them");
       return;
     }
+    // Condition reports and pack lists belong to a feature that may be merged:
+    // use its tables when they are here, stand-ins shaped like them when not.
+    const standIns: string[] = [];
+    if (!(await exists("condition_reports"))) {
+      standIns.push("condition_reports");
+      await pool.query(`
+        CREATE TABLE condition_reports (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(), item_id uuid NOT NULL, unit_id uuid,
+          stage text NOT NULL, stage_label text, rating text, notes text, ai_notes text, defects jsonb NOT NULL DEFAULT '[]',
+          handling_note text, attachment_ids uuid[] NOT NULL DEFAULT '{}', created_by text,
+          created_at timestamptz NOT NULL DEFAULT now())`);
+    }
+    if (!(await exists("container_captures"))) {
+      standIns.push("container_captures");
+      await pool.query(`
+        CREATE TABLE container_captures (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(), item_id uuid NOT NULL, size_class text, handwritten_text text,
+          room text, contents_summary text, contents jsonb NOT NULL DEFAULT '[]', flags text[] NOT NULL DEFAULT '{}',
+          attachment_ids uuid[] NOT NULL DEFAULT '{}', created_by text, created_at timestamptz NOT NULL DEFAULT now())`);
+    }
+    standIns.push("custody_transfers", "portal_grants");
     await pool.query(`
-      CREATE TABLE condition_reports (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(), item_id uuid NOT NULL, unit_id uuid,
-        stage text NOT NULL, rating text, notes text, ai_notes text, defects jsonb NOT NULL DEFAULT '[]',
-        handling_note text, attachment_ids uuid[] NOT NULL DEFAULT '{}', created_by text,
-        created_at timestamptz NOT NULL DEFAULT now());
       CREATE TABLE custody_transfers (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(), from_party jsonb, to_party jsonb, at timestamptz NOT NULL DEFAULT now(),
         place_location_id uuid, items jsonb NOT NULL DEFAULT '[]', seal_numbers text[] NOT NULL DEFAULT '{}',
@@ -386,13 +404,23 @@ describe("claims against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(), scope text NOT NULL, scope_id uuid NOT NULL, role text NOT NULL,
         grantee_name text, grantee_email text, grantee_org text, token_hash text NOT NULL,
         expires_at timestamptz, revoked_at timestamptz, last_used_at timestamptz, created_by text);`);
+    const inserted: [string, string][] = [];
     try {
-      await pool.query(
+      const report = await pool.query(
         `INSERT INTO condition_reports (item_id, stage, rating, notes, defects, handling_note, attachment_ids, created_by, created_at)
          VALUES ($1, 'before', 'good', 'Base has a small chip', '[{"area":"base","type":"crack","severity":"minor"}]',
-                 'Wrap twice', ARRAY[$2]::uuid[], 'test:crew', now() - interval '2 hours')`,
+                 'Wrap twice', ARRAY[$2]::uuid[], 'test:crew', now() - interval '2 hours') RETURNING id`,
         [vase.id, packPhotoId],
       );
+      inserted.push(["condition_reports", report.rows[0].id]);
+      const capture = await pool.query(
+        `INSERT INTO container_captures (item_id, size_class, handwritten_text, room, contents, flags, created_by)
+         VALUES ($1, 'medium', 'FRAGILE living room', 'Living room',
+                 '[{"name":"Vase","qty":1,"condition":"good","fragile":true},{"name":"Candles","qty":4}]', '{fragile}', 'test:crew')
+         RETURNING id`,
+        [vase.id],
+      );
+      inserted.push(["container_captures", capture.rows[0].id]);
       await pool.query(
         `INSERT INTO custody_transfers (from_party, to_party, items, seal_numbers, condition_note)
          VALUES ('{"name":"Crew 3","org":"Acme Movers"}', '"Consignee dock"', $1, '{S-77}', 'Carton dented on hand-off')`,
@@ -400,14 +428,17 @@ describe("claims against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
       );
 
       const pack = await claims.getEvidence(claimId);
-      assert.deepEqual(pack.sources, { conditionReports: true, custody: true, portal: true });
+      assert.deepEqual(pack.sources, { conditionReports: true, packLists: true, custody: true, portal: true });
       const line = pack.lines.find((l) => l.itemId === vase.id)!;
       assert.equal(line.conditionReports.length, 1);
       assert.equal(line.conditionReports[0]!.rating, "good");
+      assert.equal(line.packLists.length, 1);
+      assert.deepEqual(line.packLists[0]!.flags, ["fragile"]);
       assert.equal(line.custody.length, 1);
       assert.equal(line.custody[0]!.from, "Crew 3 (Acme Movers)");
       assert.deepEqual(line.custody[0]!.sealNumbers, ["S-77"]);
       assert.ok(line.conditionNotes.some((n) => n.source === "condition_report" && n.text.includes("Base has a small chip")));
+      assert.ok(line.conditionNotes.some((n) => n.source === "pack_list" && n.text.includes('marked "FRAGILE living room"')));
       assert.ok(line.conditionNotes.some((n) => n.source === "custody" && n.text === "Carton dented on hand-off"));
       assert.equal(line.attachments.find((a) => a.id === packPhotoId)?.phase, "before");
       assert.equal(pack.lines.find((l) => l.itemId === lamp.id)!.custody.length, 0, "the lamp was not on that transfer");
@@ -476,7 +507,10 @@ describe("claims against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
       await assert.rejects(claims.portalView(await grant({ revoked: true })), statusOf(410));
       await assert.rejects(claims.portalView("not-a-real-token"), statusOf(404));
     } finally {
-      await pool.query("DROP TABLE IF EXISTS condition_reports, custody_transfers, portal_grants");
+      for (const [table, id] of inserted) {
+        if (!standIns.includes(table)) await pool.query(`DELETE FROM ${table} WHERE id = $1`, [id]);
+      }
+      await pool.query(`DROP TABLE IF EXISTS ${standIns.join(", ")}`);
     }
   });
 });

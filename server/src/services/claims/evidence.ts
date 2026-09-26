@@ -16,12 +16,13 @@ import { logger } from "../../lib/logger";
 import { getShipment, lineHistory, stageLabel } from "../jobs-core";
 import { contentHash, getSignature, listSignatures } from "../media-ai-core";
 import { STATUS_LABELS } from "./model";
-import type { ConditionReport, CustodyHop } from "./normalize";
+import { packListText, type ConditionReport, type CustodyHop, type PackList } from "./normalize";
 import {
   availability,
   conditionReportsFor,
   custodyHopsFor,
   detectShapes,
+  packListsFor,
   type SourceAvailability,
 } from "./sources";
 import { attachmentPhase, sortNotes, tripFromHistory, type ConditionNote, type Phase, type Trip } from "./trip";
@@ -38,7 +39,7 @@ import { attachmentPhase, sortNotes, tripFromHistory, type ConditionNote, type P
 
 export type EvidenceAttachment = {
   id: string;
-  owner: "item" | "unit" | "claim_line" | "claim" | "condition_report";
+  owner: "item" | "unit" | "claim_line" | "claim" | "condition_report" | "pack_list";
   kind: string;
   stage: string | null;
   phase: Phase;
@@ -98,6 +99,8 @@ export type LineEvidence = {
   stageHistory: EvidenceStageStep[];
   conditionNotes: ConditionNote[];
   conditionReports: ConditionReport[];
+  /** For a container: what was recorded going into it when it was packed. */
+  packLists: PackList[];
   custody: CustodyEvidence[];
   attachments: EvidenceAttachment[];
   audit: EvidenceAudit[];
@@ -448,9 +451,10 @@ export async function buildEvidence(
     ...new Set([...jobLines.map((j) => j.jobId), ...lines.map((l) => l.jobId).filter((j): j is string => j !== null)]),
   ];
 
-  const [histories, reports, hops, shipment, claimSignatures] = await Promise.all([
+  const [histories, reports, packs, hops, shipment, claimSignatures] = await Promise.all([
     Promise.all(jobItemIds.map(async (id) => [id, await lineHistory(id)] as const)).then((h) => new Map(h)),
     conditionReportsFor(shapes, itemIds),
+    packListsFor(shapes, itemIds),
     custodyHopsFor(shapes, refs),
     shipmentEvidence(claim.shipmentId),
     Promise.all([
@@ -459,7 +463,9 @@ export async function buildEvidence(
     ]).then((s) => s.flat().map(signatureView)),
   ]);
 
-  const reportAttachmentIds = [...new Set(reports.rows.flatMap((r) => r.attachmentIds))];
+  const reportAttachmentIds = [
+    ...new Set([...reports.rows.flatMap((r) => r.attachmentIds), ...packs.rows.flatMap((p) => p.attachmentIds)]),
+  ];
   const [files, auditRows, hopSignatures] = await Promise.all([
     attachmentsFor(
       [
@@ -475,7 +481,11 @@ export async function buildEvidence(
       [...new Set(hops.rows.flatMap((h) => h.signatureIds))].map(async (id) => [id, await getSignature(id)] as const),
     ).then((pairs) => new Map(pairs.filter(([, s]) => s !== null).map(([id, s]) => [id, signatureView(s!)]))),
   ]);
-  const names = await accountNames([...files.map((f) => f.createdBy), ...reports.rows.map((r) => r.createdBy)]);
+  const names = await accountNames([
+    ...files.map((f) => f.createdBy),
+    ...reports.rows.map((r) => r.createdBy),
+    ...packs.rows.map((p) => p.createdBy),
+  ]);
 
   const lineEvidence: LineEvidence[] = lines.map((line) => {
     const jobLine = line.jobItemId ? jobLineById.get(line.jobItemId) ?? null : null;
@@ -491,7 +501,10 @@ export async function buildEvidence(
       .filter((h) => line.itemId !== null && h.items.some((i) => covers(i, line)))
       .map((h) => ({ ...h, signatures: h.signatureIds.map((id) => hopSignatures.get(id)).filter((s) => s !== undefined) }));
 
+    // A pack list belongs to the container as a whole, so it counts for every line of it.
+    const linePacks = packs.rows.filter((p) => p.itemId !== null && p.itemId === line.itemId);
     const lineReportIds = new Set(lineReports.flatMap((r) => r.attachmentIds));
+    const linePackIds = new Set(linePacks.flatMap((p) => p.attachmentIds));
     const seen = new Set<string>();
     const lineFiles: EvidenceAttachment[] = [];
     for (const f of files) {
@@ -500,6 +513,7 @@ export async function buildEvidence(
       else if (f.ownerType === "unit" && line.unitId !== null && f.ownerId === line.unitId) owner = "unit";
       else if (f.ownerType === "item" && f.ownerId === line.itemId) owner = "item";
       else if (lineReportIds.has(f.id)) owner = "condition_report";
+      else if (linePackIds.has(f.id)) owner = "pack_list";
       if (!owner || seen.has(f.id)) continue;
       seen.add(f.id);
       lineFiles.push(present(f, owner, trip, names));
@@ -520,6 +534,11 @@ export async function buildEvidence(
         const by = r.createdBy ? names.get(r.createdBy) ?? null : null;
         notes.push({ source: "condition_report", at: r.createdAt, stage: r.stage, text, by, ref: r.id });
       }
+    }
+    for (const p of linePacks) {
+      const text = packListText(p);
+      const by = p.createdBy ? names.get(p.createdBy) ?? null : null;
+      if (text) notes.push({ source: "pack_list", at: p.createdAt, stage: "pack", text, by, ref: p.id });
     }
     for (const f of lineFiles) {
       if (f.caption) notes.push({ source: "photo", at: f.createdAt, stage: f.stage ?? f.phase, text: f.caption, by: f.createdByName, ref: f.id });
@@ -564,6 +583,7 @@ export async function buildEvidence(
       })),
       conditionNotes: sortNotes(notes),
       conditionReports: lineReports,
+      packLists: linePacks,
       custody: lineHops,
       attachments: lineFiles,
       audit,
@@ -618,6 +638,10 @@ export function buildTimeline(
         label: `${lineName(l)}: condition ${r.stage ?? "report"}${r.rating ? `, ${r.rating}` : ""}`,
         detail: reportNote(r) || null,
       });
+    }
+    for (const p of l.packLists) {
+      if (!p.createdAt) continue;
+      out.push({ at: p.createdAt, kind: "condition", lineId: l.lineId, label: `${lineName(l)}: packed, pack list recorded`, detail: packListText(p) || null });
     }
     for (const h of l.custody) {
       if (!h.at) continue;

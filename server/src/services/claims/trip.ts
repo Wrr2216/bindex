@@ -79,7 +79,7 @@ export function attachmentPhase(att: { stage: string | null; createdAt: Date | s
 }
 
 export type ConditionNote = {
-  source: "stage" | "line" | "condition_report" | "photo" | "custody";
+  source: "stage" | "line" | "condition_report" | "pack_list" | "photo" | "custody";
   at: string | null;
   /** The stage or phase it was written at, when known. */
   stage: string | null;

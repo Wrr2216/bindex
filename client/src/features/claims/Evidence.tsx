@@ -21,6 +21,7 @@ const SOURCE_LABEL = {
   stage: "Stage note",
   line: "Manifest note",
   condition_report: "Condition report",
+  pack_list: "Pack list",
   photo: "Photo caption",
   custody: "Custody",
 } as const;
@@ -41,6 +42,7 @@ function Photos({ files }: { files: EvidenceAttachment[] }) {
                 {[f.stage, fmtDateTime(f.createdAt)].filter(Boolean).join(" · ")}
                 {f.caption && <span className="block text-slate-300">{f.caption}</span>}
                 {f.owner === "condition_report" && <span className="block text-sky-300">From a condition report</span>}
+                {f.owner === "pack_list" && <span className="block text-sky-300">From the pack list</span>}
               </p>
             </li>
           ))}
@@ -150,6 +152,39 @@ export function LineEvidenceView({ line }: { line: LineEvidence }) {
         </div>
       )}
 
+      {line.packLists.length > 0 && (
+        <div>
+          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Pack list</h4>
+          <ul className="space-y-2">
+            {line.packLists.map((p) => (
+              <li key={p.id} className="rounded-lg bg-slate-800/50 p-2">
+                <p className="text-xs text-slate-500">
+                  {fmtDateTime(p.createdAt)}
+                  {p.sizeClass && ` · ${p.sizeClass}`}
+                  {p.room && ` · for ${p.room}`}
+                  {p.flags.length > 0 && ` · ${p.flags.join(", ").replace(/_/g, " ")}`}
+                </p>
+                {p.handwrittenText && <p className="text-slate-300">Marked “{p.handwrittenText}”</p>}
+                {p.contents.length > 0 ? (
+                  <ul className="mt-1 list-inside list-disc text-xs text-slate-300">
+                    {p.contents.map((c, i) => (
+                      <li key={i}>
+                        {c.qty && c.qty > 1 ? `${c.qty} × ` : ""}
+                        {c.name}
+                        {c.fragile ? " (fragile)" : ""}
+                        {c.condition ? `, ${c.condition}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  p.contentsSummary && <p className="text-xs text-slate-300">{p.contentsSummary}</p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {line.custody.length > 0 && (
         <div>
           <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Chain of custody</h4>
@@ -221,7 +256,7 @@ export function EvidenceSummary({ pack }: { pack: EvidencePack }) {
       <p>
         {photos} photo{photos === 1 ? "" : "s"} and file{photos === 1 ? "" : "s"}, {notes} condition note{notes === 1 ? "" : "s"} gathered
         from the manifest, the {pack.lines.length === 1 ? "item" : "items"} and the audit log.
-        {!pack.sources.conditionReports && " Condition reports are not installed."}
+        {!pack.sources.conditionReports && " Condition reports and pack lists are not installed."}
         {!pack.sources.custody && " Chain of custody is not installed."}
       </p>
       <p className="break-all">

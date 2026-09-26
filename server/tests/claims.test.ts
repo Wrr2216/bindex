@@ -390,6 +390,38 @@ describe("reading other features' rows", () => {
     assert.deepEqual(r.attachmentIds, [ATT]);
   });
 
+  it("names a custom stage by its own label", () => {
+    const r = norm.normalizeConditionReport({ id: ID, item_id: ITEM, stage: "custom", stage_label: "pre-sale" });
+    assert.equal(r?.stage, "pre-sale");
+    assert.equal(norm.normalizeConditionReport({ id: ID, item_id: ITEM, stage: "custom" })?.stage, "custom");
+  });
+
+  it("reads a container's pack list and says it in one line", () => {
+    const p = norm.normalizeContainerCapture({
+      id: ID,
+      item_id: ITEM,
+      size_class: "dish pack",
+      handwritten_text: "KITCHEN - glasses",
+      room: "Kitchen",
+      contents: [
+        { name: "Wine glasses", qty: 12, condition: "good", fragile: true },
+        { name: "Tea towels" },
+        { qty: 3 },
+      ],
+      flags: ["fragile", "this_side_up"],
+      attachment_ids: [ATT],
+      created_at: "2026-09-20T09:00:00Z",
+    });
+    assert.ok(p);
+    assert.equal(p.contents.length, 2, "an entry without a name is left out");
+    assert.deepEqual(p.attachmentIds, [ATT]);
+    assert.equal(
+      norm.packListText(p),
+      'dish pack container, for Kitchen, marked "KITCHEN - glasses", flags: fragile, this side up, contents: 12 × Wine glasses (fragile), good; Tea towels',
+    );
+    assert.equal(norm.normalizeContainerCapture({ item_id: ITEM }), null);
+  });
+
   it("leaves out a report it cannot identify", () => {
     assert.equal(norm.normalizeConditionReport({ item_id: ITEM }), null);
     assert.equal(norm.normalizeConditionReport({ id: "7" }), null);

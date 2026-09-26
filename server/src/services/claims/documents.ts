@@ -72,6 +72,7 @@ const NOTE_SOURCE = {
   stage: "stage note",
   line: "manifest note",
   condition_report: "condition report",
+  pack_list: "pack list",
   photo: "photo caption",
   custody: "custody",
 } as const;
@@ -213,7 +214,7 @@ export function buildDoc(
     timeline: pack.timeline.map((t) => ({ at: fmt.at(t.at), label: t.label, detail: t.detail })),
     sources: [
       "Evidence gathered from the manifest's stage history, photos on the items and units, and the tamper-evident audit log.",
-      `Condition reports: ${pack.sources.conditionReports ? "included" : "not installed"}.`,
+      `Condition reports and pack lists: ${pack.sources.conditionReports ? "included" : "not installed"}.`,
       `Chain of custody: ${pack.sources.custody ? "included" : "not installed"}.`,
     ].join(" "),
     url: `${baseUrl()}/claims/${claim.id}`,
