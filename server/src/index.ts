@@ -24,6 +24,9 @@ import { startAttachmentSweeper } from "./services/media-ai-core";
 import { wireJobEvents } from "./services/integration/jobEvents";
 import { HttpError, describeError } from "./lib/errors";
 import { startEventBackbone } from "./services/event-backbone";
+import { gpsDeviceRouter } from "./routes/gps";
+import { mapTileSources } from "./services/gps/tiles";
+import { startGpsPrune } from "./services/gps/prune";
 
 const app = express();
 // One proxy hop, which is what a container behind a reverse proxy sees. Needed
@@ -40,8 +43,8 @@ app.use(
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "blob:", "https:"],
-        connectSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "blob:", "https:", ...mapTileSources(env.MAP_TILE_URL)],
+        connectSrc: ["'self'", ...mapTileSources(env.MAP_TILE_URL)],
         mediaSrc: ["'self'", "blob:"],
       },
     },
@@ -68,6 +71,8 @@ app.use("/api/config", configRouter);
 // Reader-bridge ingest is token-authed and mounted before the session guard so
 // hardware can post without a browser cookie.
 app.use("/api/device", deviceRouter);
+// GPS trackers post here with their device tokens; bodies are parsed by deviceRouter above.
+app.use("/api/device/gps", gpsDeviceRouter);
 // Built from the configuration, so it has to come before the static handler.
 app.use(manifestRouter);
 app.use("/api", apiRouter);
@@ -141,6 +146,7 @@ async function main(): Promise<void> {
     startEventBackbone();
     startSightingsPrune();
     startAttachmentSweeper();
+    startGpsPrune();
   });
 }
 
