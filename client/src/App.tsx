@@ -28,6 +28,7 @@ import {
   ProjectsPage,
   ShipmentDetailPage,
 } from "./features/jobs-core";
+import { GeofencesPage, GpsMapPage, ShipmentMapPage, TrackersPage, TrailPage } from "./features/gps";
 
 function Loading() {
   return (
@@ -82,6 +83,14 @@ function AppShell() {
           {features.jobs && <Route path="projects/:id" element={<ProjectDetailPage />} />}
           {features.jobs && <Route path="shipments/:id" element={<ShipmentDetailPage />} />}
           {features.jobs && <Route path="settings/job-types" element={<JobTypesPage />} />}
+          {features.gps && features.tracking && <Route path="gps" element={<GpsMapPage />} />}
+          {features.gps && features.tracking && <Route path="gps/trackers" element={<TrackersPage />} />}
+          {features.gps && features.tracking && <Route path="gps/trackers/:id" element={<TrailPage />} />}
+          {features.gps && features.tracking && <Route path="gps/items/:id" element={<TrailPage />} />}
+          {features.gps && features.tracking && <Route path="gps/geofences" element={<GeofencesPage />} />}
+          {features.gps && features.tracking && features.jobs && (
+            <Route path="gps/shipments/:id" element={<ShipmentMapPage />} />
+          )}
         </Route>
       </Routes>
     </ScanProvider>

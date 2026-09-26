@@ -95,6 +95,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Plan moves and deliveries as jobs, print floor and department manifests, and scan everything through pack, load, deliver and place.",
   },
+  {
+    key: "gps",
+    title: "GPS tracking",
+    description:
+      "Follow GPS trackers on a map, draw geofences around sites, and let shipments go in transit and arrive on their own. Needs Readers, beacons and trackers.",
+  },
 ];
 
 export function InstanceSettings() {
