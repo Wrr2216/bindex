@@ -40,6 +40,8 @@ export type Features = {
   askSearch: boolean;
   /** Prompt to confirm a random item when a container is moved. */
   spotCheck: boolean;
+  /** Keep a copy on a device and queue changes while it has no connection. */
+  offline: boolean;
 };
 
 export type AppConfig = {
@@ -90,6 +92,7 @@ const KEYS = {
   // Predates the config table; kept under its original key so existing
   // deployments do not silently lose the setting.
   featureSpotCheck: "spot_check_enabled",
+  featureOffline: "features.offline",
 } as const;
 
 function defaults(): AppConfig {
@@ -120,6 +123,7 @@ function defaults(): AppConfig {
       lookup: true,
       askSearch: true,
       spotCheck: false,
+      offline: false,
     },
   };
 }
@@ -179,6 +183,7 @@ function build(stored: Map<string, string>): AppConfig {
       lookup: flag(KEYS.featureLookup, base.features.lookup),
       askSearch: flag(KEYS.featureAskSearch, base.features.askSearch) && env.llmConfigured,
       spotCheck: flag(KEYS.featureSpotCheck, base.features.spotCheck),
+      offline: flag(KEYS.featureOffline, base.features.offline),
     },
   };
 }
@@ -265,6 +270,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   lookup: KEYS.featureLookup,
   askSearch: KEYS.featureAskSearch,
   spotCheck: KEYS.featureSpotCheck,
+  offline: KEYS.featureOffline,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {
