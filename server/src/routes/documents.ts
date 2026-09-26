@@ -51,6 +51,23 @@ function sendPdf(res: Response, body: Buffer, filename: string, inline: boolean)
   res.send(body);
 }
 
+/**
+ * parse(), but the message says which block and which part of it is wrong,
+ * so the template editor can show it as it is.
+ */
+function parseBody<S extends z.ZodTypeAny>(schema: S, value: unknown): z.infer<S> {
+  const result = schema.safeParse(value);
+  if (result.success) return result.data;
+  const messages = result.error.issues.slice(0, 3).map((issue) => {
+    const [top, index] = issue.path;
+    const block = top === "body" && typeof index === "number" ? `Block ${index + 1}` : null;
+    const last = issue.path[issue.path.length - 1];
+    const part = typeof last === "string" && last !== "body" ? last : null;
+    return `${[block, part].filter(Boolean).join(", ")}${block || part ? ": " : ""}${issue.message}.`;
+  });
+  throw badRequest(messages.join(" "), result.error.flatten());
+}
+
 const uuid = z.string().uuid();
 const tzField = z.string().max(64).optional();
 
@@ -122,10 +139,11 @@ const previewSchema = z.object({
 });
 
 async function preview(input: z.infer<typeof previewSchema>, timeZone: string) {
-  const [context, tables, fmt] = await Promise.all([
+  const [context, tables, fmt, terms] = await Promise.all([
     input.jobId ? docs.mergeContext(input.jobId) : docs.sampleMergeContext(),
     docs.tableData(input.body, input.jobId ?? null, { sample: !input.jobId }),
     docs.formatting(timeZone),
+    docs.instanceTerms(),
   ]);
   const model = docs.buildRenderModel({
     title: input.title ?? "",
@@ -136,6 +154,7 @@ async function preview(input: z.infer<typeof previewSchema>, timeZone: string) {
     today: docs.todayIn(fmt.timeZone),
     document: { id: "preview", title: input.title ?? "" },
     fmt,
+    terms,
   });
   return { model, fmt, problems: docs.checkBody(input.body, { publishing: true }) };
 }
@@ -152,13 +171,13 @@ templatesRouter.post(
   "/",
   requireAdmin,
   asyncHandler(async (req, res) => {
-    res.status(201).json(await docs.createTemplate(parse(templateSchema, req.body), actor(req).userOid));
+    res.status(201).json(await docs.createTemplate(parseBody(templateSchema, req.body), actor(req).userOid));
   }),
 );
 templatesRouter.post(
   "/preview",
   asyncHandler(async (req, res) => {
-    const input = parse(previewSchema, req.body);
+    const input = parseBody(previewSchema, req.body);
     const { model, problems } = await preview(input, tz(req, input));
     res.json({ ...model, problems });
   }),
@@ -166,7 +185,7 @@ templatesRouter.post(
 templatesRouter.post(
   "/preview.pdf",
   asyncHandler(async (req, res) => {
-    const input = parse(previewSchema, req.body);
+    const input = parseBody(previewSchema, req.body);
     const { model, fmt } = await preview(input, tz(req, input));
     const config = await getConfig();
     const pdf = await docs.renderDocumentPdf({
@@ -202,7 +221,7 @@ templatesRouter.patch(
   "/:id",
   requireAdmin,
   asyncHandler(async (req, res) => {
-    res.json(await docs.updateTemplate(param(req, "id"), parse(templateSchema.partial(), req.body)));
+    res.json(await docs.updateTemplate(param(req, "id"), parseBody(templateSchema.partial(), req.body)));
   }),
 );
 templatesRouter.post(
@@ -318,12 +337,15 @@ const documentRoutes = uuidParams(Router(), "id", "jobId", "packetId");
 documentRoutes.get(
   "/meta",
   asyncHandler(async (_req, res) => {
-    const config = await getConfig();
+    const [config, terms] = await Promise.all([getConfig(), docs.instanceTerms()]);
     res.json({
       fieldTypes: docs.FIELD_TYPES,
       blockTypes: docs.BLOCK_TYPES,
       statuses: docs.DOCUMENT_STATUSES,
-      tableSources: docs.tableSources().map(({ load: _load, sample: _sample, ...s }) => s),
+      tableSources: docs.tableSources().map(({ load: _load, sample: _sample, ...s }) => ({
+        ...s,
+        columns: s.columns.map((c) => ({ key: c.key, label: docs.columnLabel(c, terms) })),
+      })),
       mergeFields: docs.MERGE_CATALOG,
       share: await docs.shareAvailability(),
       jobs: config.features.jobs,

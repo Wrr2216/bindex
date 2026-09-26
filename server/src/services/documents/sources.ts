@@ -9,7 +9,8 @@
  *   registerTableSource({ name: "claims", label: "Claims", columns: [...], sample: [...], load })
  */
 
-export type TableColumn = { key: string; label: string };
+/** `term` names a core concept whose instance vocabulary replaces the label ("Asset" for "Item"). */
+export type TableColumn = { key: string; label: string; term?: "item" | "location" };
 export type TableCell = string | number | boolean | null;
 export type TableRow = Record<string, TableCell>;
 export type TableFilter = { floor?: string; department?: string; stage?: string };
@@ -50,6 +51,12 @@ export function setTableLoader(name: string, load: TableLoader): void {
 }
 
 export const tableSource = (name: string): TableSource | undefined => registry.get(name);
+
+export type Terms = Partial<Record<"item" | "location", string>>;
+
+/** A column's label in this instance's words. */
+export const columnLabel = (column: TableColumn, terms: Terms = {}) =>
+  (column.term && terms[column.term]) || column.label;
 export const tableSources = (): TableSource[] => [...registry.values()];
 
 registerTableSource({
@@ -57,7 +64,7 @@ registerTableSource({
   label: "Manifest",
   columns: [
     { key: "code", label: "Code" },
-    { key: "item", label: "Item" },
+    { key: "item", label: "Item", term: "item" },
     { key: "description", label: "Make and model" },
     { key: "serial", label: "Serial" },
     { key: "origin", label: "From" },

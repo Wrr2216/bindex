@@ -1,6 +1,6 @@
 import { formatValue, resolveMerge, type Formatting, type MergeContext } from "./merge";
 import type { Block, FieldDef } from "./model";
-import { MAX_TABLE_ROWS, tableSource, type TableColumn, type TableData } from "./sources";
+import { MAX_TABLE_ROWS, columnLabel, tableSource, type TableColumn, type TableData, type Terms } from "./sources";
 import { isFilled, isSignatureValue, type SignatureValue, type Values } from "./values";
 
 /**
@@ -62,6 +62,8 @@ export type RenderInput = {
   today: string;
   document: { id: string; title: string } | null;
   fmt: Formatting;
+  /** The instance's words for core concepts, for column headings. */
+  terms?: Terms;
 };
 
 /** Field values as merge fields print them, keyed like the fields. */
@@ -110,9 +112,10 @@ export function buildRenderModel(input: RenderInput): RenderModel {
       }
       case "table": {
         const source = tableSource(block.source);
-        const columns = block.columns.map(
-          (key) => source?.columns.find((c) => c.key === key) ?? { key, label: key },
-        );
+        const columns = block.columns.map((key): TableColumn => {
+          const column = source?.columns.find((c) => c.key === key);
+          return column ? { key, label: columnLabel(column, input.terms) } : { key, label: key };
+        });
         const data = input.tables[block.id] ?? { rows: [], total: 0 };
         const rows = data.rows.slice(0, MAX_TABLE_ROWS).map((row) => columns.map((c) => formatValue(row[c.key], input.fmt)));
         return {

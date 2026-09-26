@@ -19,6 +19,7 @@ import { mergeContext, tableData, takeSnapshot, todayIn } from "./context";
 import { emitDocumentEvent } from "./events";
 import { buildRenderModel, type RenderModel, type Snapshot } from "./layout";
 import { resolveMerge, type Formatting, type MergeContext } from "./merge";
+import type { Terms } from "./sources";
 import { fieldsOf, isSigningType, statementFor, type FieldDef } from "./model";
 import type { Actor, Executor } from "./shared";
 import { getVersion, latestPublished, loadTemplate, type Version } from "./templates";
@@ -33,6 +34,12 @@ import { applyValuesPatch, copyValues, isSignatureValue, missingRequired, type S
 export async function formatting(timeZone: string | undefined): Promise<Formatting> {
   const config = await getConfig();
   return { timeZone: timeZone || "UTC", locale: config.locale || "en-US" };
+}
+
+/** The instance's words for items and locations, for table headings. */
+export async function instanceTerms(): Promise<Terms> {
+  const { terms } = await getConfig();
+  return { item: terms.item.singular, location: terms.location.singular };
 }
 
 export async function loadDocument(id: string, ex: Executor = db): Promise<DocumentRow> {
@@ -173,6 +180,7 @@ export async function renderModel(doc: DocumentRow, version: Version, fmt: Forma
   const [context, tables] = snapshot
     ? [snapshot.context, snapshot.tables]
     : await Promise.all([mergeContext(doc.jobId), tableData(version.body, doc.jobId)]);
+  const terms = await instanceTerms();
   return buildRenderModel({
     title: version.title,
     body: version.body,
@@ -182,6 +190,7 @@ export async function renderModel(doc: DocumentRow, version: Version, fmt: Forma
     today: snapshot?.today ?? todayIn(fmt.timeZone),
     document: { id: doc.id, title: doc.title },
     fmt,
+    terms,
   });
 }
 

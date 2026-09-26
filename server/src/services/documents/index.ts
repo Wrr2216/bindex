@@ -21,7 +21,17 @@ export {
   type Rule,
   type Evaluation,
 } from "./conditions";
-export { registerTableSource, tableSources, tableSource, MAX_TABLE_ROWS, type TableSource, type TableRow, type TableData } from "./sources";
+export {
+  registerTableSource,
+  tableSources,
+  tableSource,
+  columnLabel,
+  MAX_TABLE_ROWS,
+  type TableSource,
+  type TableRow,
+  type TableData,
+  type Terms,
+} from "./sources";
 export { buildRenderModel, type RenderModel, type RenderBlock, type Snapshot } from "./layout";
 export { documentContent, documentContentHash, signingContent } from "./content";
 export { applyValuesPatch, copyValues, missingRequired, isSignatureValue, type Values, type SignatureValue } from "./values";
@@ -69,6 +79,7 @@ export {
   deleteDocument,
   renderModel,
   formatting,
+  instanceTerms,
   type DocumentFilters,
   type VerifyReport,
 } from "./documents";
