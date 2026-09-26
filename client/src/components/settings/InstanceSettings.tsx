@@ -95,6 +95,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Plan moves and deliveries as jobs, print floor and department manifests, and scan everything through pack, load, deliver and place.",
   },
+  {
+    key: "crew",
+    title: "Crew check-in",
+    description:
+      "Badges for workers and subcontractors, their licences and inductions, and scanning them in on a job with each required credential shown green, amber or red. Needs jobs for the check-in itself.",
+  },
 ];
 
 export function InstanceSettings() {

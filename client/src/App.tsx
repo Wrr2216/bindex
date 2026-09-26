@@ -28,6 +28,7 @@ import {
   ProjectsPage,
   ShipmentDetailPage,
 } from "./features/jobs-core";
+import { CrewBadgePage, CrewCheckInPage, CrewPage, CrewSettingsPage, CrewWorkerPage } from "./features/crew";
 
 function Loading() {
   return (
@@ -82,6 +83,11 @@ function AppShell() {
           {features.jobs && <Route path="projects/:id" element={<ProjectDetailPage />} />}
           {features.jobs && <Route path="shipments/:id" element={<ShipmentDetailPage />} />}
           {features.jobs && <Route path="settings/job-types" element={<JobTypesPage />} />}
+          {features.crew && <Route path="crew" element={<CrewPage />} />}
+          {features.crew && <Route path="crew/jobs/:jobId" element={<CrewCheckInPage />} />}
+          {features.crew && <Route path="crew/workers/:id" element={<CrewWorkerPage />} />}
+          {features.crew && <Route path="crew/badge/:code" element={<CrewBadgePage />} />}
+          {features.crew && <Route path="settings/crew" element={<CrewSettingsPage />} />}
         </Route>
       </Routes>
     </ScanProvider>
