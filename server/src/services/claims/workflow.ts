@@ -45,7 +45,7 @@ export const TRANSITIONS: readonly Transition[] = [
   t("denied", "under_review", "Reopen", "required", { decision: true }),
   t("denied", "closed", "Close", "optional"),
   t("paid", "closed", "Close", "optional"),
-  t("closed", "under_review", "Reopen", "required"),
+  t("closed", "under_review", "Reopen", "required", { decision: true }),
 ];
 
 /** The moves open to a claim of this type in this status. */
