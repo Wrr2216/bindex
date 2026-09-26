@@ -110,13 +110,13 @@ export function buildDoc(
       reports: e.conditionReports.map((r) => ({
         at: fmt.at(r.createdAt),
         text: [
-          r.stage && `${r.stage}:`,
-          r.rating,
+          r.stage ? `${r.stage.charAt(0).toUpperCase()}${r.stage.slice(1)}` : "Report",
+          r.rating && `rated ${r.rating}`,
           r.defects.length ? `${r.defects.length} defect${r.defects.length === 1 ? "" : "s"}` : null,
-          r.handlingNote && `handling: ${r.handlingNote}`,
+          r.handlingNote && `handling note "${r.handlingNote}"`,
         ]
           .filter(Boolean)
-          .join(" "),
+          .join(", "),
       })),
       custody: e.custody.map((h) => ({
         at: fmt.at(h.at),

@@ -172,7 +172,7 @@ edits from the claim, so it is read-only by construction. For each line:
 | **Condition reports** | When that feature is installed; see below. |
 | **Pack list** | For a container, what was recorded going into it when it was packed: size, the writing on it, handling flags and its contents. When that feature is installed. |
 | **Chain of custody** | When that feature is installed; see below. |
-| **Audit log** | Ids and hashes of the entries about the item and unit, and of the `job.stage_changed` entries that moved this line. |
+| **Audit log** | Ids and hashes of the entries about the item, the unit and their condition reports, and of the `job.stage_changed` entries that moved this line. |
 
 Claim-wide: files attached to the claim, signatures recorded against its job or
 shipment, the shipment's status history, and the claim's own audit entries.

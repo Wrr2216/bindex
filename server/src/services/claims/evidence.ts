@@ -233,8 +233,9 @@ type AuditRow = {
 };
 
 /**
- * Audit-log entries about the lines' items and units, the stage changes that
- * moved their manifest lines, and the claim itself. Newest first, bounded.
+ * Audit-log entries about the lines' items and units, their condition
+ * reports, the stage changes that moved their manifest lines, and the claim
+ * itself. Newest first, bounded.
  */
 async function auditFor(
   claimId: string,
@@ -242,6 +243,7 @@ async function auditFor(
   unitIds: string[],
   jobIds: string[],
   jobItemIds: string[],
+  reportIds: string[],
 ): Promise<AuditRow[]> {
   try {
     const { rows } = await pool.query<AuditRow>(
@@ -255,13 +257,14 @@ async function auditFor(
         WHERE (a.subject_type = 'claim' AND a.subject_id = $1)
            OR (a.subject_type = 'item' AND a.subject_id = ANY($2::text[]))
            OR (a.subject_type = 'unit' AND a.subject_id = ANY($3::text[]))
+           OR (a.subject_type = 'condition_report' AND a.subject_id = ANY($6::text[]))
            OR (a.subject_type = 'job' AND a.subject_id = ANY($4::text[]) AND a.type = 'job.stage_changed'
                AND EXISTS (
                  SELECT 1 FROM jsonb_array_elements(CASE jsonb_typeof(a.data->'lines') WHEN 'array' THEN a.data->'lines' ELSE '[]'::jsonb END) l
                   WHERE l->>'jobItemId' = ANY($5::text[])))
         ORDER BY a.id DESC
         LIMIT 2000`,
-      [claimId, itemIds, unitIds, jobIds, jobItemIds],
+      [claimId, itemIds, unitIds, jobIds, jobItemIds, reportIds],
     );
     return rows;
   } catch (err) {
@@ -357,15 +360,18 @@ const signatureView = (s: {
 const covers = (r: { itemId: string | null; unitId: string | null }, line: { itemId: string | null; unitId: string | null }) =>
   r.itemId !== null && r.itemId === line.itemId && (r.unitId === null || line.unitId === null || r.unitId === line.unitId);
 
+/** Written notes end how people end them; these are run together, so each gets a full stop. */
+const sentence = (s: string | null) => (s ? (/[.!?]$/.test(s.trim()) ? s.trim() : `${s.trim()}.`) : null);
+
 function reportNote(r: ConditionReport): string {
   return [
     r.rating ? `Rated ${r.rating}.` : null,
-    r.notes,
-    r.aiNotes ? `AI: ${r.aiNotes}` : null,
+    sentence(r.notes),
+    r.aiNotes ? sentence(`AI: ${r.aiNotes}`) : null,
     r.defects.length
       ? `Defects: ${r.defects.map((d) => [d.severity, d.type, d.area && `on ${d.area}`].filter(Boolean).join(" ")).join("; ")}.`
       : null,
-    r.handlingNote ? `Handling: ${r.handlingNote}` : null,
+    r.handlingNote ? sentence(`Handling: ${r.handlingNote}`) : null,
   ]
     .filter(Boolean)
     .join(" ");
@@ -476,7 +482,7 @@ export async function buildEvidence(
       ],
       reportAttachmentIds,
     ),
-    auditFor(claim.id, itemIds, unitIds, jobIds, jobItemIds),
+    auditFor(claim.id, itemIds, unitIds, jobIds, jobItemIds, reports.rows.map((r) => r.id)),
     Promise.all(
       [...new Set(hops.rows.flatMap((h) => h.signatureIds))].map(async (id) => [id, await getSignature(id)] as const),
     ).then((pairs) => new Map(pairs.filter(([, s]) => s !== null).map(([id, s]) => [id, signatureView(s!)]))),
@@ -552,6 +558,7 @@ export async function buildEvidence(
         (a) =>
           (a.subject_type === "item" && a.subject_id === line.itemId) ||
           (a.subject_type === "unit" && line.unitId !== null && a.subject_id === line.unitId) ||
+          (a.subject_type === "condition_report" && lineReports.some((r) => r.id === a.subject_id)) ||
           (line.jobItemId !== null && (a.stage_lines ?? []).some((l) => l.jobItemId === line.jobItemId)),
       )
       .map(auditView);

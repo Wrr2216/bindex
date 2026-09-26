@@ -52,7 +52,7 @@ export function ClaimLines({
         <h2 className={H2}>{isMoney ? "Lines" : `${terms.item.plural} involved`}</h2>
         {isMoney && claim.totals.fromLines && (
           <span className="text-sm text-slate-300">
-            {money(claim.totals.estimatedTotalCents)} claimed
+            {claim.totals.estimatedTotalCents === null ? "Not priced yet" : `${money(claim.totals.estimatedTotalCents)} claimed`}
             {claim.totals.approvedTotalCents !== null && ` · ${money(claim.totals.approvedTotalCents)} approved`}
             {claim.totals.undecidedLines > 0 && DECIDING.includes(claim.status) && (
               <span className="text-amber-300"> · {claim.totals.undecidedLines} to decide</span>
