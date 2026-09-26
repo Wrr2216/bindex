@@ -11,6 +11,19 @@ import type { Snapshot } from "./types";
  * the old copy in place rather than half of a new one.
  */
 
+/**
+ * Ask the browser not to clear this device's data when storage runs low. A
+ * browser may say no (or not ask the person); the copy then works as long as
+ * the browser keeps it.
+ */
+async function askToPersist(): Promise<void> {
+  try {
+    if (!(await navigator.storage?.persisted?.())) await navigator.storage?.persist?.();
+  } catch {
+    // Not every browser has the storage manager.
+  }
+}
+
 /** Read what the app needs to open without a connection; the transport keeps it. */
 async function primeSession(): Promise<void> {
   await Promise.all([
@@ -23,7 +36,10 @@ async function primeSession(): Promise<void> {
 /** Take a location and everything in it offline, or the whole instance with null. */
 export async function makeAvailable(locationId: string | null): Promise<Snapshot> {
   const snap = await offlineApi.snapshot(locationId);
-  if (!(await store.deviceEnabled())) await setDeviceMode(true);
+  if (!(await store.deviceEnabled())) {
+    await setDeviceMode(true);
+    await askToPersist();
+  }
   await store.saveSnapshot(snap);
   await primeSession();
   await refreshQueueStatus();
@@ -58,6 +74,7 @@ export async function clearCopy(): Promise<void> {
 /** Start keeping a copy on this device: the session now, records as they are opened or taken offline. */
 export async function turnOn(): Promise<void> {
   await setDeviceMode(true);
+  await askToPersist();
   await primeSession();
   await refreshQueueStatus();
 }
