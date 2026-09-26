@@ -60,6 +60,7 @@ const configPatch = z.object({
       lookup: z.boolean().optional(),
       askSearch: z.boolean().optional(),
       spotCheck: z.boolean().optional(),
+      offline: z.boolean().optional(),
     })
     .optional(),
 });

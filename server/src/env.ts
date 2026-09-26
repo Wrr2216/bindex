@@ -137,6 +137,11 @@ const schema = z.object({
   PUSHOVER_TOKEN: z.string().default(""),
   PUSHOVER_USER: z.string().default(""),
   WAZUH_HOST: z.string().default(""),
+
+  // ---- T08: offline field mode --------------------------------------------
+  // Most items one "Make available offline" may copy to a device. Guards a
+  // phone against a whole large instance; pick a location to go smaller.
+  OFFLINE_SNAPSHOT_MAX_ITEMS: z.coerce.number().int().positive().default(10000),
 });
 
 const parsed = schema.safeParse(process.env);
