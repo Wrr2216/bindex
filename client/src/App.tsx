@@ -55,6 +55,7 @@ import {
 } from "./features/documents";
 import { PortalAdminPage, PortalLinkPage } from "./features/portal";
 import { InsightsPage } from "./features/ops-intel";
+import { BlePage } from "./features/ble/BlePage";
 
 function Loading() {
   return (
@@ -156,6 +157,7 @@ function AppShell() {
           {features.documents && <Route path="settings/document-fields" element={<DocumentFieldsPage />} />}
           {features.portal && <Route path="portal" element={<PortalAdminPage />} />}
           {features.opsIntel && <Route path="insights" element={<InsightsPage />} />}
+          {features.ble && <Route path="ble" element={<BlePage />} />}
         </Route>
       </Routes>
       <NfcTapLayer />

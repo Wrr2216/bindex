@@ -300,6 +300,7 @@ export interface Features {
   documents: boolean;
   portal: boolean;
   opsIntel: boolean;
+  ble: boolean;
 }
 
 /**

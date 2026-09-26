@@ -37,6 +37,8 @@ import { startGpsPrune } from "./services/gps/prune";
 import { portalRouter } from "./routes/portal";
 import { startPortalNotifier } from "./services/portal";
 import { startOpsIntel } from "./services/ops-intel";
+import { bleDeviceRouter } from "./routes/ble";
+import { startBle } from "./services/ble";
 
 const app = express();
 // One proxy hop, which is what a container behind a reverse proxy sees. Needed
@@ -86,6 +88,7 @@ app.use("/api/config", configRouter);
 app.use("/api/device", deviceRouter);
 // GPS trackers post here with their device tokens; bodies are parsed by deviceRouter above.
 app.use("/api/device/gps", gpsDeviceRouter);
+app.use("/api/device/ble", bleDeviceRouter);
 // Built from the configuration, so it has to come before the static handler.
 app.use(manifestRouter);
 // The service worker is stamped with the build, so it too comes before them.
@@ -173,6 +176,7 @@ async function main(): Promise<void> {
     startGpsPrune();
     startPortalNotifier();
     startOpsIntel();
+    startBle();
   });
 }
 

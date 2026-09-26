@@ -116,3 +116,43 @@ Each tag then carries the antenna that saw it, its signal strength and the
 time it was read, which a portal needs to tell which way a tag went. The audit
 screen keeps working either way. `DEVICE_TOKEN` may be `INGEST_TOKEN` or the
 device's own token from Settings. See [docs/tracking-core.md](../docs/tracking-core.md).
+
+## BLE gateway
+
+`ble_gateway.py` turns a Raspberry Pi into a Bluetooth gateway for room-level
+presence: install one in each room, dock or aisle, and it reports every
+beacon it hears to `/api/device/ble/reads`. The server works out which room
+each tag is in from what all the gateways hear. It needs BlueZ (standard on
+Raspberry Pi OS) and [bleak](https://github.com/hbldh/bleak); it does not need
+the M7e reader or MercuryAPI.
+
+```bash
+sudo apt-get install -y bluez python3-pip
+pip3 install --user --break-system-packages bleak || pip3 install --user bleak
+SCAN_TEST=1 python3 ble_gateway.py        # prints what it hears, posts nothing
+```
+
+On the server, switch on **Bluetooth beacons** in Settings, then on the
+**Bluetooth** page add a **Gateway**, pick the room it covers, and copy its
+token. Then:
+
+```bash
+SERVER_URL=https://inventory.example.com DEVICE_TOKEN=bdt_... python3 ble_gateway.py
+```
+
+| Variable | Default | |
+| --- | --- | --- |
+| `SERVER_URL` | | Required. |
+| `DEVICE_TOKEN` | | The gateway's own token. `INGEST_TOKEN` also works if `GATEWAY_ID` is set; the gateway is then registered under that id on its first post. |
+| `GATEWAY_ID` | | This gateway's id, for `INGEST_TOKEN` posts. |
+| `FLUSH_MS` | `1000` | How often to post. Each post holds the latest reading of each beacon. |
+| `ONLY_BEACONS` | `1` | Forward only iBeacon, Eddystone and AltBeacon frames. `0` forwards everything, for tags known only by their MAC. |
+| `MIN_RSSI` | `-100` | Ignore anything weaker. |
+| `ADAPTER` | `hci0` | Bluetooth adapter. |
+| `ENDPOINT` | `/api/device/ble/reads` | Where to post. |
+
+Run it under systemd so it starts with the Pi and restarts if it stops, with
+the variables in an `EnvironmentFile`. Mount the Pi high and in the open:
+metal shelving, walls and people all absorb 2.4 GHz. See
+[docs/ble.md](../docs/ble.md) for placement, calibration and what room-level
+accuracy to expect.

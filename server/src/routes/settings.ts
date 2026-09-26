@@ -78,6 +78,7 @@ const configPatch = z.object({
       documents: z.boolean().optional(),
       portal: z.boolean().optional(),
       opsIntel: z.boolean().optional(),
+      ble: z.boolean().optional(),
     })
     .optional(),
 });

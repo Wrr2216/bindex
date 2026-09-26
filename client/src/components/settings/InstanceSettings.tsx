@@ -185,6 +185,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Rules that catch cartons left behind, duplicate records and tags in two places at once; dwell time and slotting suggestions; load plans against vehicle capacity.",
   },
+  {
+    key: "ble",
+    title: "Bluetooth beacons",
+    description:
+      "Bluetooth tags on equipment placed room by room from gateways, room beacons for phones, and alerts for missing tags and flat batteries. Needs Readers, beacons and trackers.",
+  },
 ];
 
 export function InstanceSettings() {

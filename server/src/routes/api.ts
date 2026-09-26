@@ -37,6 +37,7 @@ import { gpsRouter } from "./gps";
 import { documentsRouter } from "./documents";
 import { portalAdminRouter } from "./portal";
 import { opsIntelRouter } from "./ops-intel";
+import { bleRouter } from "./ble";
 
 export const apiRouter = Router();
 
@@ -84,6 +85,7 @@ apiRouter.use("/gps", gpsRouter);
 apiRouter.use(documentsRouter);
 apiRouter.use("/portal-grants", portalAdminRouter);
 apiRouter.use("/ops", opsIntelRouter);
+apiRouter.use("/ble", bleRouter);
 
 apiRouter.delete(
   "/identifiers/:id",

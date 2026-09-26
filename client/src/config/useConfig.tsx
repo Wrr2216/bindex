@@ -54,6 +54,7 @@ const FALLBACK: AppConfig = {
     documents: false,
     portal: false,
     opsIntel: false,
+    ble: false,
   },
   label: { widthMm: 62, heightMm: 25.4 },
   integrations: {
