@@ -77,6 +77,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Type what you are looking for instead of setting filters. Needs a language model to be configured.",
   },
+  {
+    key: "registerReconcile",
+    title: "Asset register reconciliation",
+    description:
+      "Import a register (CSV or XLSX, including Snipe-IT and Homebox exports), reconcile it against what is on file, or import it as new records. Reached from Audit.",
+  },
 ];
 
 export function InstanceSettings() {
