@@ -38,6 +38,10 @@ describe("GPS against Postgres", { skip: url ? false : "set TEST_DATABASE_URL to
   let base = "";
   const tag = randomBytes(3).toString("hex");
   const actor = { userOid: "test:gps", name: "GPS test" };
+  // The recorded trip is replayed at a random longitude, at its own latitude
+  // so distances are unchanged, clear of fences anything else left behind.
+  const shiftLng = 20 + Math.random() * 140;
+  const away = <T extends { lat: number; lng: number }>(p: T): T => ({ ...p, lng: p.lng + shiftLng });
   const cleanup: (() => Promise<unknown>)[] = [];
 
   const q = async <T = Record<string, unknown>>(sql: string, params: unknown[] = []) =>
@@ -99,9 +103,9 @@ describe("GPS against Postgres", { skip: url ? false : "set TEST_DATABASE_URL to
     const site = await createLocation({ name: `Site ${tag}` });
     const siteFloor = await createLocation({ name: "Level 2", parentId: site.id });
     const pallet = await createItem({ name: `Pallet ${tag}`, locationId: warehouse.id }, null);
-    const origin = await circle("Warehouse yard", WAREHOUSE, 300, warehouse.id, 30);
-    const destination = await circle("Site gate", SITE, 300, site.id, 30);
-    const depot = await circle("Depot", DEPOT, 150, null, 0);
+    const origin = await circle("Warehouse yard", away(WAREHOUSE), 300, warehouse.id, 30);
+    const destination = await circle("Site gate", away(SITE), 300, site.id, 30);
+    const depot = await circle("Depot", away(DEPOT), 150, null, 0);
 
     const imei = `35693803${randomBytes(4).toString("hex")}`;
     const { device, token } = await tracker("Pallet tracker", { externalId: imei, itemId: pallet.id, updatesLocation: true });
@@ -126,7 +130,7 @@ describe("GPS against Postgres", { skip: url ? false : "set TEST_DATABASE_URL to
     assert.equal(link.shipmentCode, truck.code);
     assert.equal((await gps.getTracker(device.id)).status, "assigned");
 
-    const [{ id: auditStart }] = await q<{ id: string }>("SELECT COALESCE(max(id), 0) AS id FROM audit_log");
+    const auditStart = (await q<{ id: string }>("SELECT COALESCE(max(id), 0) AS id FROM audit_log"))[0]!.id;
 
     // Replay, shifted so the trip ended an hour ago, one request per fix as
     // Traccar Client sends them. Battery runs down to below the warning level.
@@ -141,7 +145,7 @@ describe("GPS against Postgres", { skip: url ? false : "set TEST_DATABASE_URL to
         const qs = new URLSearchParams({
           id: imei,
           lat: String(p.lat),
-          lon: String(p.lng),
+          lon: String(away(p).lng),
           timestamp: String(Math.round((p.time.getTime() + shift) / 1000)),
           altitude: String(p.ele),
           accuracy: "5",
@@ -249,8 +253,8 @@ describe("GPS against Postgres", { skip: url ? false : "set TEST_DATABASE_URL to
     // Replaying the same upload again changes nothing: every fix is old news.
     const again = await replay();
     assert.equal(again.reduce((n, r) => n + Number(r.accepted), 0), 0);
-    const [{ n }] = await q<{ n: string }>("SELECT count(*) AS n FROM geofence_events WHERE device_id = $1", [device.id]);
-    assert.equal(Number(n), 4);
+    const count = await q<{ n: string }>("SELECT count(*) AS n FROM geofence_events WHERE device_id = $1", [device.id]);
+    assert.equal(Number(count[0]!.n), 4);
 
     // Confirming delivery takes the single-use tracker off, to be returned.
     await jobs.setShipmentStatus(truck.id, "delivered", {}, actor);
@@ -301,6 +305,34 @@ describe("GPS against Postgres", { skip: url ? false : "set TEST_DATABASE_URL to
     assert.equal(refused.status, 403);
     const own = await post(lone.token, message(`lone-${tag}`, 51.7));
     assert.equal(own.status, 200);
+  });
+
+  it("keeps an asset in its room when a site's fence says it is on the site", async () => {
+    const { createLocation } = await import("../src/services/locations");
+    const { createItem } = await import("../src/services/items");
+    const depot = await createLocation({ name: `Depot ${tag}` });
+    const bay = await createLocation({ name: "Bay 4", parentId: depot.id });
+    const forklift = await createItem({ name: `Forklift ${tag}`, locationId: bay.id }, null);
+    const at = away({ lat: -33.86, lng: 0 });
+    await circle("Depot yard", at, 400, depot.id, 0);
+    const { device, token } = await tracker("Forklift tracker", { itemId: forklift.id, updatesLocation: true });
+    const t = Math.round(Date.now() / 1000) - 120;
+    for (const [i, lat] of [at.lat, at.lat + 0.0001].entries()) {
+      const res = await fetch(
+        `${base}/api/device/gps/osmand?token=${token}&lat=${lat}&lon=${at.lng}&timestamp=${t + i * 60}&accuracy=5`,
+      );
+      assert.equal(res.status, 200);
+    }
+    const [position] = await q<{ location_id: string }>(
+      "SELECT location_id FROM asset_positions WHERE item_id = $1",
+      [forklift.id],
+    );
+    assert.equal(position!.location_id, bay.id);
+    const [onFile] = await q<{ location_id: string }>("SELECT location_id FROM items WHERE id = $1", [forklift.id]);
+    assert.equal(onFile!.location_id, bay.id);
+    const moves = await q("SELECT 1 FROM item_events WHERE item_id = $1 AND action = 'moved'", [forklift.id]);
+    assert.equal(moves.length, 0);
+    assert.equal((await gps.getTracker(device.id)).lastFixLat, at.lat + 0.0001);
   });
 
   it("answers 503 while GPS is switched off", async () => {

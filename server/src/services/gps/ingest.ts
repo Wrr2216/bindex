@@ -398,13 +398,43 @@ export function ingestTrackerReports(
   return serialize(device.id, () => ingestOne(device, reports, opts.now ?? new Date()));
 }
 
+/**
+ * Where the tracker's asset is on file, and every location above it. A fence
+ * is drawn round a whole site, so it can only say "somewhere on the site"; an
+ * asset on file in a room of that site is already there, and should stay in
+ * its room rather than be moved up to the site.
+ */
+async function recordedPlace(device: TrackingDevice): Promise<{ id: string; within: Set<string> } | null> {
+  if (!device.itemId) return null;
+  const { rows } = await pool.query<{ id: string }>(
+    `WITH RECURSIVE up(id, parent_id, depth) AS (
+       SELECT l.id, l.parent_id, 0
+         FROM locations l
+        WHERE l.id = (SELECT COALESCE(u.location_id, i.location_id)
+                        FROM items i LEFT JOIN item_units u ON u.id = $2 AND u.item_id = i.id
+                       WHERE i.id = $1)
+       UNION
+       SELECT l.id, l.parent_id, up.depth + 1 FROM locations l JOIN up ON l.id = up.parent_id WHERE up.depth < 50
+     )
+     SELECT id FROM up ORDER BY depth`,
+    [device.itemId, device.unitId],
+  );
+  return rows[0] ? { id: rows[0].id, within: new Set(rows.map((r) => r.id)) } : null;
+}
+
 async function ingestOne(device: TrackingDevice, reports: readonly GpsReport[], now: Date): Promise<GpsIngestResult> {
-  const [fences, { tracker, states }, tracked] = await Promise.all([
+  const [fences, { tracker, states }, tracked, place] = await Promise.all([
     activeFences(now.getTime()),
     loadState(device.id),
     trackedShipments(device.id),
+    recordedPlace(device),
   ]);
   const plan = planBatch(device, tracker, states, fences, reports, now);
+  if (place) {
+    for (const r of plan.reads) {
+      if (r.locationId && place.within.has(r.locationId)) r.locationId = place.id;
+    }
+  }
 
   // 1. The evidence first. If this fails nothing else is written, and the
   // tracker's resend is judged against the same memory.
