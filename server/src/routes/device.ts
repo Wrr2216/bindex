@@ -59,7 +59,9 @@ const scanSchema = z.object({
 // the reads are also stored as sightings.
 deviceRouter.post(
   "/scan",
-  requireDevice(RFID_KINDS),
+  // Validating while reading the reader id means a malformed post made with
+  // INGEST_TOKEN is refused before it can register a device.
+  requireDevice(RFID_KINDS, { readerId: (req) => parse(scanSchema, req.body).reader }),
   asyncHandler(async (req, res) => {
     const { epcs, reader } = parse(scanSchema, req.body);
     const device = req.trackingDevice!;
