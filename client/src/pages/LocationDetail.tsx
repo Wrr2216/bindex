@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { NfcTagUrl } from "../components/NfcTagUrl";
+import { ItemTagChip } from "../features/tag-commissioning/badges";
 import { VerifyContents } from "../components/VerifyContents";
 import { ArrowLeftIcon, CloseIcon, PencilIcon } from "../components/icons";
 import type { Item, LocationDetail as Detail } from "../types";
@@ -386,7 +387,8 @@ export function LocationDetail() {
                 >
                   {c.name}
                 </Link>{" "}
-                <span className="text-sm text-slate-500">×{c.quantity}</span>
+                <span className="text-sm text-slate-500">×{c.quantity}</span>{" "}
+                <ItemTagChip itemId={c.id} />
                 {[c.brand, c.model].filter(Boolean).length > 0 && (
                   <p className="text-xs text-slate-500">{[c.brand, c.model].filter(Boolean).join(" · ")}</p>
                 )}

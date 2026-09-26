@@ -77,6 +77,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Type what you are looking for instead of setting filters. Needs a language model to be configured.",
   },
+  {
+    key: "legacyTags",
+    title: "Legacy sticker numbers",
+    description:
+      "Colour, lot and number stickers from an older labelling system: entry, lookup and a coloured dot in lists.",
+  },
 ];
 
 export function InstanceSettings() {

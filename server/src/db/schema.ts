@@ -18,7 +18,9 @@ export type IdentifierType =
   | "sku"
   | "other"
   | "rfid"
-  | "domain";
+  | "domain"
+  | "nfc"
+  | "legacy";
 
 export type ItemEventAction = "created" | "updated" | "scanned" | "moved" | "deleted";
 
@@ -212,3 +214,4 @@ export type SyncRun = typeof syncRuns.$inferSelect;
 export type NinjaoneToken = typeof ninjaoneTokens.$inferSelect;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type User = typeof users.$inferSelect;
+export * from "./tables/tag-commissioning";

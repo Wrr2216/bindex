@@ -10,6 +10,8 @@ import {
   locations,
   companies,
   entities,
+  tagIdentifierUnits,
+  tagEpcs,
 } from "../db/schema";
 import { badRequest } from "../lib/errors";
 
@@ -42,6 +44,10 @@ const TABLES = [
   "item_images",
   "item_events",
   "item_assignments",
+  // Tag commissioning. tag_legacy_stickers is rebuilt from the identifiers by
+  // a trigger, and binding sessions are work in progress, so neither is here.
+  "tag_identifier_units",
+  "tag_epcs",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -56,6 +62,8 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   item_images: [],
   item_events: ["createdAt"],
   item_assignments: ["checkedOutAt", "checkedInAt"],
+  tag_identifier_units: ["createdAt"],
+  tag_epcs: ["encodedAt", "createdAt", "updatedAt"],
 };
 
 export type Backup = {
@@ -67,7 +75,7 @@ export type Backup = {
 };
 
 export async function buildBackup(): Promise<Backup> {
-  const [co, loc, ent, it, units, ids, imgs, evts, asg] = await Promise.all([
+  const [co, loc, ent, it, units, ids, imgs, evts, asg, tagUnits, epcs] = await Promise.all([
     db.select().from(companies),
     db.select().from(locations),
     db.select().from(entities),
@@ -77,6 +85,8 @@ export async function buildBackup(): Promise<Backup> {
     db.select().from(itemImages),
     db.select().from(itemEvents),
     db.select().from(itemAssignments),
+    db.select().from(tagIdentifierUnits),
+    db.select().from(tagEpcs),
   ]);
   const data: Backup["data"] = {
     companies: co,
@@ -88,6 +98,8 @@ export async function buildBackup(): Promise<Backup> {
     item_images: imgs,
     item_events: evts,
     item_assignments: asg,
+    tag_identifier_units: tagUnits,
+    tag_epcs: epcs,
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -209,6 +221,20 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     const present = new Set((await tx.select({ id: itemUnits.id }).from(itemUnits)).map((u) => u.id));
     d.item_assignments = d.item_assignments.filter((a) => !a.unitId || present.has(a.unitId as string));
     for (const part of chunk(d.item_assignments, 500)) await tx.insert(itemAssignments).values(part as never);
+    // Deleting items and identifiers above cascaded to these. Rows whose unit
+    // did not come back are dropped, as unit assignments are.
+    const identifierIds = new Set(d.item_identifiers.map((r) => r.id as string));
+    d.tag_identifier_units = d.tag_identifier_units.filter(
+      (r) => identifierIds.has(r.identifierId as string) && present.has(r.unitId as string),
+    );
+    for (const part of chunk(d.tag_identifier_units, 500)) {
+      await tx.insert(tagIdentifierUnits).values(part as never);
+    }
+    const itemIds = new Set(d.items.map((r) => r.id as string));
+    d.tag_epcs = d.tag_epcs.filter(
+      (r) => itemIds.has(r.itemId as string) && (!r.unitId || present.has(r.unitId as string)),
+    );
+    for (const part of chunk(d.tag_epcs, 500)) await tx.insert(tagEpcs).values(part as never);
     unitCount = present.size;
   });
 

@@ -6,7 +6,9 @@ export type IdentifierType =
   | "sku"
   | "other"
   | "rfid"
-  | "domain";
+  | "domain"
+  | "nfc"
+  | "legacy";
 
 export interface Identifier {
   id: string;
@@ -280,6 +282,7 @@ export interface Features {
   lookup: boolean;
   askSearch: boolean;
   spotCheck: boolean;
+  legacyTags: boolean;
 }
 
 /**

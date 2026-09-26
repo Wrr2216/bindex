@@ -10,7 +10,7 @@ const FIELD =
   "w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500";
 const LABEL = "block text-xs font-medium uppercase tracking-wide text-slate-400";
 
-const ID_TYPES: IdentifierType[] = ["upc", "serial", "asset_tag", "mac", "sku", "other", "rfid"];
+const ID_TYPES: IdentifierType[] = ["upc", "serial", "asset_tag", "mac", "sku", "other", "rfid", "nfc", "legacy"];
 
 function guessType(code: string): IdentifierType {
   if (/^\d{8}$|^\d{12,14}$/.test(code)) return "upc";
