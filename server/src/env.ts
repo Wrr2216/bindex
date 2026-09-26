@@ -137,6 +137,11 @@ const schema = z.object({
   PUSHOVER_TOKEN: z.string().default(""),
   PUSHOVER_USER: z.string().default(""),
   WAZUH_HOST: z.string().default(""),
+
+  // ---- T06: consumables and equipment ------------------------------------
+  // Hour of the day (server time, 0-23) after which the daily low-stock
+  // digest is sent through the notification destinations above. -1 turns it off.
+  CONSUMABLES_DIGEST_HOUR: z.coerce.number().int().min(-1).max(23).default(7),
 });
 
 const parsed = schema.safeParse(process.env);

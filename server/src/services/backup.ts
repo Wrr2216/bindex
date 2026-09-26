@@ -12,6 +12,7 @@ import {
   entities,
 } from "../db/schema";
 import { badRequest } from "../lib/errors";
+import { consumablesBackupData, restoreConsumables } from "./consumables/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -42,6 +43,11 @@ const TABLES = [
   "item_images",
   "item_events",
   "item_assignments",
+  "consumable_items",
+  "stock_levels",
+  "stock_movements",
+  "equipment_kits",
+  "equipment_kit_lines",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -56,6 +62,11 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   item_images: [],
   item_events: ["createdAt"],
   item_assignments: ["checkedOutAt", "checkedInAt"],
+  consumable_items: ["createdAt", "updatedAt"],
+  stock_levels: ["updatedAt"],
+  stock_movements: ["createdAt"],
+  equipment_kits: ["expectedReturnAt", "createdAt", "closedAt"],
+  equipment_kit_lines: ["createdAt"],
 };
 
 export type Backup = {
@@ -88,6 +99,7 @@ export async function buildBackup(): Promise<Backup> {
     item_images: imgs,
     item_events: evts,
     item_assignments: asg,
+    ...(await consumablesBackupData()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -210,6 +222,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     d.item_assignments = d.item_assignments.filter((a) => !a.unitId || present.has(a.unitId as string));
     for (const part of chunk(d.item_assignments, 500)) await tx.insert(itemAssignments).values(part as never);
     unitCount = present.size;
+    await restoreConsumables(tx, d);
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,

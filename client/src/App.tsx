@@ -16,6 +16,7 @@ import { Audit } from "./pages/Audit";
 import { BuildingAudit } from "./pages/BuildingAudit";
 import { Settings } from "./pages/Settings";
 import { PrintLabels } from "./pages/PrintLabels";
+import { SuppliesSection } from "./features/consumables";
 
 function Loading() {
   return (
@@ -59,6 +60,7 @@ function AppShell() {
           {features.holders && <Route path="entities" element={<Entities />} />}
           {features.audit && <Route path="audit" element={<Audit />} />}
           {features.audit && <Route path="audit/building" element={<BuildingAudit />} />}
+          {features.consumables && <Route path="supplies/*" element={<SuppliesSection />} />}
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

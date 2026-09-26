@@ -77,6 +77,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Type what you are looking for instead of setting filters. Needs a language model to be configured.",
   },
+  {
+    key: "consumables",
+    title: "Consumables and equipment",
+    description:
+      "Stock levels for supplies such as boxes and tape, issued to crews, trucks and branches, and equipment kits checked out and back in by scan.",
+  },
 ];
 
 export function InstanceSettings() {
