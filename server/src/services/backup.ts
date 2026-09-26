@@ -15,6 +15,7 @@ import {
 import { badRequest } from "../lib/errors";
 import { clearJobsCoreTables, exportJobsCoreTables, restoreJobsCoreTables } from "./jobs-core/backup";
 import { clearRegisterTables, registerBackupData, restoreRegisterTables } from "./register-reconcile/backup";
+import { consumablesBackupData, restoreConsumables } from "./consumables/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -60,6 +61,11 @@ const TABLES = [
   "register_location_map",
   "reconciliation_runs",
   "reconciliation_results",
+  "consumable_items",
+  "stock_levels",
+  "stock_movements",
+  "equipment_kits",
+  "equipment_kit_lines",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -89,6 +95,11 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   register_location_map: ["createdAt", "updatedAt"],
   reconciliation_runs: ["createdAt"],
   reconciliation_results: ["resolvedAt"],
+  consumable_items: ["createdAt", "updatedAt"],
+  stock_levels: ["updatedAt"],
+  stock_movements: ["createdAt"],
+  equipment_kits: ["expectedReturnAt", "createdAt", "closedAt"],
+  equipment_kit_lines: ["createdAt"],
 };
 
 export type Backup = {
@@ -126,6 +137,7 @@ export async function buildBackup(): Promise<Backup> {
     tracking_devices: devs,
     ...(await exportJobsCoreTables()),
     ...(await registerBackupData()),
+    ...(await consumablesBackupData()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -277,6 +289,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
       await tx.execute(sql`INSERT INTO tracking_devices SELECT * FROM backup_kept_devices`);
     }
     await restoreJobsCoreTables(tx, d);
+    await restoreConsumables(tx, d);
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,

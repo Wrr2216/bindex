@@ -23,6 +23,7 @@ import { trackingRouter } from "./tracking-core";
 import { mediaAiCoreRouter } from "./media-ai-core";
 import { jobsCoreRouter } from "./jobs-core";
 import { registerReconcileRouter } from "./register-reconcile";
+import { consumablesRouter } from "./consumables";
 
 export const apiRouter = Router();
 
@@ -54,6 +55,7 @@ apiRouter.use("/tracking", trackingRouter);
 apiRouter.use(mediaAiCoreRouter);
 apiRouter.use(jobsCoreRouter);
 apiRouter.use("/register-reconcile", registerReconcileRouter);
+apiRouter.use("/consumables", consumablesRouter);
 
 apiRouter.delete(
   "/identifiers/:id",

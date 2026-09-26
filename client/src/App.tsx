@@ -29,6 +29,7 @@ import {
   ShipmentDetailPage,
 } from "./features/jobs-core";
 import { RegisterReconcile } from "./features/register-reconcile/RegisterReconcile";
+import { SuppliesSection } from "./features/consumables";
 
 function Loading() {
   return (
@@ -72,6 +73,7 @@ function AppShell() {
           {features.holders && <Route path="entities" element={<Entities />} />}
           {features.audit && <Route path="audit" element={<Audit />} />}
           {features.audit && <Route path="audit/building" element={<BuildingAudit />} />}
+          {features.consumables && <Route path="supplies/*" element={<SuppliesSection />} />}
           <Route path="settings" element={<Settings />} />
           <Route path="settings/audit-log" element={<AuditLogPage />} />
           <Route path="settings/webhooks" element={<WebhooksPage />} />

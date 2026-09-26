@@ -167,6 +167,10 @@ const schema = z.object({
   STT_BASE_URL: z.string().default(""),
   STT_API_KEY: z.string().default(""),
   STT_MODEL: z.string().default("whisper-1"),
+  // ---- T06: consumables and equipment ------------------------------------
+  // Hour of the day (server time, 0-23) after which the daily low-stock
+  // digest is sent through the notification destinations above. -1 turns it off.
+  CONSUMABLES_DIGEST_HOUR: z.coerce.number().int().min(-1).max(23).default(7),
 });
 
 const parsed = schema.safeParse(process.env);

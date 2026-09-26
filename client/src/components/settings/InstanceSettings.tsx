@@ -101,6 +101,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Import a register (CSV or XLSX, including Snipe-IT and Homebox exports), reconcile it against what is on file, or import it as new records. Reached from Audit.",
   },
+  {
+    key: "consumables",
+    title: "Consumables and equipment",
+    description:
+      "Stock levels for supplies such as boxes and tape, issued to crews, trucks and branches, and equipment kits checked out and back in by scan.",
+  },
 ];
 
 export function InstanceSettings() {

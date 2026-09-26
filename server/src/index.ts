@@ -24,6 +24,7 @@ import { startAttachmentSweeper } from "./services/media-ai-core";
 import { wireJobEvents } from "./services/integration/jobEvents";
 import { HttpError, describeError } from "./lib/errors";
 import { startEventBackbone } from "./services/event-backbone";
+import { startLowStockDigest } from "./services/consumables/lowstock";
 
 const app = express();
 // One proxy hop, which is what a container behind a reverse proxy sees. Needed
@@ -141,6 +142,7 @@ async function main(): Promise<void> {
     startEventBackbone();
     startSightingsPrune();
     startAttachmentSweeper();
+    startLowStockDigest();
   });
 }
 

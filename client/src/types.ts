@@ -284,6 +284,7 @@ export interface Features {
   aiCapture: boolean;
   jobs: boolean;
   registerReconcile: boolean;
+  consumables: boolean;
 }
 
 /**

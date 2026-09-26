@@ -217,3 +217,4 @@ export * from "./tables/tracking-core";
 export * from "./tables/media-ai-core";
 export * from "./tables/jobs-core";
 export * from "./tables/register-reconcile";
+export * from "./tables/consumables";

@@ -40,6 +40,7 @@ const FALLBACK: AppConfig = {
     aiCapture: true,
     jobs: false,
     registerReconcile: true,
+    consumables: false,
   },
   label: { widthMm: 62, heightMm: 25.4 },
   integrations: {

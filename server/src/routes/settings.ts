@@ -64,6 +64,7 @@ const configPatch = z.object({
       aiCapture: z.boolean().optional(),
       jobs: z.boolean().optional(),
       registerReconcile: z.boolean().optional(),
+      consumables: z.boolean().optional(),
     })
     .optional(),
 });

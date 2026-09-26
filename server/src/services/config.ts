@@ -48,6 +48,8 @@ export type Features = {
   jobs: boolean;
   /** T05: import an asset register and reconcile it against the inventory. */
   registerReconcile: boolean;
+  /** Stock levels for supplies, and equipment kits checked out to crews. */
+  consumables: boolean;
 };
 
 export type AppConfig = {
@@ -102,6 +104,7 @@ const KEYS = {
   featureAiCapture: "features.ai_capture",
   featureJobs: "features.jobs",
   featureRegisterReconcile: "features.register_reconcile",
+  featureConsumables: "features.consumables",
 } as const;
 
 function defaults(): AppConfig {
@@ -136,6 +139,7 @@ function defaults(): AppConfig {
       aiCapture: true,
       jobs: false,
       registerReconcile: true,
+      consumables: false,
     },
   };
 }
@@ -199,6 +203,7 @@ function build(stored: Map<string, string>): AppConfig {
       aiCapture: flag(KEYS.featureAiCapture, base.features.aiCapture),
       jobs: flag(KEYS.featureJobs, base.features.jobs),
       registerReconcile: flag(KEYS.featureRegisterReconcile, base.features.registerReconcile),
+      consumables: flag(KEYS.featureConsumables, base.features.consumables),
     },
   };
 }
@@ -289,6 +294,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   aiCapture: KEYS.featureAiCapture,
   jobs: KEYS.featureJobs,
   registerReconcile: KEYS.featureRegisterReconcile,
+  consumables: KEYS.featureConsumables,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {
