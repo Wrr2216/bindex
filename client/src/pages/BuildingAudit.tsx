@@ -204,7 +204,7 @@ export function BuildingAudit() {
           value={manual}
           onChange={(e) => setManual(e.target.value)}
           placeholder="Or type/scan a code here…"
-          className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+          className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
         />
         <button className="rounded-lg bg-slate-700 px-4 text-sm text-slate-100 hover:bg-slate-600">
           Add
