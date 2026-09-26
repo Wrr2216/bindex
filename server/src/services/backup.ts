@@ -14,6 +14,7 @@ import {
 } from "../db/schema";
 import { badRequest } from "../lib/errors";
 import { clearJobsCoreTables, exportJobsCoreTables, restoreJobsCoreTables } from "./jobs-core/backup";
+import { clearCrewTables, exportCrewTables, predatesCrew, restoreCrewTables } from "./crew/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -54,6 +55,10 @@ const TABLES = [
   "shipment_status_history",
   "job_items",
   "job_item_stage_history",
+  "crew_credential_types",
+  "crew_workers",
+  "crew_credentials",
+  "crew_checkins",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -78,6 +83,10 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   shipment_status_history: ["createdAt"],
   job_items: ["stageAt", "createdAt", "updatedAt"],
   job_item_stage_history: ["createdAt"],
+  crew_credential_types: ["createdAt", "updatedAt"],
+  crew_workers: ["createdAt", "updatedAt"],
+  crew_credentials: ["verifiedAt", "createdAt", "updatedAt"],
+  crew_checkins: ["checkedInAt", "checkedOutAt", "createdAt", "updatedAt"],
 };
 
 export type Backup = {
@@ -114,6 +123,7 @@ export async function buildBackup(): Promise<Backup> {
     item_assignments: asg,
     tracking_devices: devs,
     ...(await exportJobsCoreTables()),
+    ...(await exportCrewTables()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -189,6 +199,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
 
     // Children before parents. The foreign keys would cascade anyway; doing it
     // explicitly keeps the order visible.
+    await clearCrewTables(tx, { keep: predatesCrew(d) });
     await clearJobsCoreTables(tx, { keepJobTypes: d.job_types.length === 0 });
     await tx.delete(itemAssignments);
     await tx.delete(trackingDevices);
@@ -263,6 +274,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
       await tx.execute(sql`INSERT INTO tracking_devices SELECT * FROM backup_kept_devices`);
     }
     await restoreJobsCoreTables(tx, d);
+    await restoreCrewTables(tx, d, { keep: predatesCrew(d) });
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,
