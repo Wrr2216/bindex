@@ -15,6 +15,7 @@ import {
   type TrackingDevice,
 } from "./types";
 import { zoneFor } from "./zones";
+import { publish } from "../event-backbone";
 
 /**
  * The one way sightings get into the database. Every ingest route and every
@@ -100,6 +101,24 @@ type Move = {
   tech: SightingTech;
   direction: SightingDirection | null;
 };
+
+type MovedEvent = { itemId: string; detail: Record<string, unknown> };
+
+/**
+ * Zone changes are written to item history inside the ingest transaction, in
+ * bulk, so they never pass through recordEvent. Publish them after the commit
+ * so the audit log and webhooks see reader-driven moves too. One at a time in
+ * the background: a large batch must neither hold up the reader's request nor
+ * take every pooled connection at once.
+ */
+function publishMoves(device: TrackingDevice, events: MovedEvent[]): void {
+  const actor = { kind: "device" as const, id: device.id, name: device.name };
+  void (async () => {
+    for (const e of events) {
+      await publish("item.moved", e.detail, { actor, subject: { type: "item", id: e.itemId } });
+    }
+  })();
+}
 
 const duplicates = new DuplicateFilter();
 const portals = new PortalTracker();
@@ -260,13 +279,14 @@ export async function recordSightings(
   }
 
   // 5. Write it all in one transaction.
+  const movedEvents: MovedEvent[] = [];
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     if (kept.length) {
       await insertSightings(client, device.id, now, kept);
       result.recorded = kept.length;
-      result.moved = await advancePositions(client, device, kept);
+      result.moved = await advancePositions(client, device, kept, movedEvents);
     }
     await client.query(
       `UPDATE tracking_devices
@@ -294,6 +314,7 @@ export async function recordSightings(
 
   if (result.moved) {
     logger.info("tracking.ingest.moved", { deviceId: device.id, moved: result.moved });
+    publishMoves(device, movedEvents);
   }
   return result;
 }
@@ -339,7 +360,12 @@ async function insertSightings(client: PoolClient, deviceId: string, receivedAt:
  * recorded location before that, so the first read by a zone reader only
  * counts as a move when it disagrees with what is on file.
  */
-async function advancePositions(client: PoolClient, device: TrackingDevice, rows: Prepared[]): Promise<number> {
+async function advancePositions(
+  client: PoolClient,
+  device: TrackingDevice,
+  rows: Prepared[],
+  movedEvents: MovedEvent[],
+): Promise<number> {
   const sighted = rows.filter((r): r is Prepared & { asset: Asset } => r.asset !== null);
   if (!sighted.length) return 0;
 
@@ -513,27 +539,24 @@ async function advancePositions(client: PoolClient, device: TrackingDevice, rows
     );
   }
 
+  const details = moves.map((m) => ({
+    source: "tracking",
+    tech: m.tech,
+    deviceId: device.id,
+    deviceName: device.name,
+    from: m.from,
+    to: m.to,
+    applied: m.applied,
+    ...(m.asset.unitId ? { unitId: m.asset.unitId } : {}),
+    ...(m.direction ? { direction: m.direction } : {}),
+  }));
   await client.query(
     `INSERT INTO item_events (item_id, user_oid, action, detail)
      SELECT t.item_id, NULL, 'moved', t.detail::jsonb
        FROM unnest($1::uuid[], $2::text[]) AS t(item_id, detail)`,
-    [
-      moves.map((m) => m.asset.itemId),
-      moves.map((m) =>
-        JSON.stringify({
-          source: "tracking",
-          tech: m.tech,
-          deviceId: device.id,
-          deviceName: device.name,
-          from: m.from,
-          to: m.to,
-          applied: m.applied,
-          ...(m.asset.unitId ? { unitId: m.asset.unitId } : {}),
-          ...(m.direction ? { direction: m.direction } : {}),
-        }),
-      ),
-    ],
+    [moves.map((m) => m.asset.itemId), details.map((d) => JSON.stringify(d))],
   );
+  moves.forEach((m, i) => movedEvents.push({ itemId: m.asset.itemId, detail: details[i]! }));
   return moves.length;
 }
 
