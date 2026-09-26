@@ -3,6 +3,7 @@
  * rules and the extension points; import from here, not the files behind it.
  */
 import "./model";
+import "./conditionNotes";
 
 export { MISPLACED, VIA } from "./model";
 export { buildTree, relation, within, floorOf, isFloorName, pathNames, type Tree, type Relation } from "./tree";

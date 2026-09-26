@@ -133,6 +133,15 @@ describe("placement against Postgres", { skip: url ? false : "set TEST_DATABASE_
     assert.deepEqual((await placement.lookup(job.id, chair.assetCode, { who })).handlingNotes, ["Fragile"]);
     unregister();
 
+    // Condition records supply them when that feature is on.
+    const { createReport } = await import("../src/services/ai-condition");
+    await createReport(
+      { itemId: chair.id, stage: "before", rating: "fair", handlingNote: "Handle with care to prevent further scratching" },
+      actor.userOid,
+    );
+    const noted = await placement.lookup(job.id, chair.assetCode, { who });
+    assert.deepEqual(noted.handlingNotes, ["Handle with care to prevent further scratching."]);
+
     // Placed here.
     const placedHere = await placement.placeLines(job.id, [card.line!.id], { code: chair.assetCode, who });
     assert.equal(placedHere.placed.length, 1);
