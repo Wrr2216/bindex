@@ -131,6 +131,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Condition reports with before and after comparison, handling notes, condition sweeps, and container pack lists that add a box's contents in one step. The AI drafts need a vision model to be configured.",
   },
+  {
+    key: "ble",
+    title: "Bluetooth beacons",
+    description:
+      "Bluetooth tags on equipment placed room by room from gateways, room beacons for phones, and alerts for missing tags and flat batteries. Needs Readers, beacons and trackers.",
+  },
 ];
 
 export function InstanceSettings() {

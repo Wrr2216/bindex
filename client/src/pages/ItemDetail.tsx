@@ -12,6 +12,7 @@ import { MoveAction } from "../components/MoveAction";
 import { NfcTagUrl } from "../components/NfcTagUrl";
 import { useScan } from "../scan/ScanProvider";
 import { LastSeenCard } from "../features/tracking-core/LastSeenCard";
+import { BlePresenceCard } from "../features/ble/BlePresenceCard";
 import { ItemMediaSection } from "../features/media-ai-core";
 import { ItemTagPanel } from "../features/tag-commissioning/ItemTagPanel";
 import { ItemTagChip } from "../features/tag-commissioning/badges";
@@ -411,6 +412,7 @@ export function ItemDetail() {
           )}
 
           {config.features.tracking && !isDomain && <LastSeenCard itemId={item.id} />}
+          {config.features.ble && !isDomain && <BlePresenceCard itemId={item.id} />}
 
           <AssignmentSection item={item} onChange={setItem} />
 

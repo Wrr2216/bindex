@@ -37,6 +37,7 @@ import { OfflineStatus } from "./features/offline-field/OfflineStatus";
 import { CaptureListPage } from "./features/bulk-capture/CaptureListPage";
 import { CaptureSessionPage } from "./features/bulk-capture/CaptureSessionPage";
 import { ConditionPage, SweepPage } from "./features/ai-condition";
+import { BlePage } from "./features/ble/BlePage";
 
 function Loading() {
   return (
@@ -99,6 +100,7 @@ function AppShell() {
           {features.bulkCapture && <Route path="capture/:id" element={<CaptureSessionPage />} />}
           {features.aiCondition && <Route path="condition" element={<ConditionPage />} />}
           {features.aiCondition && <Route path="condition/sweeps/:id" element={<SweepPage />} />}
+          {features.ble && <Route path="ble" element={<BlePage />} />}
         </Route>
       </Routes>
       <NfcTapLayer />
