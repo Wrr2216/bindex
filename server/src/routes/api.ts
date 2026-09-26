@@ -28,6 +28,7 @@ import { tagCommissioningRouter } from "./tag-commissioning";
 import { idempotency, offlineFieldRouter } from "./offline-field";
 import { bulkCaptureRouter } from "./bulk-capture";
 import { aiConditionRouter } from "./ai-condition";
+import { inspectionsRouter } from "./inspections";
 
 export const apiRouter = Router();
 
@@ -66,6 +67,7 @@ apiRouter.use("/tag-commissioning", tagCommissioningRouter);
 apiRouter.use("/offline", offlineFieldRouter);
 apiRouter.use("/bulk-capture", bulkCaptureRouter);
 apiRouter.use("/condition", aiConditionRouter);
+apiRouter.use("/inspections", inspectionsRouter);
 
 apiRouter.delete(
   "/identifiers/:id",

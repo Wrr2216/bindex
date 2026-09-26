@@ -69,6 +69,7 @@ const configPatch = z.object({
       offline: z.boolean().optional(),
       bulkCapture: z.boolean().optional(),
       aiCondition: z.boolean().optional(),
+      inspections: z.boolean().optional(),
     })
     .optional(),
 });

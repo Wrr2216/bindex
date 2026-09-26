@@ -24,6 +24,7 @@ import {
   parkAiConditionRows,
   restoreAiConditionRows,
 } from "./ai-condition/backup";
+import { exportInspectionTables, restoreInspectionTables } from "./inspections/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -81,6 +82,8 @@ const TABLES = [
   "condition_sweeps",
   "condition_reports",
   "container_captures",
+  "inspections",
+  "inspection_findings",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -118,6 +121,8 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   tag_identifier_units: ["createdAt"],
   tag_epcs: ["encodedAt", "createdAt", "updatedAt"],
   ...AI_CONDITION_DATE_FIELDS,
+  inspections: ["startedAt", "completedAt", "signedAt", "createdAt", "updatedAt"],
+  inspection_findings: ["createdAt", "updatedAt"],
 };
 
 export type Backup = {
@@ -161,6 +166,7 @@ export async function buildBackup(): Promise<Backup> {
     tag_identifier_units: tagUnits,
     tag_epcs: epcs,
     ...(await aiConditionBackupRows()),
+    ...(await exportInspectionTables()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -331,6 +337,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     await restoreConsumables(tx, d);
 
     await restoreAiConditionRows(tx, d);
+    await restoreInspectionTables(tx, d);
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,

@@ -26,6 +26,7 @@ import { wireJobEvents } from "./services/integration/jobEvents";
 import { HttpError, describeError } from "./lib/errors";
 import { startEventBackbone } from "./services/event-backbone";
 import { startLowStockDigest } from "./services/consumables/lowstock";
+import { inspectionShareRouter } from "./routes/inspections";
 
 const app = express();
 // One proxy hop, which is what a container behind a reverse proxy sees. Needed
@@ -74,6 +75,9 @@ app.use("/api/device", deviceRouter);
 app.use(manifestRouter);
 // The service worker is stamped with the build, so it too comes before them.
 app.use(offlineFieldPublicRouter);
+// Read-only inspection reports opened from a signed, expiring link, by people
+// without an account.
+app.use("/api/share/inspections", inspectionShareRouter);
 app.use("/api", apiRouter);
 
 // Unmatched API routes answer with JSON rather than the single-page shell.

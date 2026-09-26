@@ -131,6 +131,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Condition reports with before and after comparison, handling notes, condition sweeps, and container pack lists that add a box's contents in one step. The AI drafts need a vision model to be configured.",
   },
+  {
+    key: "inspections",
+    title: "Site inspections",
+    description:
+      "Survey a building's walls, doors, floors, docks and elevators before and after a move, compare the two, collect sign-off and share the report. Reading damage from a photo needs a vision model.",
+  },
 ];
 
 export function InstanceSettings() {

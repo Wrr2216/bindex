@@ -33,6 +33,7 @@ export function Layout() {
     ...(features.offline ? [{ to: "/offline", label: "Offline" }] : []),
     ...(bulkCapture ? [{ to: "/capture", label: "Capture" }] : []),
     ...(features.aiCondition ? [{ to: "/condition", label: "Condition" }] : []),
+    ...(features.inspections ? [{ to: "/inspections", label: "Inspections" }] : []),
     { to: "/settings", label: "Settings" },
   ];
 
