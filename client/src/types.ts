@@ -291,6 +291,7 @@ export interface Features {
   offline: boolean;
   bulkCapture: boolean;
   aiCondition: boolean;
+  placement: boolean;
 }
 
 /**

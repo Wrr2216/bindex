@@ -37,6 +37,13 @@ import { OfflineStatus } from "./features/offline-field/OfflineStatus";
 import { CaptureListPage } from "./features/bulk-capture/CaptureListPage";
 import { CaptureSessionPage } from "./features/bulk-capture/CaptureSessionPage";
 import { ConditionPage, SweepPage } from "./features/ai-condition";
+import {
+  PlacementHomePage,
+  PlacementJobPage,
+  PlacementKioskPage,
+  PlacementSweepPage,
+  PlacementWherePage,
+} from "./features/placement";
 
 function Loading() {
   return (
@@ -99,6 +106,11 @@ function AppShell() {
           {features.bulkCapture && <Route path="capture/:id" element={<CaptureSessionPage />} />}
           {features.aiCondition && <Route path="condition" element={<ConditionPage />} />}
           {features.aiCondition && <Route path="condition/sweeps/:id" element={<SweepPage />} />}
+          {features.jobs && features.placement && <Route path="placement" element={<PlacementHomePage />} />}
+          {features.jobs && features.placement && <Route path="placement/jobs/:id" element={<PlacementJobPage />} />}
+          {features.jobs && features.placement && <Route path="placement/jobs/:id/where" element={<PlacementWherePage />} />}
+          {features.jobs && features.placement && <Route path="placement/jobs/:id/sweep" element={<PlacementSweepPage />} />}
+          {features.jobs && features.placement && <Route path="placement/jobs/:id/kiosk" element={<PlacementKioskPage />} />}
         </Route>
       </Routes>
       <NfcTapLayer />

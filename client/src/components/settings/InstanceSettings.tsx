@@ -131,6 +131,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Condition reports with before and after comparison, handling notes, condition sweeps, and container pack lists that add a box's contents in one step. The AI drafts need a vision model to be configured.",
   },
+  {
+    key: "placement",
+    title: "Placement guidance",
+    description:
+      "Tell delivery crews which room each thing goes to, confirm placement by scan, room sweep or room reader, and flag anything in the wrong room or off the wrong truck. Needs projects, jobs and shipments.",
+  },
 ];
 
 export function InstanceSettings() {
