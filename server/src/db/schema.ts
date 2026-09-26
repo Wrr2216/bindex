@@ -216,3 +216,4 @@ export * from "./tables/event-backbone";
 export * from "./tables/tracking-core";
 export * from "./tables/media-ai-core";
 export * from "./tables/jobs-core";
+export * from "./tables/portal";

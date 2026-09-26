@@ -63,6 +63,7 @@ const configPatch = z.object({
       tracking: z.boolean().optional(),
       aiCapture: z.boolean().optional(),
       jobs: z.boolean().optional(),
+      portal: z.boolean().optional(),
     })
     .optional(),
 });
