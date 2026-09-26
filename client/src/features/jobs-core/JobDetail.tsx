@@ -238,7 +238,8 @@ export function JobForm({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    jobsApi.listJobTypes().then(setTypes).catch(() => undefined);
+    // Inactive types too, so editing a job of a retired type does not drop it.
+    jobsApi.listJobTypes(true).then(setTypes).catch(() => undefined);
     jobsApi.listProjects().then(setProjects).catch(() => undefined);
   }, []);
   useEffect(() => {
@@ -288,7 +289,7 @@ export function JobForm({
       />
       <select value={jobTypeId} onChange={(e) => setJobTypeId(e.target.value)} aria-label="Job type" className={SELECT}>
         <option value="">No job type</option>
-        {types.map((t) => (
+        {types.filter((t) => t.active || t.id === job?.jobTypeId).map((t) => (
           <option key={t.id} value={t.id}>
             {t.name}
           </option>

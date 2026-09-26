@@ -100,7 +100,8 @@ optional assignee (a holder entity or a user id) and who completed them when.
 Four kinds follow the manifest: `pack` (packed), `load` (loaded), `unload`
 (delivered), `place` (placed). When the first line reaches the stage the task
 moves to doing; when every line has, it is done. They only ever move forward,
-and a skipped task is left alone.
+and a skipped task is left alone. A job's tasks are copied from its type when
+the job is created; changing the type later leaves them as they are.
 
 ### Floor and department
 

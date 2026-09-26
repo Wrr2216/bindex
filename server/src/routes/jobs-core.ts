@@ -1,7 +1,8 @@
-import { Router, type Request, type Response } from "express";
+import { Router, type ErrorRequestHandler, type Request, type Response } from "express";
 import { z } from "zod";
 import { asyncHandler, param, parse } from "../lib/http";
-import { HttpError } from "../lib/errors";
+import { HttpError, badRequest, notFound } from "../lib/errors";
+import { missingReference } from "../services/jobs-core/shared";
 import { currentUser, requireAdmin } from "../auth/middleware";
 import { getConfig } from "../services/config";
 import * as jobsCore from "../services/jobs-core";
@@ -32,6 +33,12 @@ const optionalUuid = uuid.nullish();
 const dateOnly = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date such as 2026-10-01")
+  // JavaScript rolls 2026-02-30 over into March; Postgres rejects it, so check
+  // the date survives a round trip.
+  .refine((s) => {
+    const d = new Date(`${s}T00:00:00Z`);
+    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+  }, "That date does not exist")
   .nullish();
 const timestamp = z
   .string()
@@ -53,6 +60,23 @@ const q = (req: Request, name: string): string | undefined => {
 /** The viewer's time zone for printed timestamps, as the print routes take it. */
 const tz = (req: Request) => q(req, "tz") ?? "UTC";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** An id filter from the query string; `allowNone` also accepts "none" (no shipment). */
+function qId(req: Request, name: string, allowNone = false): string | undefined {
+  const v = q(req, name);
+  if (v === undefined || UUID.test(v) || (allowNone && v === "none")) return v;
+  throw badRequest(`${name} must be an id${allowNone ? ' or "none"' : ""}.`);
+}
+
+/** A malformed id is a record that does not exist, not a database error. */
+function uuidParams(router: Router, ...names: string[]) {
+  for (const name of names) {
+    router.param(name, (_req, _res, next, value: string) => next(UUID.test(value) ? undefined : notFound("Not found")));
+  }
+  return router;
+}
+
 function sendFile(res: Response, body: Buffer, type: string, filename: string, inline: boolean) {
   res.setHeader("Content-Type", type);
   res.setHeader("Content-Disposition", `${inline ? "inline" : "attachment"}; filename="${filename}"`);
@@ -73,7 +97,7 @@ const jobTypeSchema = z.object({
   active: z.boolean().optional(),
 });
 
-const jobTypesRouter = Router();
+const jobTypesRouter = uuidParams(Router(), "id");
 
 jobTypesRouter.get(
   "/",
@@ -129,7 +153,7 @@ const phaseSchema = z.object({
   notes: text(5000),
 });
 
-const projectsRouter = Router();
+const projectsRouter = uuidParams(Router(), "id", "phaseId");
 
 projectsRouter.get(
   "/",
@@ -255,7 +279,7 @@ const lineStageSchema = stageOptions.extend(idsSchema.shape);
 
 const lineFilters = (req: Request): jobsCore.LineFilters => ({
   stage: q(req, "stage"),
-  shipmentId: q(req, "shipmentId"),
+  shipmentId: qId(req, "shipmentId", true),
   floor: q(req, "floor"),
   department: q(req, "department"),
   q: q(req, "q"),
@@ -266,7 +290,7 @@ const lineFilters = (req: Request): jobsCore.LineFilters => ({
 const groupBy = z.enum(["floor", "department", "shipment", "origin", "none"]);
 const documentFilters = (req: Request): jobsCore.DocumentFilters => ({
   groupBy: parse(groupBy, q(req, "groupBy") ?? "floor"),
-  shipmentId: q(req, "shipmentId"),
+  shipmentId: qId(req, "shipmentId", true),
   floor: q(req, "floor"),
   department: q(req, "department"),
   stage: q(req, "stage"),
@@ -275,7 +299,7 @@ const documentFilters = (req: Request): jobsCore.DocumentFilters => ({
 /** API-key callers record as "api" unless they say otherwise; people default to "manual". */
 const viaFor = (req: Request, via: string | undefined) => via ?? (req.apiKeyUser ? "api" : "manual");
 
-const jobsRouter = Router();
+const jobsRouter = uuidParams(Router(), "id", "taskId", "itemId");
 
 jobsRouter.get(
   "/",
@@ -283,9 +307,9 @@ jobsRouter.get(
     const status = q(req, "status");
     res.json(
       await jobsCore.listJobs({
-        projectId: q(req, "projectId"),
-        phaseId: q(req, "phaseId"),
-        jobTypeId: q(req, "jobTypeId"),
+        projectId: qId(req, "projectId"),
+        phaseId: qId(req, "phaseId"),
+        jobTypeId: qId(req, "jobTypeId"),
         status: status ? parse(jobStatus, status) : undefined,
         q: q(req, "q"),
       }),
@@ -506,7 +530,7 @@ const statusSchema = z.object({
   reason: text(1000),
 });
 
-const shipmentsRouter = Router();
+const shipmentsRouter = uuidParams(Router(), "id");
 
 shipmentsRouter.get(
   "/",
@@ -514,7 +538,7 @@ shipmentsRouter.get(
     const status = q(req, "status");
     res.json(
       await jobsCore.listShipments({
-        jobId: q(req, "jobId"),
+        jobId: qId(req, "jobId"),
         status: status ? parse(shipmentStatus, status) : undefined,
       }),
     );
@@ -581,3 +605,11 @@ jobsCoreRouter.use("/job-types", jobTypesRouter);
 jobsCoreRouter.use("/projects", projectsRouter);
 jobsCoreRouter.use("/jobs", jobsRouter);
 jobsCoreRouter.use("/shipments", shipmentsRouter);
+
+// An id for a location, holder, group or job type that does not exist gets
+// to the database as a foreign key; answer with what to fix, not a 500.
+const referenceErrors: ErrorRequestHandler = (err, _req, _res, next) => {
+  const missing = missingReference(err);
+  next(missing ? badRequest(`${missing} not found. Pick one that exists.`) : err);
+};
+jobsCoreRouter.use(["/projects", "/jobs", "/shipments", "/job-types"], referenceErrors);

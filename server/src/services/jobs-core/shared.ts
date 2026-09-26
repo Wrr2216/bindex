@@ -64,6 +64,24 @@ export async function loadShipmentOnJob(jobId: string, shipmentId: string, ex: E
   return shipment;
 }
 
+/**
+ * The column a foreign key violation names ("Origin location"), or null when
+ * `err` is not one. Drizzle wraps the driver error, so the cause chain is
+ * walked for it.
+ */
+export function missingReference(err: unknown): string | null {
+  for (let cur: unknown = err, depth = 0; cur != null && depth < 10; depth++) {
+    const e = cur as { code?: unknown; detail?: unknown; cause?: unknown };
+    if (e.code === "23503") {
+      const column = /Key \(([a-z_]+)\)/.exec(String(e.detail ?? ""))?.[1] ?? "linked record";
+      const words = column.replace(/_id$/, "").replace(/_/g, " ");
+      return words.charAt(0).toUpperCase() + words.slice(1);
+    }
+    cur = e.cause;
+  }
+  return null;
+}
+
 /** YYYY-MM-DD ordering check for a start/end pair. */
 export function assertDateOrder(start: string | Date | null | undefined, end: string | Date | null | undefined, what: string) {
   if (!start || !end) return;

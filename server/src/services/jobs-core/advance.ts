@@ -145,6 +145,7 @@ type Applied = {
   taskEvents: TaskEvent[];
   job: Job;
   startedJob: Job | null;
+  ctx: ChangeContext;
 };
 
 /**
@@ -282,7 +283,7 @@ async function apply(
       }
       if (isProgressStage(stage)) taskEvents = await syncStageTasks(tx, jobId, stage, actor);
     }
-    return { plan, from, vetoes, changes, taskEvents, job, startedJob };
+    return { plan, from, vetoes, changes, taskEvents, job, startedJob, ctx };
   });
 }
 
@@ -370,16 +371,7 @@ async function finish(jobId: string, stage: string, opts: AdvanceOptions, applie
     unknown: plan.unknown.length,
     blocked: plan.blocked.length,
   });
-  const ctx = {
-    jobId,
-    via: opts.via,
-    deviceId: opts.deviceId ?? null,
-    userOid: opts.userOid ?? null,
-    actor: opts.actor?.trim() || opts.userOid || null,
-    note: opts.note?.trim() || null,
-    at: new Date(),
-  };
-  await emitStageChanged(applied.changes, ctx);
+  await emitStageChanged(applied.changes, { ...applied.ctx, jobId });
   for (const e of applied.taskEvents) await emitTaskStatus(e);
   if (applied.startedJob) {
     await emitJobChanged({ job: applied.startedJob, previous: applied.job, userOid: opts.userOid ?? null });

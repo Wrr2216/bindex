@@ -127,8 +127,9 @@ const manifestOrder = [
 ];
 
 export async function listJobItems(jobId: string, filters: LineFilters = {}) {
-  const limit = Math.min(Math.max(filters.limit ?? 5000, 1), 10000);
-  const offset = Math.max(filters.offset ?? 0, 0);
+  const finite = (n: number | undefined, fallback: number) => (n !== undefined && Number.isFinite(n) ? n : fallback);
+  const limit = Math.min(Math.max(Math.floor(finite(filters.limit, 5000)), 1), 10000);
+  const offset = Math.max(Math.floor(finite(filters.offset, 0)), 0);
   const where = filterWhere(jobId, filters);
   const [lines, [{ total } = { total: 0 }]] = await Promise.all([
     selectLines(where).orderBy(...manifestOrder).limit(limit).offset(offset),
@@ -181,15 +182,39 @@ async function insertLines(ex: Executor, rows: NewLine[]): Promise<JobItem[]> {
   return added;
 }
 
-async function existingKeys(ex: Executor, jobId: string, itemIds: string[]): Promise<Map<string, JobItem>> {
-  const out = new Map<string, JobItem>();
+type Existing = {
+  /** By item and unit. */
+  lines: Map<string, JobItem>;
+  /** Unit lines by item, for an item code that stands for all of its units. */
+  unitLines: Map<string, JobItem[]>;
+};
+
+async function existingLines(ex: Executor, jobId: string, itemIds: string[]): Promise<Existing> {
+  const out: Existing = { lines: new Map(), unitLines: new Map() };
   if (!itemIds.length) return out;
   const rows = await ex
     .select()
     .from(jobItems)
     .where(and(eq(jobItems.jobId, jobId), inArray(jobItems.itemId, [...new Set(itemIds)])));
-  for (const r of rows) out.set(lineKey(r.itemId, r.unitId), r);
+  for (const r of rows) {
+    out.lines.set(lineKey(r.itemId, r.unitId), r);
+    if (r.unitId) out.unitLines.set(r.itemId, [...(out.unitLines.get(r.itemId) ?? []), r]);
+  }
   return out;
+}
+
+/**
+ * The lines a reference already has on the job: its own line, the whole
+ * item's line for a unit, or every unit line for a whole item.
+ */
+function linesFor(ref: ScanRef, existing: Existing): JobItem[] {
+  const own = existing.lines.get(lineKey(ref.itemId, ref.unitId));
+  if (own) return [own];
+  if (ref.unitId) {
+    const whole = existing.lines.get(lineKey(ref.itemId, null));
+    return whole ? [whole] : [];
+  }
+  return existing.unitLines.get(ref.itemId) ?? [];
 }
 
 /** Where each item and unit is now, to snapshot as the line's origin. */
@@ -275,13 +300,14 @@ export async function addItemsByCodes(
 
   const refs = [...wanted.values()].map((w) => w.ref);
   const [existing, origins] = await Promise.all([
-    existingKeys(db, jobId, refs.map((r) => r.itemId)),
+    existingLines(db, jobId, refs.map((r) => r.itemId)),
     currentLocations(refs),
   ]);
   const rows: NewLine[] = [];
   for (const [key, { code, ref }] of wanted) {
-    // The whole item on the job already covers each of its units.
-    if (existing.has(key) || (ref.unitId && existing.has(lineKey(ref.itemId, null)))) {
+    // The whole item on the job covers each of its units, and its units on
+    // the job cover the whole item.
+    if (linesFor(ref, existing).length) {
       result.alreadyOnJob.push(code);
       continue;
     }
@@ -513,24 +539,28 @@ export async function importManifestCsv(
   const origins = await currentLocations([...refs.values()]);
 
   await db.transaction(async (tx) => {
-    const existing = await existingKeys(tx, jobId, [...refs.values()].map((r) => r.itemId));
+    const existing = await existingLines(tx, jobId, [...refs.values()].map((r) => r.itemId));
     const now = new Date();
     for (const row of codeRows) {
       const ref = refs.get(row.line);
       if (!ref) continue;
       const key = lineKey(ref.itemId, ref.unitId);
-      const set = rowFields(row);
-      // A unit listed on a plan whose job holds the whole item updates that line.
-      const line = existing.get(key) ?? (ref.unitId ? existing.get(lineKey(ref.itemId, null)) : undefined);
-      if (line) {
-        if (Object.keys(set).length) {
-          await tx.update(jobItems).set({ ...set, updatedAt: now }).where(eq(jobItems.id, line.id));
-          result.updated += 1;
-        }
+      // A unit on a plan whose job holds the whole item updates that line; an
+      // item on a plan whose job holds its units updates each of them.
+      const lines = linesFor(ref, existing);
+      if (lines.length === 0 && !addMissing) {
+        result.notOnJob.push({ line: row.line, code: row.code! });
         continue;
       }
-      if (!addMissing) {
-        result.notOnJob.push({ line: row.line, code: row.code! });
+      const set = rowFields(row);
+      if (lines.length) {
+        if (Object.keys(set).length) {
+          await tx
+            .update(jobItems)
+            .set({ ...set, updatedAt: now })
+            .where(inArray(jobItems.id, lines.map((l) => l.id)));
+          result.updated += lines.length;
+        }
         continue;
       }
       const [added] = await insertLines(tx, [
@@ -545,7 +575,7 @@ export async function importManifestCsv(
         },
       ]);
       if (added) {
-        existing.set(key, added);
+        existing.lines.set(key, added);
         result.added += 1;
       }
     }

@@ -459,6 +459,19 @@ describe("codes", () => {
   });
 });
 
+describe("missing references", () => {
+  it("names the column a foreign key violation is about, through Drizzle's wrapper", async () => {
+    const { missingReference } = await import("../src/services/jobs-core/shared");
+    const driver = {
+      code: "23503",
+      detail: 'Key (origin_location_id)=(3f2a1b4c-5d6e-4f80-9a1b-2c3d4e5f6071) is not present in table "locations".',
+    };
+    assert.equal(missingReference(new Error("Failed query", { cause: driver })), "Origin location");
+    assert.equal(missingReference({ code: "23505" }), null);
+    assert.equal(missingReference(new Error("nope")), null);
+  });
+});
+
 describe("documents", () => {
   const checks = { packed: true, loaded: false, delivered: false, placed: false };
 
