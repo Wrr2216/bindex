@@ -36,6 +36,8 @@ export const requireApiAuth: RequestHandler = (req, res, next) => {
  * these actions are deliberately browser-only.
  */
 export const requireAdmin: RequestHandler = (req, _res, next) => {
+  // The key is authoritative when present, even alongside an admin's cookie.
+  if (req.apiKeyUser) return next(forbidden("This action requires an administrator."));
   const user = req.session.user;
   if (!user) return next(forbidden("This action requires an administrator."));
   if (user.role !== "admin") return next(forbidden("This action requires an administrator."));
