@@ -9,8 +9,11 @@ import type { PortalSide, SightingDirection } from "./types";
  * outside and last inside is "in"; the reverse is "out"; the same side on both
  * ends (a tag that approached and turned back, or one parked next to the door)
  * has no direction. A pass is a run of reads where no two consecutive reads are
- * further apart than the window. When several antennas see a tag at the same
- * instant, the strongest read decides the side.
+ * further apart than the window. A pass that runs longer than MAX_PASS_MS
+ * (a pallet parked in the doorway) is re-anchored at the tag's latest read, so
+ * the side it arrived from an hour ago no longer counts as where it started
+ * and carrying it out still reads as "out". When several antennas see a tag at
+ * the same instant, the strongest read decides the side.
  *
  * inferDirection is the reference over a complete list of reads. PortalTracker
  * computes the same thing incrementally, as reads arrive in batches over HTTP,
@@ -29,6 +32,9 @@ export type AntennaSides = Record<string, PortalSide>;
 
 /** How far apart two reads of a tag can be and still belong to one pass. */
 export const DEFAULT_PORTAL_WINDOW_MS = 3_000;
+
+/** How long a pass can run before its start moves up to the latest read. */
+export const MAX_PASS_MS = 60_000;
 
 export function sideOf(antenna: number | null | undefined, sides: AntennaSides): PortalSide | null {
   if (antenna === null || antenna === undefined) return null;
@@ -66,23 +72,38 @@ export function splitPasses(
   for (const r of sided) {
     const current = passes[passes.length - 1];
     const prev = current?.[current.length - 1];
-    if (current && prev && r.at - prev.at <= windowMs) current.push(r);
-    else passes.push([r]);
+    if (!current || !prev || r.at - prev.at > windowMs) {
+      passes.push([r]);
+    } else if (r.at - current[0]!.at > MAX_PASS_MS) {
+      // Too long: carry on from where the tag was last seen.
+      passes.push([lastOf(current), r]);
+    } else {
+      current.push(r);
+    }
   }
   return passes.map((pass) => ({ reads: pass, direction: passDirection(pass) }));
 }
 
+// The strongest read at each end of a pass. Among equals, the earliest input
+// wins at the start and the latest at the end, which is what the incremental
+// tracker does.
+function firstOf(pass: Sided[]): Sided {
+  const at = pass[0]!.at;
+  let first = pass[0]!;
+  for (const r of pass) if (r.at === at && strength(r) > strength(first)) first = r;
+  return first;
+}
+
+function lastOf(pass: Sided[]): Sided {
+  const at = pass[pass.length - 1]!.at;
+  let last = pass[pass.length - 1]!;
+  for (const r of pass) if (r.at === at && strength(r) >= strength(last)) last = r;
+  return last;
+}
+
 function passDirection(pass: Sided[]): SightingDirection | null {
   if (!pass.length) return null;
-  const firstAt = pass[0]!.at;
-  const lastAt = pass[pass.length - 1]!.at;
-  // Strongest at each end. Among equals, the earliest input wins at the start
-  // and the latest at the end, which is what the incremental tracker does.
-  let first = pass[0]!;
-  for (const r of pass) if (r.at === firstAt && strength(r) > strength(first)) first = r;
-  let last = pass[pass.length - 1]!;
-  for (const r of pass) if (r.at === lastAt && strength(r) >= strength(last)) last = r;
-  return directionBetween(first.side, last.side);
+  return directionBetween(firstOf(pass).side, lastOf(pass).side);
 }
 
 /**
@@ -141,6 +162,11 @@ export class PortalTracker {
     if (!pass || read.at - pass.lastAt > windowMs) {
       pass = { firstAt: read.at, firstSide: side, firstRssi: rssi, lastAt: read.at, lastSide: side, lastRssi: rssi };
     } else {
+      if (read.at - pass.firstAt > MAX_PASS_MS) {
+        pass.firstAt = pass.lastAt;
+        pass.firstSide = pass.lastSide;
+        pass.firstRssi = pass.lastRssi;
+      }
       if (read.at > pass.lastAt || (read.at === pass.lastAt && rssi >= pass.lastRssi)) {
         pass.lastAt = read.at;
         pass.lastSide = side;

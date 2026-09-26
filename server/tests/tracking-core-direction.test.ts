@@ -80,6 +80,17 @@ describe("inferDirection", () => {
     assert.equal(inferDirection(seq([9, 9]), DOCK), null);
   });
 
+  it("starts a fresh pass for a pallet parked in the doorway, so carrying it out still counts", () => {
+    // Carried in, then read every second from the inside for two minutes.
+    const parked = [...seq([1, 3]), ...Array.from({ length: 120 }, (_, i) => ({ antenna: 4, at: 1_000 + i * 1_000 }))];
+    const out = [...parked, { antenna: 2, at: 121_500 }, { antenna: 1, at: 122_000 }];
+    assert.equal(inferDirection(out, DOCK), "out");
+    const t = new PortalTracker();
+    let last = null;
+    for (const r of out) last = t.observe("pallet", r, DOCK);
+    assert.equal(last, "out");
+  });
+
   it("ends a pass when a read from an unmapped antenna comes after the window", () => {
     assert.equal(inferDirection([...seq([1, 3]), { antenna: 9, at: 2_000 }], DOCK, 3_000), "in");
     assert.equal(inferDirection([...seq([1, 3]), { antenna: 9, at: 10_000 }], DOCK, 3_000), null);
@@ -143,19 +154,19 @@ describe("PortalTracker", () => {
     assert.equal(t.observe("z", { antenna: 9, at: 200 }, DOCK), null);
   });
 
-  it("agrees with inferDirection on every prefix of random read sequences", () => {
-    // A small deterministic generator so a failure reproduces.
-    let s = 42;
+  // A small deterministic generator so a failure reproduces.
+  const agreeOnRandomSequences = (seed: number, maxReads: number, maxStepMs: number) => {
+    let s = seed;
     const rand = () => ((s = (s * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
     for (let run = 0; run < 300; run++) {
       const t = new PortalTracker();
       const reads: PortalRead[] = [];
       let at = 0;
-      const n = 1 + Math.floor(rand() * 25);
+      const n = 1 + Math.floor(rand() * maxReads);
       for (let i = 0; i < n; i++) {
         // Some reads share a timestamp, some come after a long gap.
         const r = rand();
-        at += r < 0.2 ? 0 : r < 0.9 ? Math.floor(rand() * 800) : 4_000;
+        at += r < 0.2 ? 0 : r < 0.9 ? Math.floor(rand() * maxStepMs) : 4_000;
         const read: PortalRead = {
           antenna: 1 + Math.floor(rand() * 5),
           at,
@@ -163,9 +174,17 @@ describe("PortalTracker", () => {
         };
         reads.push(read);
         const incremental = t.observe("tag", read, DOCK, 3_000);
-        assert.equal(incremental, inferDirection(reads, DOCK, 3_000), `run ${run}, read ${i}`);
+        assert.equal(incremental, inferDirection(reads, DOCK, 3_000), `seed ${seed}, run ${run}, read ${i}`);
       }
     }
+  };
+
+  it("agrees with inferDirection on every prefix of random read sequences", () => {
+    agreeOnRandomSequences(42, 25, 800);
+  });
+
+  it("agrees with inferDirection on long passes that get re-anchored", () => {
+    agreeOnRandomSequences(7, 120, 2_900);
   });
 
   it("forgets passes that have ended and stays within its size bound", () => {

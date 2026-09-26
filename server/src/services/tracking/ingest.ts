@@ -106,6 +106,14 @@ const portals = new PortalTracker();
 
 const assetKey = (a: Asset) => `${a.itemId}/${a.unitId ?? ""}`;
 const num = (v: number | null | undefined) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+// Antenna ports are small integers; anything else would fail the integer column.
+const port = (v: number | null | undefined) => {
+  const n = num(v);
+  return n === null || n < 0 || n > 65_535 ? null : Math.trunc(n);
+};
+
+/** Longest code stored. EPCs top out at 124 hex digits. */
+const MAX_CODE_LENGTH = 256;
 
 /**
  * Store a batch of reads from one device.
@@ -153,6 +161,11 @@ export async function recordSightings(
     const lat = num(r.lat);
     const lng = num(r.lng);
     const hasPoint = lat !== null && lng !== null;
+    // No tag, beacon or tracker id comes close to this; anything longer is noise.
+    if (code && code.length > MAX_CODE_LENGTH) {
+      result.ignored += 1;
+      continue;
+    }
     if (!code && !hasPoint && !r.asset) {
       result.ignored += 1;
       continue;
@@ -171,7 +184,7 @@ export async function recordSightings(
       observedAt,
       tech: r.tech ?? DEFAULT_TECH[device.kind] ?? "rfid",
       rssi,
-      antenna: num(r.antenna),
+      antenna: port(r.antenna),
       direction: r.direction ?? null,
       lat: hasPoint ? lat : null,
       lng: hasPoint ? lng : null,
