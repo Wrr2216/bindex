@@ -157,9 +157,9 @@ settings, so its other settings are untouched.
 not need one: sightings have an increasing id, so the worker keeps a cursor
 (`placement_cursors`) and reads what arrived since its last run. The first
 run after the feature is switched on starts from the newest sighting, not
-from history. Each run waits for sightings to be two seconds old, so a batch
-whose transaction commits late is not skipped; if one still is, the tag is
-read again within the reader's duplicate window. With several replicas, one
+from history. Each run stops at the first sighting less than two seconds old,
+so a batch whose transaction commits late is not skipped; if one still is,
+the tag is read again within the reader's duplicate window. With several replicas, one
 takes a Postgres advisory lock per run and the others skip it.
 
 ### Bluetooth room presence
