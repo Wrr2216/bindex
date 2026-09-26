@@ -19,6 +19,7 @@ import { env } from "../env";
 import { logger } from "../lib/logger";
 import { lookupItemFields } from "./enrichment";
 import { savePhotoFromUrl } from "./photos";
+import { publishItemEvent } from "./event-backbone/bus";
 
 export type IdentifierInput = { type: IdentifierType; value: string };
 export type CreateItemInput = {
@@ -48,6 +49,7 @@ export async function recordEvent(
   detail: Record<string, unknown> = {},
 ): Promise<void> {
   await db.insert(itemEvents).values({ itemId, userOid, action, detail });
+  await publishItemEvent(itemId, userOid, action, detail);
 }
 
 async function assemble(itemId: string) {

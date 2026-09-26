@@ -137,6 +137,16 @@ const schema = z.object({
   PUSHOVER_TOKEN: z.string().default(""),
   PUSHOVER_USER: z.string().default(""),
   WAZUH_HOST: z.string().default(""),
+
+  // ---- T04: audit log and webhooks ----------------------------------------
+  // Let webhooks reach private, loopback and link-local addresses, for a
+  // warehouse system on the local network. Off by default so an endpoint
+  // cannot be used to probe the network the server sits on.
+  WEBHOOK_ALLOW_PRIVATE: bool(false),
+  // Signs the daily audit-log checkpoints. Defaults to a key derived from
+  // SESSION_SECRET; set it so that rotating the session secret does not leave
+  // existing checkpoints unverifiable.
+  AUDIT_SIGNING_KEY: z.string().default(""),
 });
 
 const parsed = schema.safeParse(process.env);
