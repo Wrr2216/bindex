@@ -175,6 +175,11 @@ const schema = z.object({
   // Most items one "Make available offline" may copy to a device. Guards a
   // phone against a whole large instance; pick a location to go smaller.
   OFFLINE_SNAPSHOT_MAX_ITEMS: z.coerce.number().int().positive().default(10000),
+  // ---- T11: placement guidance ------------------------------------------------
+  // How often reads from room readers are checked against where each line is
+  // going, in seconds. 0 stops readers from placing anything; sweeps and the
+  // placement card keep working.
+  PLACEMENT_READER_POLL_SECONDS: z.coerce.number().nonnegative().default(2),
 });
 
 const parsed = schema.safeParse(process.env);
