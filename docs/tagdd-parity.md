@@ -169,6 +169,10 @@ COLLISION RULES (other branches edit the same shared files)
     server/src/env.ts and .env.example (new variables, in a block commented with <ID>)
     server/src/services/config.ts (your one feature switch: Features type, KEYS,
       defaults, build, FEATURE_KEYS)
+    server/src/routes/settings.ts (one line in the features zod object, e.g.
+      `myFeature: z.boolean().optional()`; without it the switch cannot be saved)
+    client/src/pages/Settings.tsx (one import and one component line after the
+      last section, only for admin-only configuration screens)
     client/src/types.ts (Features type only), client/src/config/useConfig.tsx
       (FALLBACK.features), client/src/components/settings/InstanceSettings.tsx
       (FEATURE_LABELS)
@@ -196,10 +200,14 @@ VERIFY BEFORE YOU PUSH
       SESSION_SECRET=dev-secret-0123456789 pnpm migrate
   Then apply your migration file a second time with psql to prove it is
   idempotent.
+- Tests that need Postgres read TEST_DATABASE_URL and skip with a reason when
+  it is unset, so CI (which has no database) stays green.
 - Smoke-test the real server: build, then run it with PORT=<port>
   AUTH_MODE=trusted and the same DATABASE_URL, and exercise every endpoint you
   added with curl (and a device token where relevant). Never use ports 3000 or
-  5173. Stop your server when done.
+  5173. Stop your server when done. Express sendFile refuses paths containing a
+  dot directory and worktrees live under .claude/, so copy client/dist outside
+  the worktree and set CLIENT_DIST to that copy; this is not a code bug.
 - If you change the client, run the Vite build and, where practical, load your
   screens with Playwright/Chromium (preinstalled; do not run playwright install)
   against your running server to confirm they render without console errors.
