@@ -212,3 +212,4 @@ export type SyncRun = typeof syncRuns.$inferSelect;
 export type NinjaoneToken = typeof ninjaoneTokens.$inferSelect;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type User = typeof users.$inferSelect;
+export * from "./tables/register-reconcile";
