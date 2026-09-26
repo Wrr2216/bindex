@@ -13,6 +13,14 @@ import {
   trackingDevices,
 } from "../db/schema";
 import { badRequest } from "../lib/errors";
+import {
+  VALUATION_DATE_FIELDS,
+  VALUATION_TABLES,
+  afterValuationRestore,
+  beforeValuationRestore,
+  valuationBackupData,
+  valuationTablesPresent,
+} from "./valuation/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -44,6 +52,7 @@ const TABLES = [
   "item_events",
   "item_assignments",
   "tracking_devices",
+  ...VALUATION_TABLES,
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -59,6 +68,7 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   item_events: ["createdAt"],
   item_assignments: ["checkedOutAt", "checkedInAt"],
   tracking_devices: ["lastSeenAt", "createdAt", "updatedAt"],
+  ...VALUATION_DATE_FIELDS,
 };
 
 export type Backup = {
@@ -94,6 +104,7 @@ export async function buildBackup(): Promise<Backup> {
     item_events: evts,
     item_assignments: asg,
     tracking_devices: devs,
+    ...(await valuationBackupData()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -137,6 +148,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
  * rather than half-restored.
  */
 export async function restoreBackup(input: unknown): Promise<{ restored: Record<TableName, number> }> {
+  const valuationPresent = valuationTablesPresent(input);
   const backup = parseBackup(input);
   const d = backup.data;
 
@@ -166,6 +178,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     // Device tokens are not in the file, so keep the current devices aside to
     // carry their tokens over (and the devices themselves, for an older file).
     await tx.execute(sql`CREATE TEMP TABLE backup_kept_devices ON COMMIT DROP AS SELECT * FROM tracking_devices`);
+    await beforeValuationRestore(tx, valuationPresent);
 
     // Children before parents. The foreign keys would cascade anyway; doing it
     // explicitly keeps the order visible.
@@ -241,6 +254,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
         WHERE unit_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM item_units u WHERE u.id = k.unit_id)`);
       await tx.execute(sql`INSERT INTO tracking_devices SELECT * FROM backup_kept_devices`);
     }
+    await afterValuationRestore(tx, d, valuationPresent);
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,
