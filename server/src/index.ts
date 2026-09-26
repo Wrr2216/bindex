@@ -26,6 +26,7 @@ import { wireJobEvents } from "./services/integration/jobEvents";
 import { HttpError, describeError } from "./lib/errors";
 import { startEventBackbone } from "./services/event-backbone";
 import { startLowStockDigest } from "./services/consumables/lowstock";
+import { startOpsIntel } from "./services/ops-intel";
 
 const app = express();
 // One proxy hop, which is what a container behind a reverse proxy sees. Needed
@@ -146,6 +147,7 @@ async function main(): Promise<void> {
     startSightingsPrune();
     startAttachmentSweeper();
     startLowStockDigest();
+    startOpsIntel();
   });
 }
 

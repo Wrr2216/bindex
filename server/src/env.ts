@@ -175,6 +175,10 @@ const schema = z.object({
   // Most items one "Make available offline" may copy to a device. Guards a
   // phone against a whole large instance; pick a location to go smaller.
   OFFLINE_SNAPSHOT_MAX_ITEMS: z.coerce.number().int().positive().default(10000),
+  // ---- T22: operations insights ------------------------------------------
+  // Minutes between scheduled runs of the anomaly rules while the feature is
+  // on. 0 stops the schedule; runs can still be started from the Insights page.
+  OPS_INTEL_INTERVAL_MIN: z.coerce.number().int().nonnegative().default(15),
 });
 
 const parsed = schema.safeParse(process.env);
