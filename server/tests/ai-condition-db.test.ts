@@ -253,6 +253,12 @@ describe("ai-condition with Postgres", { skip: baseUrl ? false : "set TEST_DATAB
     assert.deepEqual(rows[0]!.data.changes.rating, { from: "damaged", to: "poor" });
 
     await assert.rejects(svc.deleteReport(afterReportId, { oid: "local:other", role: "member" }), /Only the person who recorded/);
+
+    const first = await svc.listReports({ itemId: deskId, limit: 1 });
+    assert.equal(first.reports[0]!.id, afterReportId, "newest first");
+    const next = await svc.listReports({ itemId: deskId, limit: 1, before: first.nextBefore! });
+    assert.equal(next.reports[0]!.id, beforeReportId);
+    assert.equal(next.nextBefore, null);
   });
 
   it("gives the latest handling note, per unit with a fallback to the item", async () => {
