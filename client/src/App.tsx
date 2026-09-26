@@ -16,6 +16,8 @@ import { Audit } from "./pages/Audit";
 import { BuildingAudit } from "./pages/BuildingAudit";
 import { Settings } from "./pages/Settings";
 import { PrintLabels } from "./pages/PrintLabels";
+import { LiveReads } from "./features/tracking-core/LiveReads";
+import { DevicesPage } from "./features/tracking-core/DevicesPage";
 
 function Loading() {
   return (
@@ -60,6 +62,8 @@ function AppShell() {
           {features.audit && <Route path="audit" element={<Audit />} />}
           {features.audit && <Route path="audit/building" element={<BuildingAudit />} />}
           <Route path="settings" element={<Settings />} />
+          {features.tracking && <Route path="tracking" element={<LiveReads />} />}
+          {features.tracking && <Route path="settings/devices" element={<DevicesPage />} />}
         </Route>
       </Routes>
     </ScanProvider>
