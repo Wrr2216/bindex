@@ -63,6 +63,7 @@ import {
   PlacementSweepPage,
   PlacementWherePage,
 } from "./features/placement";
+import { ClaimDetailPage, ClaimsPage, NewClaimPage } from "./features/claims";
 
 function Loading() {
   return (
@@ -170,6 +171,9 @@ function AppShell() {
           {features.jobs && features.placement && <Route path="placement/jobs/:id/where" element={<PlacementWherePage />} />}
           {features.jobs && features.placement && <Route path="placement/jobs/:id/sweep" element={<PlacementSweepPage />} />}
           {features.jobs && features.placement && <Route path="placement/jobs/:id/kiosk" element={<PlacementKioskPage />} />}
+          {features.claims && <Route path="claims" element={<ClaimsPage />} />}
+          {features.claims && <Route path="claims/new" element={<NewClaimPage />} />}
+          {features.claims && <Route path="claims/:id" element={<ClaimDetailPage />} />}
         </Route>
       </Routes>
       <NfcTapLayer />

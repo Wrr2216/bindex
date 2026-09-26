@@ -302,6 +302,7 @@ export interface Features {
   opsIntel: boolean;
   ble: boolean;
   placement: boolean;
+  claims: boolean;
 }
 
 /**

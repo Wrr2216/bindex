@@ -260,6 +260,11 @@ const schema = z.object({
   // going, in seconds. 0 stops readers from placing anything; sweeps and the
   // placement card keep working.
   PLACEMENT_READER_POLL_SECONDS: z.coerce.number().nonnegative().default(2),
+  // ---- T16: claims and incidents ------------------------------------------
+  // Hours from submission until a decision is due. A claim past it undecided
+  // is flagged overdue and announced once as claim.sla_breached.
+  CLAIMS_SLA_HOURS: z.coerce.number().positive().default(240),
+  INCIDENT_SLA_HOURS: z.coerce.number().positive().default(72),
 });
 
 const parsed = schema.safeParse(process.env);

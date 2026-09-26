@@ -40,6 +40,8 @@ import { startOpsIntel } from "./services/ops-intel";
 import { bleDeviceRouter } from "./routes/ble";
 import { startBle } from "./services/ble";
 import { startPlacementReaders } from "./services/placement";
+import { claimsPortalRouter } from "./routes/claims";
+import { startClaimsSlaWatch } from "./services/claims";
 
 const app = express();
 // One proxy hop, which is what a container behind a reverse proxy sees. Needed
@@ -77,6 +79,8 @@ app.use((req, res, next) => {
 // Portal links are for people without an account. Mounted before the session
 // so a portal request never reads or creates one (see routes/portal.ts).
 app.use("/api/portal", portalRouter);
+// Filing a claim through a portal link: the link is the credential, as above.
+app.use("/api/claims-portal", claimsPortalRouter);
 app.use(sessionMiddleware);
 app.use(attachTrustedUser);
 
@@ -179,6 +183,7 @@ async function main(): Promise<void> {
     startOpsIntel();
     startBle();
     startPlacementReaders();
+    startClaimsSlaWatch();
   });
 }
 
