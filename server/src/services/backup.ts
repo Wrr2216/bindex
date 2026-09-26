@@ -11,6 +11,9 @@ import {
   companies,
   entities,
   trackingDevices,
+  teardownGuides,
+  teardownSteps,
+  teardownParts,
 } from "../db/schema";
 import { badRequest } from "../lib/errors";
 
@@ -44,6 +47,9 @@ const TABLES = [
   "item_events",
   "item_assignments",
   "tracking_devices",
+  "teardown_guides",
+  "teardown_steps",
+  "teardown_parts",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -59,6 +65,9 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   item_events: ["createdAt"],
   item_assignments: ["checkedOutAt", "checkedInAt"],
   tracking_devices: ["lastSeenAt", "createdAt", "updatedAt"],
+  teardown_guides: ["refinedAt", "jobQueuedAt", "jobStartedAt", "jobHeartbeatAt", "jobFinishedAt", "createdAt", "updatedAt"],
+  teardown_steps: ["createdAt", "updatedAt"],
+  teardown_parts: ["reassembledAt", "createdAt", "updatedAt"],
 };
 
 export type Backup = {
@@ -70,7 +79,7 @@ export type Backup = {
 };
 
 export async function buildBackup(): Promise<Backup> {
-  const [co, loc, ent, it, units, ids, imgs, evts, asg, devs] = await Promise.all([
+  const [co, loc, ent, it, units, ids, imgs, evts, asg, devs, tdGuides, tdSteps, tdParts] = await Promise.all([
     db.select().from(companies),
     db.select().from(locations),
     db.select().from(entities),
@@ -82,6 +91,9 @@ export async function buildBackup(): Promise<Backup> {
     db.select().from(itemAssignments),
     // Device tokens are secrets and stay out of the file; see restoreBackup.
     db.select().from(trackingDevices).then((rows) => rows.map(({ tokenHash: _t, tokenLast4: _l, ...d }) => d)),
+    db.select().from(teardownGuides),
+    db.select().from(teardownSteps),
+    db.select().from(teardownParts),
   ]);
   const data: Backup["data"] = {
     companies: co,
@@ -94,6 +106,9 @@ export async function buildBackup(): Promise<Backup> {
     item_events: evts,
     item_assignments: asg,
     tracking_devices: devs,
+    teardown_guides: tdGuides,
+    teardown_steps: tdSteps,
+    teardown_parts: tdParts,
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -240,6 +255,19 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
         UPDATE backup_kept_devices k SET unit_id = NULL
         WHERE unit_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM item_units u WHERE u.id = k.unit_id)`);
       await tx.execute(sql`INSERT INTO tracking_devices SELECT * FROM backup_kept_devices`);
+    }
+
+    // Teardown guides point at items without a foreign key, so deleting the
+    // items above left them in place. A file with guides replaces them; an
+    // older file keeps them. Their videos and pictures are attachments, which
+    // the file does not carry either way.
+    if (d.teardown_guides.length) {
+      await tx.delete(teardownParts);
+      await tx.delete(teardownSteps);
+      await tx.delete(teardownGuides);
+      for (const part of chunk(d.teardown_guides, 500)) await tx.insert(teardownGuides).values(part as never);
+      for (const part of chunk(d.teardown_steps, 500)) await tx.insert(teardownSteps).values(part as never);
+      for (const part of chunk(d.teardown_parts, 500)) await tx.insert(teardownParts).values(part as never);
     }
   });
 
