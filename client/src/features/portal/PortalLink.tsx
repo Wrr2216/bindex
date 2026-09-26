@@ -8,6 +8,8 @@ import { Modal } from "../media-ai-core/Modal";
 import { SignaturePad } from "../media-ai-core/SignaturePad";
 import { play, primeAudio } from "../jobs-core/sound";
 import { portalClient, type PortalClient } from "./api";
+import { useFeatures } from "../../config/useConfig";
+import { PortalClaimPanel } from "../claims";
 import type {
   FlaggedPage,
   HandoffReceipt,
@@ -298,6 +300,10 @@ function Shell({ token, session, setSession, onAuthError }: ShellProps) {
   const [openLine, setOpenLine] = useState<string | null>(null);
   const contributor = session.role === "contributor" && session.contributor;
   const base = `/p/${token}`;
+  // Claims answers for itself whether this link may file one; the tab only
+  // needs to know the feature exists.
+  const claims = useFeatures().claims;
+  const getPass = useCallback(() => readPass(token), [token]);
   // A crew is here to scan, so that tab comes straight after the overview.
   const tabs = [
     { to: base, label: "Overview", end: true },
@@ -305,6 +311,7 @@ function Shell({ token, session, setSession, onAuthError }: ShellProps) {
     { to: `${base}/items`, label: session.instance.itemTerm.plural },
     { to: `${base}/flagged`, label: "Flagged" },
     { to: `${base}/documents`, label: "Documents" },
+    ...(claims ? [{ to: `${base}/report`, label: "Report a problem" }] : []),
   ];
   const nav = useRef<HTMLElement>(null);
   const { pathname } = useLocation();
@@ -355,6 +362,16 @@ function Shell({ token, session, setSession, onAuthError }: ShellProps) {
           />
           <Route path="flagged" element={<FlaggedTab onOpen={setOpenLine} onAuthError={onAuthError} session={session} />} />
           <Route path="documents" element={<DocumentsTab onAuthError={onAuthError} />} />
+          {claims && (
+            <Route
+              path="report"
+              element={
+                <Suspense fallback={<p className="text-sm text-slate-400">Loading…</p>}>
+                  <PortalClaimPanel token={token} getPass={getPass} />
+                </Suspense>
+              }
+            />
+          )}
           {contributor && (
             <Route
               path="scan"
