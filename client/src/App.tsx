@@ -16,6 +16,14 @@ import { Audit } from "./pages/Audit";
 import { BuildingAudit } from "./pages/BuildingAudit";
 import { Settings } from "./pages/Settings";
 import { PrintLabels } from "./pages/PrintLabels";
+import {
+  JobDetailPage,
+  JobTypesPage,
+  JobsPage,
+  ProjectDetailPage,
+  ProjectsPage,
+  ShipmentDetailPage,
+} from "./features/jobs-core";
 
 function Loading() {
   return (
@@ -60,6 +68,12 @@ function AppShell() {
           {features.audit && <Route path="audit" element={<Audit />} />}
           {features.audit && <Route path="audit/building" element={<BuildingAudit />} />}
           <Route path="settings" element={<Settings />} />
+          {features.jobs && <Route path="jobs" element={<JobsPage />} />}
+          {features.jobs && <Route path="jobs/:id" element={<JobDetailPage />} />}
+          {features.jobs && <Route path="projects" element={<ProjectsPage />} />}
+          {features.jobs && <Route path="projects/:id" element={<ProjectDetailPage />} />}
+          {features.jobs && <Route path="shipments/:id" element={<ShipmentDetailPage />} />}
+          {features.jobs && <Route path="settings/job-types" element={<JobTypesPage />} />}
         </Route>
       </Routes>
     </ScanProvider>
