@@ -8,11 +8,12 @@ import { after, before, describe, it } from "node:test";
  * routes call, with a scripted external verifier. Opt-in, because CI has no
  * database:
  *
- *   TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/bindex_crew \
- *     pnpm --filter bindex-server test
+ *   TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/bindex_crew_test \
+ *     pnpm --filter bindex-server exec tsx --test tests/crew-db.test.ts
  *
  * It makes its own uniquely named records and removes them at the end; the
- * seeded credential types are used as they are.
+ * seeded credential types are used as they are. Use a throwaway database: the
+ * event backbone's database test reads the same variable and recreates it.
  */
 
 const url = process.env.TEST_DATABASE_URL;

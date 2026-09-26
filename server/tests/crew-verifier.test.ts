@@ -43,7 +43,7 @@ before(async () => {
   process.env.LOG_LEVEL = "error";
   process.env.CREDENTIAL_VERIFY_URL = url;
   process.env.CREDENTIAL_VERIFY_TOKEN = "s3cret";
-  process.env.CREDENTIAL_VERIFY_TIMEOUT_MS = "300";
+  process.env.CREDENTIAL_VERIFY_TIMEOUT_MS = "5000";
   verifier = await import("../src/services/crew/verifier");
   envModule = await import("../src/env");
 });
@@ -136,12 +136,20 @@ describe("credential verifier", () => {
     assert.equal(r.ok, false);
     assert.equal(r.error, "The verifier's answer was not JSON.");
 
-    reply = (res) => setTimeout(() => json(200, { credentials: [] })(res), 1000);
-    const started = Date.now();
-    r = await verifier.verifyWorker(worker, types);
-    assert.equal(r.ok, false);
-    assert.equal(r.error, "The verifier did not answer in time.");
-    assert.ok(Date.now() - started < 900, "gave up at the timeout");
+    // A short timeout for this one only: under a busy test run a first request
+    // can take longer than 300 ms on its own.
+    const env = envModule.env as { CREDENTIAL_VERIFY_TIMEOUT_MS: number };
+    env.CREDENTIAL_VERIFY_TIMEOUT_MS = 300;
+    try {
+      reply = (res) => setTimeout(() => json(200, { credentials: [] })(res), 1500);
+      const started = Date.now();
+      r = await verifier.verifyWorker(worker, types);
+      assert.equal(r.ok, false);
+      assert.equal(r.error, "The verifier did not answer in time.");
+      assert.ok(Date.now() - started < 1400, "gave up at the timeout");
+    } finally {
+      env.CREDENTIAL_VERIFY_TIMEOUT_MS = 5000;
+    }
 
     reply = (res) => {
       res.writeHead(302, { Location: "http://example.com/" });
