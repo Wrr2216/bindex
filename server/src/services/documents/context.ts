@@ -133,6 +133,34 @@ export async function mergeContext(jobId: string | null): Promise<MergeContext> 
   };
 }
 
+/** Recent jobs matching a search, for pickers: newest first, at most 50. */
+export async function pickJobs(q?: string) {
+  const term = q?.trim();
+  const { rows } = await pool.query<{ id: string; code: string; name: string; status: string; jobTypeName: string | null }>(
+    `SELECT j.id, j.code, j.name, j.status, t.name AS "jobTypeName"
+       FROM jobs j LEFT JOIN job_types t ON t.id = j.job_type_id
+      WHERE $1::text IS NULL OR j.name ILIKE $1 OR j.code ILIKE $1
+      ORDER BY j.created_at DESC
+      LIMIT 50`,
+    [term ? `%${term}%` : null],
+  );
+  return rows;
+}
+
+/** Every project with its phases, for the packet condition editor. */
+export async function projectsWithPhases() {
+  const [projects, phases] = await Promise.all([
+    pool.query<{ id: string; code: string; name: string }>(`SELECT id, code, name FROM projects ORDER BY created_at DESC`),
+    pool.query<{ id: string; projectId: string; name: string }>(
+      `SELECT id, project_id AS "projectId", name FROM project_phases ORDER BY sequence, created_at`,
+    ),
+  ]);
+  return projects.rows.map((p) => ({
+    ...p,
+    phases: phases.rows.filter((ph) => ph.projectId === p.id).map(({ id, name }) => ({ id, name })),
+  }));
+}
+
 /** Rows for every table block, read for `jobId`; sample rows when there is no job. */
 export async function tableData(body: Block[], jobId: string | null, opts: { sample?: boolean } = {}): Promise<Record<string, TableData>> {
   const out: Record<string, TableData> = {};

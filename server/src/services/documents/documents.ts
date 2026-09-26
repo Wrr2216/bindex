@@ -125,6 +125,7 @@ export async function createDocument(
 ): Promise<DocumentRow> {
   const ex = opts.ex ?? db;
   const template = await loadTemplate(input.templateId, ex);
+  if (!template.active) throw conflict(`"${template.name}" is switched off. An administrator can switch it back on under Templates.`);
   const version = await latestPublished(template.id, ex);
   if (!version) throw conflict(`"${template.name}" has not been published yet. Publish it before starting documents from it.`);
   if (input.jobId) {
@@ -239,8 +240,10 @@ export async function getDocumentDetail(id: string, timeZone?: string) {
         )
       : null;
   const latest = await latestPublished(doc.templateId);
+  // The snapshot can hold thousands of table rows; the render model already shows them.
+  const { snapshot: _snapshot, ...document } = doc;
   return {
-    document: doc,
+    document,
     template: { id: template.id, name: template.name, latestVersion: latest?.version ?? null },
     version: { id: version.id, version: version.version, title: version.title, body: version.body },
     job,

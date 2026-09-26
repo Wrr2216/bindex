@@ -80,11 +80,12 @@ export {
   renderModel,
   formatting,
   instanceTerms,
+  loadDocument,
   type DocumentFilters,
   type VerifyReport,
 } from "./documents";
 export { documentPdf, verifyPdf, pdfFilename, type PdfCheck } from "./exports";
-export { mergeContext, sampleMergeContext, tableData, todayIn } from "./context";
+export { mergeContext, sampleMergeContext, tableData, todayIn, pickJobs, projectsWithPhases } from "./context";
 export { registerDocumentShareProvider, shareAvailability, shareDocument, type DocumentShareProvider } from "./share";
 export { DOCUMENTS_TABLES, DOCUMENTS_DATE_FIELDS, exportDocumentsTables, restoreDocumentsTables } from "./backup";
 export type { Actor } from "./shared";

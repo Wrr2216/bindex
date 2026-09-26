@@ -175,7 +175,13 @@ type AttachOutcome = { documentIds: string[]; unpublished: string[] };
  * that already have a document from this packet on the job and templates not
  * published yet (reported back so the screen can say so).
  */
-async function createPacketDocuments(tx: Executor, jobId: string, packetId: string, actor: Actor, context: Record<string, unknown>): Promise<AttachOutcome> {
+async function createPacketDocuments(
+  tx: Executor,
+  jobId: string,
+  packetId: string,
+  actor: Actor,
+  context: Record<string, unknown> | undefined,
+): Promise<AttachOutcome> {
   const templates = await tx
     .select({ templateId: documentPacketTemplates.templateId, position: documentPacketTemplates.position, name: documentTemplates.name, active: documentTemplates.active })
     .from(documentPacketTemplates)
@@ -235,7 +241,14 @@ export async function syncJobPackets(jobId: string, actor: Actor): Promise<SyncR
     (p) => ({ ...p, evaluation: evaluateConditions(readConditions(p.conditions), job) }),
   );
   if (!packets.length) return { attached: [], withdrawn: [] };
-  const context = packets.some((p) => p.evaluation.matches) ? await mergeContext(jobId) : {};
+  // Reading the job for document titles is the expensive part, and most job
+  // saves attach nothing new, so it is read only when something will be.
+  const before = new Map(
+    (await db.select().from(documentJobPackets).where(eq(documentJobPackets.jobId, jobId))).map((r) => [r.packetId, r]),
+  );
+  const attaching = packets.some((p) => p.evaluation.matches && !before.get(p.id)?.applies && (before.get(p.id)?.auto ?? true));
+  // Undefined lets a document created after all (a race) read the job itself.
+  const context = attaching ? await mergeContext(jobId) : undefined;
   const result: SyncResult = { attached: [], withdrawn: [] };
 
   await db.transaction(async (tx) => {

@@ -71,14 +71,13 @@ export function JobDocumentsPanel({ jobId, standalone = false }: { jobId: string
       return `Added ${r.name}: ${r.documents} document${r.documents === 1 ? "" : "s"}.${unpublished}`;
     });
 
-  const detach = (packetId: string, name: string) =>
-    run(async () => {
-      if (!window.confirm(`Take "${name}" off this job? Documents nobody has filled in are removed; the rest stay.`)) {
-        return "Nothing changed.";
-      }
+  const detach = (packetId: string, name: string) => {
+    if (!window.confirm(`Take "${name}" off this job? Documents nobody has filled in are removed; the rest stay.`)) return;
+    return run(async () => {
       const r = await documentsApi.detachPacket(jobId, packetId);
       return `Removed ${name}: ${r.removed} untouched document${r.removed === 1 ? "" : "s"} deleted, ${r.kept} kept.`;
     });
+  };
 
   if (!data) {
     return message ? <Notice tone="error">{message.text}</Notice> : <p className="text-slate-400">Loading…</p>;

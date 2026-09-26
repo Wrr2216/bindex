@@ -5,7 +5,7 @@ import { HttpError, badRequest, notFound } from "../lib/errors";
 import { asyncHandler, param, parse } from "../lib/http";
 import { getConfig } from "../services/config";
 import * as docs from "../services/documents";
-import { listJobTypes, listJobs, listPhases, listProjects } from "../services/jobs-core";
+import { listJobTypes } from "../services/jobs-core";
 
 /**
  * /api/documents, /api/document-templates, /api/document-fields and
@@ -272,16 +272,10 @@ packetsRouter.get(
 packetsRouter.get(
   "/options",
   asyncHandler(async (_req, res) => {
-    const [jobTypes, projects] = await Promise.all([listJobTypes({ includeInactive: true }), listProjects()]);
-    const phases = await Promise.all(projects.map((p) => listPhases(p.id)));
+    const [jobTypes, projects] = await Promise.all([listJobTypes({ includeInactive: true }), docs.projectsWithPhases()]);
     res.json({
       jobTypes: jobTypes.map((t) => ({ id: t.id, name: t.name, color: t.color, active: t.active })),
-      projects: projects.map((p, i) => ({
-        id: p.id,
-        code: p.code,
-        name: p.name,
-        phases: phases[i]!.map((ph) => ({ id: ph.id, name: ph.name })),
-      })),
+      projects,
       ruleFields: docs.RULE_FIELDS,
       ruleOps: docs.RULE_OPS,
     });
@@ -357,10 +351,7 @@ documentRoutes.get(
   "/jobs",
   asyncHandler(async (req, res) => {
     if (!(await getConfig()).features.jobs) return void res.json([]);
-    const rows = await listJobs({ q: q(req, "q") });
-    res.json(
-      rows.slice(0, 100).map((j) => ({ id: j.id, code: j.code, name: j.name, status: j.status, jobTypeName: j.jobTypeName })),
-    );
+    res.json(await docs.pickJobs(q(req, "q")));
   }),
 );
 documentRoutes.get(
@@ -528,11 +519,8 @@ documentRoutes.post(
       }),
       req.body ?? {},
     );
-    const detail = await docs.getDocumentDetail(param(req, "id"));
-    const result = await docs.shareDocument(
-      { documentId: detail.document.id, jobId: detail.document.jobId, ...input },
-      actor(req),
-    );
+    const doc = await docs.loadDocument(param(req, "id"));
+    const result = await docs.shareDocument({ documentId: doc.id, jobId: doc.jobId, ...input }, actor(req));
     if (!result) {
       throw new HttpError(404, "share_unavailable", "Sharing needs the external portal, which is not set up on this instance.");
     }
