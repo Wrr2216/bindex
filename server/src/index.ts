@@ -30,6 +30,7 @@ import { inspectionShareRouter } from "./routes/inspections";
 import { startValuationDigest } from "./services/valuation";
 import { startCrewDigest } from "./services/crew";
 import { custodyPublicRouter } from "./routes/custody";
+import { startTeardownWorker } from "./services/teardown";
 
 const app = express();
 // One proxy hop, which is what a container behind a reverse proxy sees. Needed
@@ -157,6 +158,7 @@ async function main(): Promise<void> {
     startLowStockDigest();
     startValuationDigest();
     startCrewDigest();
+    startTeardownWorker();
   });
 }
 

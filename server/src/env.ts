@@ -185,6 +185,11 @@ const schema = z.object({
   CREW_EXPIRY_ALERT_DAYS: z.coerce.number().int().nonnegative().default(30),
   // The digest goes out at the first hourly check at or after this UTC hour.
   CREW_DIGEST_HOUR_UTC: z.coerce.number().int().min(0).max(23).default(13),
+  // ---- T20: teardown guides ---------------------------------------------
+  // ffmpeg pulls the narration out of teardown videos and grabs a still per
+  // step. Optional: without it on PATH (or at this path) those steps are
+  // skipped and the guide is written by hand.
+  FFMPEG_PATH: z.string().default("ffmpeg"),
 });
 
 const parsed = schema.safeParse(process.env);

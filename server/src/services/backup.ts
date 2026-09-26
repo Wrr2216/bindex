@@ -13,6 +13,9 @@ import {
   trackingDevices,
   tagIdentifierUnits,
   tagEpcs,
+  teardownGuides,
+  teardownSteps,
+  teardownParts,
 } from "../db/schema";
 import { badRequest } from "../lib/errors";
 import { clearJobsCoreTables, exportJobsCoreTables, restoreJobsCoreTables } from "./jobs-core/backup";
@@ -102,6 +105,9 @@ const TABLES = [
   "custody_controls",
   "custody_transfers",
   "custody_transfer_items",
+  "teardown_guides",
+  "teardown_steps",
+  "teardown_parts",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -149,6 +155,9 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   custody_controls: ["setAt"],
   custody_transfers: ["at", "lockedAt", "linkExpiresAt", "linkUsedAt", "voidedAt", "completedAt", "createdAt", "updatedAt"],
   custody_transfer_items: ["createdAt"],
+  teardown_guides: ["refinedAt", "jobQueuedAt", "jobStartedAt", "jobHeartbeatAt", "jobFinishedAt", "createdAt", "updatedAt"],
+  teardown_steps: ["createdAt", "updatedAt"],
+  teardown_parts: ["reassembledAt", "createdAt", "updatedAt"],
 };
 
 export type Backup = {
@@ -160,7 +169,8 @@ export type Backup = {
 };
 
 export async function buildBackup(): Promise<Backup> {
-  const [co, loc, ent, it, units, ids, imgs, evts, asg, devs, tagUnits, epcs] = await Promise.all([
+  const [co, loc, ent, it, units, ids, imgs, evts, asg, devs, tagUnits, epcs, tdGuides, tdSteps, tdParts] =
+    await Promise.all([
     db.select().from(companies),
     db.select().from(locations),
     db.select().from(entities),
@@ -174,6 +184,9 @@ export async function buildBackup(): Promise<Backup> {
     db.select().from(trackingDevices).then((rows) => rows.map(({ tokenHash: _t, tokenLast4: _l, ...d }) => d)),
     db.select().from(tagIdentifierUnits),
     db.select().from(tagEpcs),
+    db.select().from(teardownGuides),
+    db.select().from(teardownSteps),
+    db.select().from(teardownParts),
   ]);
   const data: Backup["data"] = {
     companies: co,
@@ -196,6 +209,9 @@ export async function buildBackup(): Promise<Backup> {
     ...(await valuationBackupData()),
     ...(await exportCrewTables()),
     ...(await exportCustodyTables()),
+    teardown_guides: tdGuides,
+    teardown_steps: tdSteps,
+    teardown_parts: tdParts,
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -374,6 +390,19 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     await afterValuationRestore(tx, d, valuationPresent);
     await restoreCrewTables(tx, d, { keep: predatesCrew(d) });
     await restoreCustodyTables(tx, d);
+
+    // Teardown guides point at items without a foreign key, so deleting the
+    // items above left them in place. A file with guides replaces them; an
+    // older file keeps them. Their videos and pictures are attachments, which
+    // the file does not carry either way.
+    if (d.teardown_guides.length) {
+      await tx.delete(teardownParts);
+      await tx.delete(teardownSteps);
+      await tx.delete(teardownGuides);
+      for (const part of chunk(d.teardown_guides, 500)) await tx.insert(teardownGuides).values(part as never);
+      for (const part of chunk(d.teardown_steps, 500)) await tx.insert(teardownSteps).values(part as never);
+      for (const part of chunk(d.teardown_parts, 500)) await tx.insert(teardownParts).values(part as never);
+    }
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,

@@ -41,6 +41,7 @@ import { InspectionDetailPage, InspectionsListPage } from "./features/inspection
 import { DeclarationPage, ReceiptPage, ValuationPage } from "./features/valuation";
 import { CrewBadgePage, CrewCheckInPage, CrewPage, CrewSettingsPage, CrewWorkerPage } from "./features/crew";
 import { CustodyPage, NewTransferPage, SignOffPage, TransferPage } from "./features/custody";
+import { GuidePage, TeardownList } from "./features/teardown";
 
 function Loading() {
   return (
@@ -117,6 +118,8 @@ function AppShell() {
           {features.custody && <Route path="custody/new" element={<NewTransferPage />} />}
           {features.custody && <Route path="custody/transfers/:id" element={<TransferPage />} />}
           {features.custody && <Route path="custody/shipments/:id/sign-off" element={<SignOffPage />} />}
+          {features.teardown && <Route path="teardown" element={<TeardownList />} />}
+          {features.teardown && <Route path="teardown/:id" element={<GuidePage />} />}
         </Route>
       </Routes>
       <NfcTapLayer />

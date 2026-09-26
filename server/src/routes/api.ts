@@ -32,6 +32,7 @@ import { inspectionsRouter } from "./inspections";
 import { valuationRouter } from "./valuation";
 import { crewRouter } from "./crew";
 import { custodyRouter } from "./custody";
+import { teardownRouter } from "./teardown";
 
 export const apiRouter = Router();
 
@@ -74,6 +75,7 @@ apiRouter.use("/inspections", inspectionsRouter);
 apiRouter.use("/valuation", valuationRouter);
 apiRouter.use("/crew", crewRouter);
 apiRouter.use(custodyRouter);
+apiRouter.use("/teardown", teardownRouter);
 
 apiRouter.delete(
   "/identifiers/:id",

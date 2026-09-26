@@ -66,6 +66,8 @@ export type Features = {
   crew: boolean;
   /** Chain of custody: controlled items, signed handoffs and delivery sign-off. */
   custody: boolean;
+  /** Teardown videos turned into step-by-step reassembly guides. */
+  teardown: boolean;
 };
 
 export type AppConfig = {
@@ -129,6 +131,7 @@ const KEYS = {
   featureValuation: "features.valuation",
   featureCrew: "features.crew",
   featureCustody: "features.custody",
+  featureTeardown: "features.teardown",
 } as const;
 
 function defaults(): AppConfig {
@@ -172,6 +175,7 @@ function defaults(): AppConfig {
       valuation: true,
       crew: false,
       custody: false,
+      teardown: true,
     },
   };
 }
@@ -244,6 +248,7 @@ function build(stored: Map<string, string>): AppConfig {
       valuation: flag(KEYS.featureValuation, base.features.valuation),
       crew: flag(KEYS.featureCrew, base.features.crew),
       custody: flag(KEYS.featureCustody, base.features.custody),
+      teardown: flag(KEYS.featureTeardown, base.features.teardown),
     },
   };
 }
@@ -343,6 +348,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   valuation: KEYS.featureValuation,
   crew: KEYS.featureCrew,
   custody: KEYS.featureCustody,
+  teardown: KEYS.featureTeardown,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {

@@ -73,6 +73,7 @@ const configPatch = z.object({
       valuation: z.boolean().optional(),
       crew: z.boolean().optional(),
       custody: z.boolean().optional(),
+      teardown: z.boolean().optional(),
     })
     .optional(),
 });

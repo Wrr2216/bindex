@@ -37,6 +37,7 @@ export function Layout() {
     ...(features.valuation ? [{ to: "/valuation", label: "Valuation" }] : []),
     ...(features.crew ? [{ to: "/crew", label: "Crew" }] : []),
     ...(features.custody ? [{ to: "/custody", label: "Custody" }] : []),
+    ...(features.teardown ? [{ to: "/teardown", label: "Teardowns" }] : []),
     { to: "/settings", label: "Settings" },
   ];
 

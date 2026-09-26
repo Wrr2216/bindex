@@ -155,6 +155,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Signed handoffs with seals, receipts and an audit trail per item; delivery sign-off for shipments; and items that cannot be marked delivered without one.",
   },
+  {
+    key: "teardown",
+    title: "Teardown guides",
+    description:
+      "Film a teardown while narrating it, and get numbered steps tied to the video, a parts list to tick off at reassembly, a printable report and hardware bag labels. Reading the narration needs speech to text and a language model; without them steps are written by hand.",
+  },
 ];
 
 export function InstanceSettings() {

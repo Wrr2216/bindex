@@ -19,9 +19,10 @@ WORKDIR /app
 RUN corepack enable
 # The canvas module used to render labels links against libstdc++ on Alpine.
 RUN apk add --no-cache libstdc++
-# Optional media tools. ffmpeg samples frames from walkthrough videos;
-# pdftoppm (poppler) renders PDF manifests and receipts to page images for the
-# vision model. Without them those features accept photos and images only.
+# Optional media tools. ffmpeg samples frames from walkthrough videos and takes
+# the narration and step pictures out of teardown videos; pdftoppm (poppler)
+# renders PDF manifests and receipts to page images for the vision model.
+# Without them those features accept photos and images only.
 RUN apk add --no-cache ffmpeg poppler-utils
 
 # A standalone production install for the server alone, which keeps the client

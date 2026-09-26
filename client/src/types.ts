@@ -295,6 +295,7 @@ export interface Features {
   valuation: boolean;
   crew: boolean;
   custody: boolean;
+  teardown: boolean;
 }
 
 /**
