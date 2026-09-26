@@ -9,9 +9,9 @@ import type { ScanRef } from "./match";
  *
  * It deliberately differs from the interactive scanner (services/items
  * getByIdentifier): no fuzzy model match, and no "scanned" item events, since a
- * reader at a dock door would otherwise write thousands of them an hour. T01
- * has an equivalent for reader sightings; the two are to be merged when both
- * land.
+ * reader at a dock door would otherwise write thousands of them an hour. The
+ * tracking core has an equivalent for reader sightings; the two are to be
+ * merged when both land.
  *
  * A product code (UPC, SKU) can name several items, so each code maps to a
  * list, best first: the unit a unit code or serial names, then the item an

@@ -40,7 +40,7 @@ export type Features = {
   askSearch: boolean;
   /** Prompt to confirm a random item when a container is moved. */
   spotCheck: boolean;
-  /** Projects, jobs, shipments and relocation manifests (T03). */
+  /** Projects, jobs, shipments and relocation manifests. */
   jobs: boolean;
 };
 

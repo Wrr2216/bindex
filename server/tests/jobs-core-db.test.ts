@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 
 /**
- * The T03 acceptance flow against a real Postgres, through the service
+ * The relocation acceptance flow against a real Postgres, through the service
  * functions later features call. Opt-in, because CI has no database:
  *
  *   JOBS_CORE_TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/bindex_jobs_core \

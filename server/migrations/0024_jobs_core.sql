@@ -1,4 +1,4 @@
--- Projects, jobs, shipments and relocation manifests (T03).
+-- Projects, jobs, shipments and relocation manifests.
 --
 -- A project groups jobs into phases. A job moves a set of items (its manifest,
 -- job_items) from where they are to where they are going, in one or more

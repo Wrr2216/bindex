@@ -12,7 +12,7 @@ import {
 import { sql } from "drizzle-orm";
 
 /**
- * Projects, jobs, shipments and manifests (T03). The SQL lives in
+ * Projects, jobs, shipments and manifests. The SQL lives in
  * migrations/0024_jobs_core.sql; this file only describes it for queries.
  *
  * Stage, task-kind and "via" values are plain strings here on purpose: the core
