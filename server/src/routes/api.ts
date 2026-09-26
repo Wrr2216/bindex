@@ -18,12 +18,15 @@ import { searchRouter } from "./search";
 import { backupRouter } from "./backup";
 import { imageRouter } from "./image";
 import { photosRouter } from "./photos";
+import { idempotency, offlineFieldRouter } from "./offline-field";
 
 export const apiRouter = Router();
 
 // Everything below needs a signed-in session or a valid API key.
 apiRouter.use(attachApiKeyUser);
 apiRouter.use(requireApiAuth);
+// A retried request carrying an Idempotency-Key is answered, not re-applied.
+apiRouter.use(idempotency);
 
 apiRouter.get("/me", (req, res) => res.json({ user: currentUser(req) }));
 
@@ -44,6 +47,7 @@ apiRouter.use("/search", searchRouter);
 apiRouter.use("/backup", requireAdmin, backupRouter);
 apiRouter.use("/image", imageRouter);
 apiRouter.use("/photos", photosRouter);
+apiRouter.use("/offline", offlineFieldRouter);
 
 apiRouter.delete(
   "/identifiers/:id",
