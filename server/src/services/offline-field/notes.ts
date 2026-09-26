@@ -2,6 +2,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import { itemEvents, itemUnits, items } from "../../db/schema";
 import { badRequest, notFound } from "../../lib/errors";
+import { publishItemEventsLater } from "../event-backbone";
 
 /**
  * Notes a crew member writes against an item in the field. They live in the
@@ -53,6 +54,9 @@ export async function addFieldNote(input: {
       detail: { fieldNote: text, unitId: input.unitId ?? null, writtenAt: when.toISOString() },
     })
     .returning();
+  publishItemEventsLater([
+    { itemId: input.itemId, userOid: input.userOid ?? null, action: "updated", detail: row!.detail },
+  ]);
   return toNote(row!);
 }
 

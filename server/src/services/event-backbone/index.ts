@@ -11,7 +11,7 @@ import { pruneDeliveries, startDeliveryWorker } from "./delivery";
  * and describe new event types for the webhook picker with
  * registerEventTypes(). docs/event-backbone.md has the full contract.
  */
-export { publish, actorFromOid, actorFromUser, SYSTEM_ACTOR } from "./bus";
+export { publish, actorFromOid, actorFromUser, SYSTEM_ACTOR, publishItemEventsLater, type ItemEventRow } from "./bus";
 export { registerEventTypes, type EventTypeInfo } from "./catalog";
 export type { AuditEntry, EventActor, EventSubject, PublishOptions, EventEnvelope } from "./types";
 

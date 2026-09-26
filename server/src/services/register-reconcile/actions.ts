@@ -8,6 +8,7 @@ import { updateUnit } from "../units";
 import { executePlan, planForImport } from "./importNew";
 import { normalizeEpc, normKey } from "./normalize";
 import { listResults, type ResultView } from "./reconcile";
+import { publishItemEventsLater } from "../event-backbone";
 
 /**
  * What a person can do from a reconciliation result. Each action is explicit,
@@ -428,6 +429,14 @@ export async function runAction(runId: string, input: ActionInput, user: { oid: 
   for (let i = 0; i < ctx.events.length; i += 1000) {
     await db.insert(itemEvents).values(ctx.events.slice(i, i + 1000));
   }
+  publishItemEventsLater(
+    ctx.events.map((e) => ({
+      itemId: e.itemId ?? null,
+      userOid: e.userOid ?? null,
+      action: e.action,
+      detail: (e.detail ?? {}) as Record<string, unknown>,
+    })),
+  );
   logger.info("register.action", {
     runId,
     action: input.action,

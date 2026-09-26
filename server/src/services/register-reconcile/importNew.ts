@@ -8,6 +8,7 @@ import { logger } from "../../lib/logger";
 import { normalizeEpc, normKey } from "./normalize";
 import { planImport, type ExistingKeys, type ImportPlan, type PlanRow } from "./plan";
 import { loadLocationIndex } from "./store";
+import { publishItemEventsLater, type ItemEventRow } from "../event-backbone";
 
 /**
  * "Import as new items": for moving off Snipe-IT, Homebox or a spreadsheet.
@@ -120,6 +121,7 @@ export async function executePlan(
 ): Promise<CreatedItem[]> {
   if (!plan.create.length) return [];
   const created: CreatedItem[] = [];
+  const history: ItemEventRow[] = [];
   try {
     await db.transaction(async (tx) => {
       // Two people pressing "create" on the same rows: the second waits here,
@@ -160,14 +162,14 @@ export async function executePlan(
         const codes = new Map(inserted.map((r) => [r.id, r.assetCode]));
         const identifiers = part.flatMap((c) => c.identifiers.map((idf) => ({ itemId: c.itemId, type: idf.type, value: idf.value })));
         if (identifiers.length) await tx.insert(itemIdentifiers).values(identifiers);
-        await tx.insert(itemEvents).values(
-          part.map((c) => ({
-            itemId: c.itemId,
-            userOid,
-            action: "created" as const,
-            detail: { name: c.name, source: "register", row: c.rowNumber, ...eventDetail },
-          })),
-        );
+        const rows = part.map((c) => ({
+          itemId: c.itemId,
+          userOid,
+          action: "created" as const,
+          detail: { name: c.name, source: "register", row: c.rowNumber, ...eventDetail },
+        }));
+        await tx.insert(itemEvents).values(rows);
+        history.push(...rows);
         await tx.execute(sql`
           UPDATE register_rows r SET created_item_id = x.item_id
             FROM jsonb_to_recordset(${JSON.stringify(part.map((c) => ({ id: c.rowId, item_id: c.itemId })))}::jsonb)
@@ -184,6 +186,8 @@ export async function executePlan(
     }
     throw err;
   }
+  // Only now that the transaction has committed do the new items exist.
+  publishItemEventsLater(history);
   return created;
 }
 

@@ -252,3 +252,22 @@ export function publishItemEvent(
     subject: subjectId ? { type: "item", id: subjectId } : null,
   });
 }
+
+export type ItemEventRow = {
+  itemId: string | null;
+  userOid: string | null;
+  action: string;
+  detail: Record<string, unknown>;
+};
+
+/**
+ * Publish item history rows a feature wrote in bulk, outside recordEvent, once
+ * its transaction has committed. One at a time in the background, so a large
+ * batch neither holds up the request nor takes every pooled connection.
+ */
+export function publishItemEventsLater(rows: readonly ItemEventRow[]): void {
+  if (!rows.length) return;
+  void (async () => {
+    for (const r of rows) await publishItemEvent(r.itemId, r.userOid, r.action, r.detail);
+  })();
+}
