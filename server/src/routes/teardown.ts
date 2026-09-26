@@ -3,6 +3,7 @@ import { z } from "zod";
 import { currentUser } from "../auth/middleware";
 import { HttpError } from "../lib/errors";
 import { asyncHandler, param, parse } from "../lib/http";
+import { rateLimit } from "../lib/rateLimit";
 import { aiAvailability } from "../services/ai";
 import { getConfig } from "../services/config";
 import { actorFromUser, publish } from "../services/event-backbone";
@@ -49,6 +50,14 @@ const requireTeardownFeature: RequestHandler = (_req, res, next) => {
 };
 teardownRouter.use(requireTeardownFeature);
 
+// Every processing run can mean a paid transcription and model calls, so one
+// person repeatedly asking to read a video again is slowed down.
+const processLimit = rateLimit({
+  windowMs: 60 * 60_000,
+  max: 30,
+  key: (req) => `teardown-process:${currentUser(req).oid}`,
+});
+
 const uuid = z.string().uuid();
 const seconds = z.number().min(0).max(24 * 3600).nullable().optional();
 const kind = z.enum(PART_KINDS);
@@ -91,6 +100,7 @@ const createSchema = z.object({
 
 teardownRouter.post(
   "/guides",
+  processLimit,
   asyncHandler(async (req, res) => {
     const input = parse(createSchema, req.body);
     const user = currentUser(req);
@@ -124,11 +134,7 @@ teardownRouter.patch(
   asyncHandler(async (req, res) => {
     const id = param(req, "id");
     const { process, ...patch } = parse(patchGuideSchema, req.body);
-    const { videoChanged } = await updateGuide(id, {
-      ...patch,
-      notes: patch.notes === undefined ? undefined : patch.notes,
-      videoAttachmentId: patch.videoAttachmentId === undefined ? undefined : patch.videoAttachmentId,
-    });
+    const { videoChanged } = await updateGuide(id, patch);
     if (videoChanged && patch.videoAttachmentId && process !== false) await enqueueGuide(id);
     res.json(await getGuide(id));
   }),
@@ -151,6 +157,7 @@ teardownRouter.delete(
 
 teardownRouter.post(
   "/guides/:id/process",
+  processLimit,
   asyncHandler(async (req, res) => {
     const id = param(req, "id");
     const { mode } = parse(z.object({ mode: z.enum(["continue", "steps", "all"]).optional() }), req.body ?? {});

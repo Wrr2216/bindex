@@ -277,6 +277,18 @@ describe("teardown pipeline with Postgres", { skip: url ? (ffmpeg ? false : "ffm
     await td.updateStep(g.steps[0]!.id, { keyframeAttachmentId: mine.id });
     assert.equal((await td.getGuide(mainGuide)).steps[0]!.keyframe?.id, mine.id);
     assert.equal(await media.getAttachment(replaced), null);
+    // A picture uploaded but not yet given to a step survives other steps' changes.
+    const pending = await media.saveAttachment({
+      ownerType: "teardown_guide",
+      ownerId: mainGuide,
+      kind: "photo",
+      mime: "image/jpeg",
+      bytes: createCanvas(32, 32).toBuffer("image/jpeg"),
+      createdBy: null,
+    });
+    await td.updateStep(g.steps[1]!.id, { keyframeAttachmentId: null });
+    assert.ok(await media.getAttachment(pending.id));
+    assert.equal(await media.getAttachment(g.steps[1]!.keyframe!.id), null);
 
     // Deleting a part's step leaves the part on the list.
     await td.deleteStep(g.steps[4]!.id);

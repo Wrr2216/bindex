@@ -501,13 +501,21 @@ export async function deleteGuide(id: string): Promise<TeardownGuideRow> {
 const touch = (guideId: string) =>
   db.update(teardownGuides).set({ updatedAt: new Date() }).where(eq(teardownGuides.id, guideId));
 
-/** Remove the guide's step pictures that no step points at any more. */
-export async function pruneKeyframes(guideId: string): Promise<void> {
+/**
+ * Remove step pictures that were just unlinked (a replaced picture, a deleted
+ * step), when no step points at them any more. Only the ones named: a picture
+ * uploaded a moment ago and not yet assigned must not be swept up with them.
+ */
+export async function pruneKeyframes(guideId: string, unlinked: (string | null | undefined)[]): Promise<void> {
+  const candidates = [...new Set(unlinked.filter((v): v is string => !!v))];
+  if (!candidates.length) return;
   const used = new Set(
     (await listStepRows(guideId)).map((s) => s.keyframeAttachmentId).filter((v): v is string => !!v),
   );
-  for (const a of await listAttachments(GUIDE_OWNER, guideId)) {
-    if (!used.has(a.id)) await deleteAttachment(a.id).catch(() => undefined);
+  for (const id of candidates) {
+    if (used.has(id)) continue;
+    const a = await getAttachment(id);
+    if (a?.ownerType === GUIDE_OWNER && a.ownerId === guideId) await deleteAttachment(id).catch(() => undefined);
   }
 }
 
@@ -608,7 +616,7 @@ export async function updateStep(stepId: string, patch: StepInput & { n?: number
     ordered.splice(Math.max(0, Math.min(ordered.length, patch.n - 1)), 0, stepId);
     await writeOrder(ordered);
   }
-  if (pictureChanged) await pruneKeyframes(row.guideId);
+  if (pictureChanged) await pruneKeyframes(row.guideId, [row.keyframeAttachmentId]);
   await touch(row.guideId);
   return row.guideId;
 }
@@ -617,7 +625,7 @@ export async function deleteStep(stepId: string): Promise<string> {
   const row = await stepRow(stepId);
   await db.delete(teardownSteps).where(eq(teardownSteps.id, stepId));
   await writeOrder((await listStepRows(row.guideId)).map((s) => s.id));
-  if (row.keyframeAttachmentId) await pruneKeyframes(row.guideId);
+  await pruneKeyframes(row.guideId, [row.keyframeAttachmentId]);
   await touch(row.guideId);
   return row.guideId;
 }
@@ -733,6 +741,7 @@ export async function reassemblyProgress(guideId: string): Promise<{ total: numb
  * `expectToken` makes the write conditional on still holding the job.
  */
 export async function writeDraft(guideId: string, draft: Draft, expectToken?: string): Promise<boolean> {
+  let unlinked: (string | null)[] = [];
   const applied = await db.transaction(async (tx) => {
     const cond = expectToken
       ? and(eq(teardownGuides.id, guideId), eq(teardownGuides.jobToken, expectToken))
@@ -744,7 +753,11 @@ export async function writeDraft(guideId: string, draft: Draft, expectToken?: st
       .returning({ id: teardownGuides.id });
     if (!locked.length) return false;
     await tx.delete(teardownParts).where(eq(teardownParts.guideId, guideId));
-    await tx.delete(teardownSteps).where(eq(teardownSteps.guideId, guideId));
+    const removed = await tx
+      .delete(teardownSteps)
+      .where(eq(teardownSteps.guideId, guideId))
+      .returning({ keyframe: teardownSteps.keyframeAttachmentId });
+    unlinked = removed.map((r) => r.keyframe);
     const ids = draft.steps.map(() => randomUUID());
     if (draft.steps.length) {
       await tx.insert(teardownSteps).values(
@@ -776,7 +789,7 @@ export async function writeDraft(guideId: string, draft: Draft, expectToken?: st
     }
     return true;
   });
-  if (applied) await pruneKeyframes(guideId);
+  if (applied) await pruneKeyframes(guideId, unlinked);
   return applied;
 }
 
