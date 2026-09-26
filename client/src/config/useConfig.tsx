@@ -36,6 +36,7 @@ const FALLBACK: AppConfig = {
     lookup: true,
     askSearch: false,
     spotCheck: false,
+    legacyTags: false,
   },
   label: { widthMm: 62, heightMm: 25.4 },
   integrations: {
