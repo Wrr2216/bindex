@@ -9,6 +9,7 @@ import { PasswordSection } from "../components/settings/PasswordSection";
 import { DevicesSettingsSection } from "../features/tracking-core/DevicesSettingsSection";
 import { BUTTON, BUTTON_QUIET, Pill, Section } from "../components/ui";
 import { EventBackboneSettings } from "../features/event-backbone/SettingsSections";
+import { ValuationSettingsSection } from "../features/valuation/ValuationSettingsSection";
 import type { NinjaStatus, RegistrarStatus, SyncRun } from "../types";
 
 /** The NinjaOne connect flow returns here with a query parameter to report on. */
@@ -287,6 +288,7 @@ export function Settings() {
           {config.features.printing && <PrinterSection />}
           <BackupSection />
           <EventBackboneSettings />
+          <ValuationSettingsSection />
         </>
       )}
     </div>

@@ -38,6 +38,7 @@ const FALLBACK: AppConfig = {
     spotCheck: false,
     tracking: false,
     aiCapture: true,
+    valuation: false,
   },
   label: { widthMm: 62, heightMm: 25.4 },
   integrations: {

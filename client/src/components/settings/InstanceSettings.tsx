@@ -89,6 +89,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Photos, video and files on every record, and reading serial numbers and data plates from a photo of the label. Reading labels needs a vision model to be configured.",
   },
+  {
+    key: "valuation",
+    title: "Valuation and warranty",
+    description:
+      "Values with their history, AI estimates from photos, signed high-value declarations, receipts matched to items, warranty and service reminders, and an insurance valuation report.",
+  },
 ];
 
 export function InstanceSettings() {
