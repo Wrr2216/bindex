@@ -29,8 +29,11 @@ import { recordValuation } from "./valuations";
  */
 
 export type ReceiptSummary = ReceiptRow & { lineCount: number; matchedCount: number; fileCount: number; thumbUrl: string | null };
+/** A line with the name of what it is matched to, for showing without another lookup. */
+export type ReceiptLineDetail = ReceiptLineRow & { itemName: string | null; unitLabel: string | null };
+
 export type ReceiptDetail = ReceiptRow & {
-  lines: ReceiptLineRow[];
+  lines: ReceiptLineDetail[];
   files: Attachment[];
   createdByName: string | null;
   confirmedByName: string | null;
@@ -49,7 +52,14 @@ export async function getReceipt(id: string): Promise<ReceiptDetail> {
   const [row] = await db.select().from(receipts).where(eq(receipts.id, id)).limit(1);
   if (!row) throw notFound("That receipt no longer exists.");
   const [lines, files, names] = await Promise.all([
-    db.select().from(receiptLines).where(eq(receiptLines.receiptId, id)).orderBy(asc(receiptLines.position)),
+    db
+      .select({ line: receiptLines, itemName: items.name, unitLabel: sql<string | null>`coalesce(${itemUnits.label}, ${itemUnits.serial}, ${itemUnits.assetCode})` })
+      .from(receiptLines)
+      .leftJoin(items, eq(items.id, receiptLines.itemId))
+      .leftJoin(itemUnits, eq(itemUnits.id, receiptLines.unitId))
+      .where(eq(receiptLines.receiptId, id))
+      .orderBy(asc(receiptLines.position))
+      .then((rows) => rows.map((r) => ({ ...r.line, itemName: r.itemName ?? null, unitLabel: r.unitLabel ?? null }))),
     listAttachments("receipt", id, { kind: ["photo", "document"] }),
     db
       .select({ oid: users.oid, name: users.name })
@@ -367,7 +377,8 @@ export async function confirmReceipt(id: string, decisions: ConfirmLine[], userO
   }
 
   const notes: string[] = [];
-  const resolved: { line: ReceiptLineRow; itemId: string; unitId: string | null; created: boolean; d: ConfirmLine }[] = [];
+  type Resolved = { line: ReceiptLineRow; itemId: string; unitId: string | null; created: boolean; d: ConfirmLine };
+  const resolved: Resolved[] = [];
   for (const d of decisions) {
     const line = byLine.get(d.lineId)!;
     if (d.create) {
@@ -392,19 +403,39 @@ export async function confirmReceipt(id: string, decisions: ConfirmLine[], userO
     }
   }
 
+  // Several lines can go to one record (the laptop and its protection plan).
+  // The record gets one set of purchase facts: the price of its dearest line,
+  // which is the thing itself rather than an add-on, and the longest warranty
+  // any of its lines states.
+  const paidFor = (r: Resolved) => (r.unitId ? r.line.unitPriceCents : (r.line.totalCents ?? r.line.unitPriceCents));
+  const groups = new Map<string, Resolved[]>();
+  for (const r of resolved) {
+    const key = `${r.itemId}|${r.unitId ?? ""}`;
+    groups.set(key, [...(groups.get(key) ?? []), r]);
+  }
+  const primaries = [...groups.values()].map((list) => {
+    const primary = list.reduce((a, b) => ((paidFor(b) ?? -1) > (paidFor(a) ?? -1) ? b : a));
+    const months = Math.max(0, ...list.filter((r) => r.d.setWarranty !== false).map((r) => r.line.warrantyMonths ?? 0));
+    if (list.length > 1) {
+      const others = list.filter((r) => r !== primary).map((r) => r.line.position).join(", ");
+      notes.push(`Lines ${primary.line.position} and ${others} are the same record: its purchase price is from line ${primary.line.position}.`);
+    }
+    return { primary, months, setValue: list.some((r) => r.d.setValue) };
+  });
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    for (const r of resolved) {
-      const paid = r.unitId ? r.line.unitPriceCents : (r.line.totalCents ?? r.line.unitPriceCents);
-      const months = r.d.setWarranty === false ? null : r.line.warrantyMonths;
+    for (const { primary: r, months } of primaries) {
       await upsertProfileTx(client, r.itemId, r.unitId, {
         purchaseDate: receipt.purchaseDate,
-        purchaseCents: paid,
+        purchaseCents: paidFor(r),
         vendor: receipt.vendor,
         receiptId: receipt.id,
         ...(months ? { warrantyEnds: warrantyEndFrom(receipt.purchaseDate, months), warrantyTerms: `${months} months, from the receipt` } : {}),
       });
+    }
+    for (const r of resolved) {
       await client.query(`UPDATE receipt_lines SET item_id = $2, unit_id = $3 WHERE id = $1`, [r.line.id, r.itemId, r.unitId]);
     }
     const matchedIds = new Set(resolved.map((r) => r.line.id));
@@ -422,31 +453,37 @@ export async function confirmReceipt(id: string, decisions: ConfirmLine[], userO
     client.release();
   }
 
-  const matched: ConfirmResult["matched"] = [];
-  for (const r of resolved) {
-    let valued = false;
-    const paid = r.unitId ? r.line.unitPriceCents : (r.line.totalCents ?? r.line.unitPriceCents);
-    if (r.d.setValue && paid != null && paid >= 0) {
-      try {
-        await recordValuation(
-          {
-            itemId: r.itemId,
-            unitId: r.unitId,
-            valueCents: paid,
-            source: "receipt",
-            basis: `Price paid${receipt.vendor ? ` at ${receipt.vendor}` : ""} on ${receipt.purchaseDate}, from receipt line ${r.line.position}`,
-            valuedOn: receipt.purchaseDate,
-            details: { receiptId: receipt.id, lineId: r.line.id, description: r.line.description },
-          },
-          userOid,
-        );
-        valued = true;
-      } catch (err) {
-        notes.push(`Line ${r.line.position}: the price was not recorded as a value (${err instanceof Error ? err.message : String(err)})`);
-      }
+  const valued = new Set<string>();
+  for (const { primary: r, setValue } of primaries) {
+    const paid = paidFor(r);
+    if (!setValue || paid == null || paid < 0) continue;
+    try {
+      await recordValuation(
+        {
+          itemId: r.itemId,
+          unitId: r.unitId,
+          valueCents: paid,
+          source: "receipt",
+          basis: `Price paid${receipt.vendor ? ` at ${receipt.vendor}` : ""} on ${receipt.purchaseDate}, from receipt line ${r.line.position}`,
+          valuedOn: receipt.purchaseDate,
+          // Not "description": that key describes the item itself (from an AI
+          // estimate) and is what declarations and the report show.
+          details: { receiptId: receipt.id, lineId: r.line.id, receiptLine: r.line.description },
+        },
+        userOid,
+      );
+      valued.add(r.line.id);
+    } catch (err) {
+      notes.push(`Line ${r.line.position}: the price was not recorded as a value (${err instanceof Error ? err.message : String(err)})`);
     }
-    matched.push({ lineId: r.line.id, itemId: r.itemId, unitId: r.unitId, created: r.created, valued });
   }
+  const matched: ConfirmResult["matched"] = resolved.map((r) => ({
+    lineId: r.line.id,
+    itemId: r.itemId,
+    unitId: r.unitId,
+    created: r.created,
+    valued: valued.has(r.line.id),
+  }));
 
   await publish(
     "receipt.confirmed",

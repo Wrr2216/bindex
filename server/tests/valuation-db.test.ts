@@ -207,12 +207,14 @@ describe("valuation with Postgres", { skip: url ? false : "set TEST_DATABASE_URL
         { lineId: lines[0]!.id, itemId: laptopId, setValue: true },
         { lineId: lines[1]!.id, itemId: monitorsId, unitId: unitB, setValue: false },
         { lineId: lines[2]!.id, create: true, setValue: true },
-        { lineId: lines[3]!.id, itemId: null },
+        // The protection plan goes to the laptop too: its warranty, not its price.
+        { lineId: lines[3]!.id, itemId: laptopId },
       ],
       USER,
     );
+    assert.ok(confirmed.notes.some((n) => /Lines 1 and 4 are the same record/.test(n)));
     assert.equal(confirmed.receipt.status, "confirmed");
-    assert.equal(confirmed.matched.length, 3);
+    assert.equal(confirmed.matched.length, 4);
     const created = confirmed.matched.find((m) => m.created)!;
     const cable = await items.getItemDetail(created.itemId);
     assert.deepEqual([cable.name, cable.valueCents], [`USB-C CABLE ${RUN}`, 1299]);
@@ -222,6 +224,7 @@ describe("valuation with Postgres", { skip: url ? false : "set TEST_DATABASE_URL
     assert.equal(laptopProfile?.purchaseCents, 129999);
     assert.equal(laptopProfile?.vendor, "Micro Center #041");
     assert.equal(laptopProfile?.receiptId, receipt.id);
+    assert.equal(laptopProfile?.warrantyEnds, "2026-03-02");
     const unitProfile = await v.getProfile(monitorsId, unitB);
     assert.equal(unitProfile?.purchaseCents, 32900);
     assert.equal((await items.getItemDetail(laptopId)).valueCents, 129999);
