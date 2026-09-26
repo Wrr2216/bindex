@@ -165,19 +165,21 @@ takes a Postgres advisory lock per run and the others skip it.
 ### Bluetooth room presence
 
 When the Bluetooth feature (beacons, gateways and room-level presence) is
-installed, its presence engine decides which room a tag is in and stores that
-as a sighting with tech `ble`; the worker uses those like any other room
+switched on, its presence engine decides which room a tag is in and stores
+that as a sighting with tech `ble`; the worker uses those like any other room
 read, recording `via: ble`. Without it, a BLE read's zone is only the gateway
 that heard it, which is not a room verdict, so BLE reads are ignored.
 
-Placement detects the feature at run time: its migration (`0030_*.sql`) has
-run and its switch (`features.ble`) is not explicitly off. Settings shows
-whether it was found.
+Placement asks the instance configuration on each batch that holds BLE reads
+(`bleAvailable()` in `services/placement/readers.ts` reads `features.ble`).
+That switch is only on while **Readers, beacons and trackers** is on too, so
+switching either off stops Bluetooth reads from placing anything. Settings
+shows whether BLE presence is in use.
 
 For phones, **Sweep a room** asks `GET /api/ble/me/room` for the room this
 person's phone hears a room beacon in, and picks it when the answer has a
 location id (`locationId`, `room.locationId`, `room.id` or `location.id`).
-Any error, including a 404 when the feature is not installed, is ignored.
+Any error, including a 404 when the feature is switched off, is ignored.
 
 ### Missing after delivery
 
@@ -301,7 +303,7 @@ Everything else is open to any signed-in user, like the manifest.
 | POST | `/api/placement/jobs/:id/proposals/apply` | `{ jobItemIds?, overwrite?, originRootId?, destinationRootId? }` |
 | GET | `/api/placement/jobs/:id/room-map` | `{ rows: [{ id, origin, destination }] }` |
 | PUT | `/api/placement/jobs/:id/room-map` | `{ rows: [{ originLocationId, destinationLocationId }] }`; replaces the map |
-| GET | `/api/placement/readers` | Devices with a zone and their placement settings, the worker's last run, whether BLE presence was found |
+| GET | `/api/placement/readers` | Devices with a zone and their placement settings, the worker's last run, whether BLE presence is switched on |
 | PATCH | `/api/placement/readers/:deviceId` | Admin. `{ confirm?, nested? }` |
 
 Places come back as `{ id, name, path }`, where `path` is the names from the
@@ -370,7 +372,7 @@ server/src/services/placement/
   destinations.ts  room map and proposals
   jobs.ts          job lists, progress, floor colours
   kiosk.ts         kiosk feed and scans
-  readers.ts       the room reader worker, BLE detection, reader settings
+  readers.ts       the room reader worker, the BLE switch check, reader settings
   observations.ts  observations
   backup.ts        tables in the instance backup
 server/src/routes/placement.ts

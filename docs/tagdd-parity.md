@@ -1563,9 +1563,10 @@ Gathered from the feature documents and from reading the merged code.
   edits, the check-out button and reader zone moves do not check custody
   control yet. A hook in `services/items.ts` and `services/assignments.ts`
   would, as the stage guard does for jobs ([custody](custody.md#follow-ups)).
-- **One batch code resolver.** The tracking core (`resolveCodes`), jobs
+- **One code resolver.** The tracking core (`resolveCodes`), jobs
   (`resolveScanCodes`) and consumables (`resolveCodes`) each resolve scanned
-  codes in batches. Section 5 asks for one module.
+  codes in batches, and tag commissioning resolves one at a time
+  (`resolveTagCode`). Section 5 asks for one module.
 - **Bulk capture into tags and jobs.** Stickers read from paper inventories stay
   in `metadata.sticker` instead of becoming legacy sticker identifiers, and a
   commit cannot add its items to a job's manifest
@@ -1581,9 +1582,6 @@ Gathered from the feature documents and from reading the merged code.
 - **Job-scoped declarations.** A high-value declaration for a job stores the
   job reference as text. It should link to the job and fill from its manifest
   ([valuation](valuation.md#limits-and-follow-ups)).
-- **Item history not published.** Register reconciliation's actions and
-  imports, and offline field notes, write item history directly, so they reach
-  neither the audit log nor webhooks.
 - **More custody.** The current custodian on the job manifest, the receiver's
   signing link inside the portal, signing links sent by email, and an
   into-storage transfer recorded when a vault's tracker enters its store's

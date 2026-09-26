@@ -319,10 +319,11 @@ behind it.
 
 ### Sharing through the portal
 
-The external portal is a separate feature. Documents feature-detect it: the
-portal registers a provider when its module loads, and until one is
+The external portal is a separate feature. Documents feature-detect it: a
+provider registered when its module loads turns sharing on, and until one is
 registered `meta.share.available` is false and the **Share** button is
-hidden.
+hidden. The portal does not register one yet, so the button stays hidden; see
+[Integration](#integration).
 
 ```ts
 import { registerDocumentShareProvider } from "../documents";
@@ -378,8 +379,8 @@ instance's own word for that concept.
 `client/src/features/documents` exports the lazily loaded pages for
 `App.tsx`, `DocumentsSettingsSection` for Settings, and
 `<JobDocumentsPanel jobId={job.id} />`, the job's packets and documents as a
-panel that renders nothing while the feature is off. The job page does not
-show it yet (see [Integration](#integration)).
+panel that renders nothing while the feature is off. The job page shows it
+below the job's own documents (see [Integration](#integration)).
 
 ## Data model
 
@@ -433,13 +434,12 @@ kept.
 
 ## Integration
 
-- The job page (`client/src/features/jobs-core/JobDetail.tsx`) is owned by
-  the jobs core, so this branch does not edit it. To show a job's documents
-  there, add one line after `<DocumentsPanel job={job} />`:
-  `<JobDocumentsPanel jobId={job.id} />` (imported from
-  `../documents`). Until then they are at `/documents/jobs/<job id>` and
-  under **Documents**.
-- The portal can register a share provider as above.
+- The job page (`client/src/features/jobs-core/JobDetail.tsx`) renders
+  `<JobDocumentsPanel jobId={job.id} />` after `<DocumentsPanel job={job} />`,
+  and links to `/documents/jobs/<job id>` when the feature is on (added at
+  integration, 1ca09fe). The documents are also listed under **Documents**.
+- Follow-up: the portal should register a share provider as above, so a
+  document can be shared through a portal link.
 
 ## Code map
 

@@ -32,8 +32,9 @@ instance behaves for everyone or expose the whole database: `/api/settings`,
 `/api/backup`, the device management connect flow, the audit log and webhook
 routes (`/api/audit-log`, `/api/webhooks`) and portal link management
 (`/api/portal-grants`). A key on those returns 403 with code `session_required`.
-A key is never an administrator, so any other route that needs one refuses it
-with 403.
+API keys never qualify for administrator routes: any other route that needs
+an administrator refuses a request carrying a key with 403, even when an
+administrator's session cookie came along too.
 
 ## Conventions
 

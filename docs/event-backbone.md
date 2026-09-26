@@ -99,10 +99,16 @@ The contract:
 - **Document your types** in your feature's own document, and add a row for
   their prefix to [Events from other features](#events-from-other-features).
 
-Item history needs nothing extra: `recordEvent()` in `services/items.ts`
-publishes every item event as `item.<action>`. Code that inserts into
-`item_events` directly, in bulk, bypasses it and has to publish after its
-transaction commits, as the tracking core does for reader-driven moves.
+Item history needs nothing extra: every row written to an item's history is
+published as `item.<action>`. `recordEvent()` in `services/items.ts` does it
+for single changes. Code that writes history in bulk (the tracking core,
+register reconciliation, offline field notes) publishes each row itself after
+its transaction commits, so a new bulk writer must do the same. Reader-driven
+moves (fixed readers, Bluetooth presence, GPS geofences) arrive as `item.moved`
+with a `device` actor naming the reader, gateway or tracker. Two things are
+published differently: the jobs core's per-line history rows go out together as
+one `job.stage_changed` per batch, and restoring a backup does not republish
+the history it brings back.
 
 ## Event catalog
 
@@ -168,9 +174,9 @@ webhook picker under its group.
 
 Attachments, register reconciliation, consumables, tag commissioning, offline
 field mode and placement publish no types of their own. Placement's and
-custody's stage changes arrive as `job.stage_changed`, and tag binding and data
-plates as `item.updated`. Register reconciliation's actions and imports, and
-offline field notes, write item history directly and are not yet published.
+custody's stage changes arrive as `job.stage_changed`; tag binding, data
+plates and offline field notes as `item.updated`; and register reconciliation's
+actions and imports as `item.<action>` with `source: "register"`.
 
 ### Jobs and shipments
 

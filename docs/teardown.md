@@ -318,9 +318,10 @@ attachments, which the JSON backup does not carry; back up Postgres and
 
 ## Follow-ups
 
-- A share link for a guide, read-only and without an account, once the
-  external portal (T15) and jobs (T03) are in: a crew at the destination opens
-  the guide from the bag label without signing in.
+- A share link for a guide, read-only and without an account: a crew at the
+  destination opens the guide from the bag label without signing in. The
+  external portal (T15) and jobs (T03) it would build on are now in the build;
+  the link itself is not written yet.
 - The chat helper waits a fixed ten seconds; a per-call timeout would let
   processing send larger windows to slower (local) models.
 - A server-side path to an attachment's file would let ffmpeg read videos on

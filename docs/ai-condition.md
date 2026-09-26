@@ -374,8 +374,12 @@ const note = useHandlingNote(itemId);         // the raw note, for a custom card
 <RatingBadge rating="fair" />
 ```
 
-Placement cards (T11) should show `HandlingNoteBanner` next to the
-destination.
+Two features already use this. Printed relocation manifests and load sheets
+(T03) print each line's `handlingNotesForRefs` text under the item while this
+feature is on (`services/integration/handlingNotes.ts`, through the jobs
+core's `registerManifestNotes`). Placement cards and the entrance kiosk (T11)
+show the same line next to the destination, through placement's own provider
+(`services/placement/conditionNotes.ts`).
 
 ## Events
 
@@ -409,9 +413,7 @@ Three tables (migration `0033_ai_condition.sql`): `condition_reports`,
 
 ## Follow-ups
 
-- Relocation manifests (T03) and placement cards (T11) are not in this
-  branch; they should print `handlingNoteFor(...).text` on each line and show
-  `HandlingNoteBanner`.
-- The per-container contents sheet PDF could print each line's handling note.
+- The per-container contents sheet PDF could print each line's handling note,
+  as manifests and load sheets now do.
 - Mapping the room written on a box to a destination location (for T11's
   destination rules).

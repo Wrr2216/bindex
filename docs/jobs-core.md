@@ -336,7 +336,7 @@ Each returns a function that unregisters it. A listener that throws is logged
 | `completeTasksByKind(jobId, kind, actor)` | Closing your task when your work finishes |
 | `setJobMetadata(jobId, key, value)`, `setShipmentMetadata(id, key, value)`, `setJobTypeSetting(id, feature, value)`, `getJobTypeSetting(id, feature)` | Storing per-feature data under your own key, without a migration or a collision |
 | `createJob`, `updateJob`, `createShipment`, `setShipmentStatus`, `addItemsByCodes`, `addItemsFromLocation`, `importManifestCsv`, `updateJobItems` | Everything the screens do |
-| `resolveScanCodes(codes)` | The batch code resolver (to be merged with T01's) |
+| `resolveScanCodes(codes)` | The batch code resolver. It is one of several: the tracking core's `resolveCodes`, consumables' `resolveCodes` and tag commissioning's single-code `resolveTagCode` each resolve codes their own way. Unifying them into one module is a follow-up |
 | `decideStage`, `checkShipmentTransition`, `hasReached` | The rules, for a screen that wants to grey out a move before trying it |
 
 ### Suggested attachment points
