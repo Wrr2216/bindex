@@ -19,6 +19,7 @@ import { backupRouter } from "./backup";
 import { imageRouter } from "./image";
 import { photosRouter } from "./photos";
 import { eventBackboneRouter } from "./event-backbone";
+import { trackingRouter } from "./tracking-core";
 
 export const apiRouter = Router();
 
@@ -46,6 +47,7 @@ apiRouter.use("/backup", requireAdmin, backupRouter);
 apiRouter.use("/image", imageRouter);
 apiRouter.use("/photos", photosRouter);
 apiRouter.use(eventBackboneRouter);
+apiRouter.use("/tracking", trackingRouter);
 
 apiRouter.delete(
   "/identifiers/:id",

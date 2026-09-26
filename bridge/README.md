@@ -102,3 +102,17 @@ Once it works, wrap `run.sh` in a systemd unit so it starts with the Pi.
   this does not apply to it.
 - **Several readers.** Give each one a distinct `READER_ID` and pick that
   channel in the audit screen.
+
+## Sightings, zones and portals
+
+With the server's **Readers, beacons and trackers** feature on (it is by
+default), every read the bridge posts is also stored as a sighting, and the
+bridge appears in **Settings, Readers and devices** under its `READER_ID` the
+first time it posts. Give it a zone there and turn on **Move items when read**
+to make it a fixed zone reader.
+
+Set `SEND_READS=1` to post to `/api/device/reads` instead of `/api/device/scan`.
+Each tag then carries the antenna that saw it, its signal strength and the
+time it was read, which a portal needs to tell which way a tag went. The audit
+screen keeps working either way. `DEVICE_TOKEN` may be `INGEST_TOKEN` or the
+device's own token from Settings. See [docs/tracking-core.md](../docs/tracking-core.md).

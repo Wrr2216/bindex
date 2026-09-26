@@ -147,6 +147,14 @@ const schema = z.object({
   // SESSION_SECRET; set it so that rotating the session secret does not leave
   // existing checkpoints unverifiable.
   AUDIT_SIGNING_KEY: z.string().default(""),
+  // ---- T01: tracking core (readers, beacons and trackers) -----------------
+  // Days of sightings to keep; older ones are pruned daily. 0 keeps them all.
+  SIGHTINGS_RETENTION_DAYS: z.coerce.number().int().nonnegative().default(90),
+  // A repeat of the same code on the same device within this many seconds is
+  // not stored again. Devices can override it in their settings.
+  TRACKING_DEDUP_SECONDS: z.coerce.number().nonnegative().default(5),
+  // Largest request body a reader may post to /api/device.
+  DEVICE_INGEST_MAX_MB: z.coerce.number().positive().default(16),
 });
 
 const parsed = schema.safeParse(process.env);

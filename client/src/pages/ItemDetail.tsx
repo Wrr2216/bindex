@@ -11,6 +11,7 @@ import { UnitsSection } from "../components/UnitsSection";
 import { MoveAction } from "../components/MoveAction";
 import { NfcTagUrl } from "../components/NfcTagUrl";
 import { useScan } from "../scan/ScanProvider";
+import { LastSeenCard } from "../features/tracking-core/LastSeenCard";
 import {
   AlertIcon,
   ArrowLeftIcon,
@@ -400,6 +401,8 @@ export function ItemDetail() {
               </dl>
             </section>
           )}
+
+          {config.features.tracking && !isDomain && <LastSeenCard itemId={item.id} />}
 
           <AssignmentSection item={item} onChange={setItem} />
 

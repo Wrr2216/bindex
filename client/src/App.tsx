@@ -18,6 +18,8 @@ import { Settings } from "./pages/Settings";
 import { PrintLabels } from "./pages/PrintLabels";
 import { AuditLogPage } from "./features/event-backbone/AuditLogPage";
 import { WebhooksPage } from "./features/event-backbone/WebhooksPage";
+import { LiveReads } from "./features/tracking-core/LiveReads";
+import { DevicesPage } from "./features/tracking-core/DevicesPage";
 
 function Loading() {
   return (
@@ -64,6 +66,8 @@ function AppShell() {
           <Route path="settings" element={<Settings />} />
           <Route path="settings/audit-log" element={<AuditLogPage />} />
           <Route path="settings/webhooks" element={<WebhooksPage />} />
+          {features.tracking && <Route path="tracking" element={<LiveReads />} />}
+          {features.tracking && <Route path="settings/devices" element={<DevicesPage />} />}
         </Route>
       </Routes>
     </ScanProvider>
