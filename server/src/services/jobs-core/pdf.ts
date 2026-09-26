@@ -233,8 +233,10 @@ class Writer {
       );
     });
     const lines = Math.max(1, ...wrapped.map((w) => w.length));
-    const height = lines * ROW_LEAD + 5;
-    this.ensure(height, onBreak);
+    // From this row's first baseline, past its last line's descenders to the
+    // rule, then down to the next row's baseline clear of its capitals.
+    const toRule = (lines - 1) * ROW_LEAD + 5;
+    this.ensure(toRule + 12, onBreak);
     const top = this.y;
     let x = MARGIN;
     row.cells.forEach((cell, i) => {
@@ -250,8 +252,8 @@ class Writer {
       }
       x += col.width;
     });
-    this.y = top - height;
-    this.line(this.y + 4);
+    this.line(top - toRule);
+    this.y = top - toRule - 12;
   }
 
   signatures(labels: string[]) {
