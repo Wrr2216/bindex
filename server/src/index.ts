@@ -20,6 +20,7 @@ import { runNinjaSync } from "./services/ninjaone/sync";
 import { runRegistrarSync } from "./services/registrars/sync";
 import { sendExpiryDigest } from "./services/registrars/alerts";
 import { HttpError, describeError } from "./lib/errors";
+import { startLowStockDigest } from "./services/consumables/lowstock";
 
 const app = express();
 // One proxy hop, which is what a container behind a reverse proxy sees. Needed
@@ -132,6 +133,7 @@ async function main(): Promise<void> {
     }
     startNinjaSync();
     startRegistrarSync();
+    startLowStockDigest();
   });
 }
 
