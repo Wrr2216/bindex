@@ -24,6 +24,7 @@ import { startAttachmentSweeper } from "./services/media-ai-core";
 import { wireJobEvents } from "./services/integration/jobEvents";
 import { HttpError, describeError } from "./lib/errors";
 import { startEventBackbone } from "./services/event-backbone";
+import { inspectionShareRouter } from "./routes/inspections";
 
 const app = express();
 // One proxy hop, which is what a container behind a reverse proxy sees. Needed
@@ -70,6 +71,9 @@ app.use("/api/config", configRouter);
 app.use("/api/device", deviceRouter);
 // Built from the configuration, so it has to come before the static handler.
 app.use(manifestRouter);
+// Read-only inspection reports opened from a signed, expiring link, by people
+// without an account.
+app.use("/api/share/inspections", inspectionShareRouter);
 app.use("/api", apiRouter);
 
 // Unmatched API routes answer with JSON rather than the single-page shell.

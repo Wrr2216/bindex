@@ -14,6 +14,7 @@ import {
 } from "../db/schema";
 import { badRequest } from "../lib/errors";
 import { clearJobsCoreTables, exportJobsCoreTables, restoreJobsCoreTables } from "./jobs-core/backup";
+import { exportInspectionTables, restoreInspectionTables } from "./inspections/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -54,6 +55,8 @@ const TABLES = [
   "shipment_status_history",
   "job_items",
   "job_item_stage_history",
+  "inspections",
+  "inspection_findings",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -78,6 +81,8 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   shipment_status_history: ["createdAt"],
   job_items: ["stageAt", "createdAt", "updatedAt"],
   job_item_stage_history: ["createdAt"],
+  inspections: ["startedAt", "completedAt", "signedAt", "createdAt", "updatedAt"],
+  inspection_findings: ["createdAt", "updatedAt"],
 };
 
 export type Backup = {
@@ -114,6 +119,7 @@ export async function buildBackup(): Promise<Backup> {
     item_assignments: asg,
     tracking_devices: devs,
     ...(await exportJobsCoreTables()),
+    ...(await exportInspectionTables()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -263,6 +269,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
       await tx.execute(sql`INSERT INTO tracking_devices SELECT * FROM backup_kept_devices`);
     }
     await restoreJobsCoreTables(tx, d);
+    await restoreInspectionTables(tx, d);
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,
