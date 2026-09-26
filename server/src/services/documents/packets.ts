@@ -52,7 +52,7 @@ async function packetTemplates(packetIds: string[]) {
       id: documentTemplates.id,
       name: documentTemplates.name,
       active: documentTemplates.active,
-      publishedVersion: sql<number | null>`(SELECT max(v.version)::int FROM document_template_versions v WHERE v.template_id = ${documentTemplates.id} AND v.status = 'published')`,
+      publishedVersion: sql<number | null>`(SELECT max(v.version)::int FROM document_template_versions v WHERE v.template_id = document_templates.id AND v.status = 'published')`,
     })
     .from(documentPacketTemplates)
     .innerJoin(documentTemplates, eq(documentPacketTemplates.templateId, documentTemplates.id))
@@ -76,7 +76,7 @@ const present = (p: DocumentPacket, templates: Awaited<ReturnType<typeof packetT
 
 export async function listPackets() {
   const rows = await db
-    .select({ packet: documentPackets, jobCount: sql<number>`(SELECT count(*)::int FROM document_job_packets jp WHERE jp.packet_id = ${documentPackets.id} AND jp.applies)` })
+    .select({ packet: documentPackets, jobCount: sql<number>`(SELECT count(*)::int FROM document_job_packets jp WHERE jp.packet_id = document_packets.id AND jp.applies)` })
     .from(documentPackets)
     .orderBy(asc(documentPackets.name));
   const templates = await packetTemplates(rows.map((r) => r.packet.id));

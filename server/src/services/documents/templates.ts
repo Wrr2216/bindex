@@ -50,6 +50,9 @@ const clean = (s: string | null | undefined) => {
   return t ? t : null;
 };
 
+// The subqueries below name the outer table in plain SQL: on a query without a
+// join Drizzle writes a column as a bare "id", which inside the subquery would
+// mean the subquery's own id.
 export async function listTemplates(opts: { includeInactive?: boolean } = {}) {
   const rows = await db
     .select({
@@ -59,10 +62,10 @@ export async function listTemplates(opts: { includeInactive?: boolean } = {}) {
       active: documentTemplates.active,
       createdAt: documentTemplates.createdAt,
       updatedAt: documentTemplates.updatedAt,
-      latestVersion: sql<number>`(SELECT max(v.version)::int FROM document_template_versions v WHERE v.template_id = ${documentTemplates.id})`,
-      publishedVersion: sql<number | null>`(SELECT max(v.version)::int FROM document_template_versions v WHERE v.template_id = ${documentTemplates.id} AND v.status = 'published')`,
-      hasDraft: sql<boolean>`EXISTS (SELECT 1 FROM document_template_versions v WHERE v.template_id = ${documentTemplates.id} AND v.status = 'draft')`,
-      documentCount: sql<number>`(SELECT count(*)::int FROM documents d WHERE d.template_id = ${documentTemplates.id})`,
+      latestVersion: sql<number>`(SELECT max(v.version)::int FROM document_template_versions v WHERE v.template_id = document_templates.id)`,
+      publishedVersion: sql<number | null>`(SELECT max(v.version)::int FROM document_template_versions v WHERE v.template_id = document_templates.id AND v.status = 'published')`,
+      hasDraft: sql<boolean>`EXISTS (SELECT 1 FROM document_template_versions v WHERE v.template_id = document_templates.id AND v.status = 'draft')`,
+      documentCount: sql<number>`(SELECT count(*)::int FROM documents d WHERE d.template_id = document_templates.id)`,
     })
     .from(documentTemplates)
     .where(opts.includeInactive ? undefined : eq(documentTemplates.active, true))
@@ -127,7 +130,7 @@ export async function getTemplate(id: string) {
       publishedAt: documentTemplateVersions.publishedAt,
       publishedBy: documentTemplateVersions.publishedBy,
       updatedAt: documentTemplateVersions.updatedAt,
-      documentCount: sql<number>`(SELECT count(*)::int FROM documents d WHERE d.template_version_id = ${documentTemplateVersions.id})`,
+      documentCount: sql<number>`(SELECT count(*)::int FROM documents d WHERE d.template_version_id = document_template_versions.id)`,
     })
     .from(documentTemplateVersions)
     .where(eq(documentTemplateVersions.templateId, id))

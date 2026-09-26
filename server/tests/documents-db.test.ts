@@ -95,12 +95,15 @@ describe("documents against Postgres", { skip: url ? false : "set TEST_DATABASE_
     const published = await docs.publishTemplate(templateId, actor.userOid);
     assert.equal(published.version.version, 1);
     assert.equal(published.template.draft, null);
+    const listed = (await docs.listTemplates()).find((t) => t.id === templateId);
+    assert.deepEqual([listed?.latestVersion, listed?.publishedVersion, listed?.hasDraft], [1, 1, false]);
 
     const packet = await docs.createPacket(
       { name: `IT move packet ${tag}`, templateIds: [templateId], conditions: { jobTypeIds: [it.id] } },
       actor,
     );
     cleanup.push(() => docs.deletePacket(packet.id));
+    assert.equal((await docs.getPacket(packet.id)).templates[0]?.publishedVersion, 1);
 
     // A delivery job gets nothing; an IT relocation job gets the packet.
     const other = await jobs.createJob({ name: `Parts drop ${tag}`, jobTypeId: delivery.id }, actor);
@@ -229,6 +232,12 @@ describe("documents against Postgres", { skip: url ? false : "set TEST_DATABASE_
     assert.equal((await docs.getDocumentDetail(v2doc.id)).version.version, 2);
     assert.equal((await docs.getDocumentDetail(id)).version.version, 1);
     assert.equal((await docs.verifyDocument(id)).valid, true);
+    const history = (await docs.getTemplate(templateId)).versions.map((v) => [v.version, v.status, v.documentCount]);
+    assert.deepEqual(history, [
+      [2, "published", 1],
+      [1, "published", 3],
+    ]);
+    assert.equal((await docs.listTemplates()).find((t) => t.id === templateId)?.documentCount, 4);
     await assert.rejects(docs.deleteTemplate(templateId), /use this template/);
 
     // A backup round trip keeps every document table intact.
