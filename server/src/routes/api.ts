@@ -18,6 +18,7 @@ import { searchRouter } from "./search";
 import { backupRouter } from "./backup";
 import { imageRouter } from "./image";
 import { photosRouter } from "./photos";
+import { trackingRouter } from "./tracking-core";
 
 export const apiRouter = Router();
 
@@ -44,6 +45,7 @@ apiRouter.use("/search", searchRouter);
 apiRouter.use("/backup", requireAdmin, backupRouter);
 apiRouter.use("/image", imageRouter);
 apiRouter.use("/photos", photosRouter);
+apiRouter.use("/tracking", trackingRouter);
 
 apiRouter.delete(
   "/identifiers/:id",
