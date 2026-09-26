@@ -253,8 +253,15 @@ a stranger belongs to. The job's **Log** tab lists them.
 ## Handling notes
 
 The card and the kiosk show handling notes from any feature that provides
-them (AI condition records write "handle with care to prevent further
-scratching"). Placement does not write them. A provider registers when its
+them. Placement does not write them.
+
+**AI condition records** ([ai-condition.md](ai-condition.md)) are wired in:
+while that feature is on, each line shows its item's handling line from the
+latest condition report and container capture ("Fragile · This side up.
+Handle with care to prevent further scratching."), a unit's own report
+winning over its item's. See `services/placement/conditionNotes.ts`.
+
+Any other feature can add notes the same way. A provider registers when its
 module loads:
 
 ```ts
@@ -357,6 +364,7 @@ server/src/services/placement/
   progress.ts      tallies and "missing after delivery" (pure)
   colors.ts        floor colours (pure)
   handling.ts      handling notes providers
+  conditionNotes.ts  the AI condition records provider
   data.ts          loading lines and the tree
   scan.ts          card, Placed here, sweeps, rooms, flag missing
   destinations.ts  room map and proposals
