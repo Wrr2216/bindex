@@ -19,6 +19,9 @@ WORKDIR /app
 RUN corepack enable
 # The canvas module used to render labels links against libstdc++ on Alpine.
 RUN apk add --no-cache libstdc++
+# T19: pdftoppm draws PDF receipts as images for the vision model. Without it
+# PDF receipts are still stored and can be entered by hand.
+RUN apk add --no-cache poppler-utils
 
 # A standalone production install for the server alone, which keeps the client
 # toolchain out of the image.
