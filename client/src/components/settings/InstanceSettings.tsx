@@ -95,6 +95,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Plan moves and deliveries as jobs, print floor and department manifests, and scan everything through pack, load, deliver and place.",
   },
+  {
+    key: "documents",
+    title: "Documents",
+    description:
+      "Templates people fill in and sign, with packets that attach themselves to jobs by type, project, phase or site, and PDFs whose hash is recorded.",
+  },
 ];
 
 export function InstanceSettings() {

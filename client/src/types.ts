@@ -283,6 +283,7 @@ export interface Features {
   tracking: boolean;
   aiCapture: boolean;
   jobs: boolean;
+  documents: boolean;
 }
 
 /**

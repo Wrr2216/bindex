@@ -39,6 +39,7 @@ const FALLBACK: AppConfig = {
     tracking: false,
     aiCapture: true,
     jobs: false,
+    documents: false,
   },
   label: { widthMm: 62, heightMm: 25.4 },
   integrations: {
