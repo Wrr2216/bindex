@@ -224,3 +224,4 @@ export * from "./tables/tag-commissioning";
 export * from "./tables/offline-field";
 export * from "./tables/bulk-capture";
 export * from "./tables/ai-condition";
+export * from "./tables/placement";

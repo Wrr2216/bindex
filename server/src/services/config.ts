@@ -58,6 +58,8 @@ export type Features = {
   bulkCapture: boolean;
   /** Condition reports, container capture and condition sweeps (T12). */
   aiCondition: boolean;
+  /** Room-based placement guidance and delivery matching. Needs jobs. */
+  placement: boolean;
 };
 
 export type AppConfig = {
@@ -117,6 +119,7 @@ const KEYS = {
   featureOffline: "features.offline",
   featureBulkCapture: "features.bulk_capture",
   featureAiCondition: "features.ai_condition",
+  featurePlacement: "features.placement",
 } as const;
 
 function defaults(): AppConfig {
@@ -156,6 +159,7 @@ function defaults(): AppConfig {
       offline: false,
       bulkCapture: true,
       aiCondition: true,
+      placement: false,
     },
   };
 }
@@ -224,6 +228,7 @@ function build(stored: Map<string, string>): AppConfig {
       offline: flag(KEYS.featureOffline, base.features.offline),
       bulkCapture: flag(KEYS.featureBulkCapture, base.features.bulkCapture),
       aiCondition: flag(KEYS.featureAiCondition, base.features.aiCondition),
+      placement: flag(KEYS.featurePlacement, base.features.placement),
     },
   };
 }
@@ -319,6 +324,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   offline: KEYS.featureOffline,
   bulkCapture: KEYS.featureBulkCapture,
   aiCondition: KEYS.featureAiCondition,
+  placement: KEYS.featurePlacement,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {
