@@ -89,6 +89,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Photos, video and files on every record, and reading serial numbers and data plates from a photo of the label. Reading labels needs a vision model to be configured.",
   },
+  {
+    key: "teardown",
+    title: "Teardown guides",
+    description:
+      "Film a teardown while narrating it, and get numbered steps tied to the video, a parts list to tick off at reassembly, a printable report and hardware bag labels. Reading the narration needs speech to text and a language model; without them steps are written by hand.",
+  },
 ];
 
 export function InstanceSettings() {

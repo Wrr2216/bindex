@@ -20,6 +20,7 @@ import { AuditLogPage } from "./features/event-backbone/AuditLogPage";
 import { WebhooksPage } from "./features/event-backbone/WebhooksPage";
 import { LiveReads } from "./features/tracking-core/LiveReads";
 import { DevicesPage } from "./features/tracking-core/DevicesPage";
+import { GuidePage, TeardownList } from "./features/teardown";
 
 function Loading() {
   return (
@@ -68,6 +69,8 @@ function AppShell() {
           <Route path="settings/webhooks" element={<WebhooksPage />} />
           {features.tracking && <Route path="tracking" element={<LiveReads />} />}
           {features.tracking && <Route path="settings/devices" element={<DevicesPage />} />}
+          {features.teardown && <Route path="teardown" element={<TeardownList />} />}
+          {features.teardown && <Route path="teardown/:id" element={<GuidePage />} />}
         </Route>
       </Routes>
     </ScanProvider>

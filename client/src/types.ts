@@ -282,6 +282,7 @@ export interface Features {
   spotCheck: boolean;
   tracking: boolean;
   aiCapture: boolean;
+  teardown: boolean;
 }
 
 /**
