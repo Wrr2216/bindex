@@ -24,6 +24,7 @@ import {
   parkAiConditionRows,
   restoreAiConditionRows,
 } from "./ai-condition/backup";
+import { exportOpsIntelTables, restoreOpsIntelTables } from "./ops-intel/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -81,6 +82,7 @@ const TABLES = [
   "condition_sweeps",
   "condition_reports",
   "container_captures",
+  "ops_location_profiles",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -118,6 +120,7 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   tag_identifier_units: ["createdAt"],
   tag_epcs: ["encodedAt", "createdAt", "updatedAt"],
   ...AI_CONDITION_DATE_FIELDS,
+  ops_location_profiles: ["createdAt", "updatedAt"],
 };
 
 export type Backup = {
@@ -161,6 +164,7 @@ export async function buildBackup(): Promise<Backup> {
     tag_identifier_units: tagUnits,
     tag_epcs: epcs,
     ...(await aiConditionBackupRows()),
+    ...(await exportOpsIntelTables()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -331,6 +335,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     await restoreConsumables(tx, d);
 
     await restoreAiConditionRows(tx, d);
+    await restoreOpsIntelTables(tx, d);
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,
