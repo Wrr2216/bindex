@@ -46,6 +46,8 @@ export type Features = {
   aiCapture: boolean;
   /** Projects, jobs, shipments and relocation manifests. */
   jobs: boolean;
+  /** Document templates, packets attached to jobs, filling and signing. */
+  documents: boolean;
 };
 
 export type AppConfig = {
@@ -99,6 +101,7 @@ const KEYS = {
   featureTracking: "features.tracking",
   featureAiCapture: "features.ai_capture",
   featureJobs: "features.jobs",
+  featureDocuments: "features.documents",
 } as const;
 
 function defaults(): AppConfig {
@@ -132,6 +135,7 @@ function defaults(): AppConfig {
       tracking: true,
       aiCapture: true,
       jobs: false,
+      documents: false,
     },
   };
 }
@@ -194,6 +198,7 @@ function build(stored: Map<string, string>): AppConfig {
       tracking: flag(KEYS.featureTracking, base.features.tracking),
       aiCapture: flag(KEYS.featureAiCapture, base.features.aiCapture),
       jobs: flag(KEYS.featureJobs, base.features.jobs),
+      documents: flag(KEYS.featureDocuments, base.features.documents),
     },
   };
 }
@@ -283,6 +288,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   tracking: KEYS.featureTracking,
   aiCapture: KEYS.featureAiCapture,
   jobs: KEYS.featureJobs,
+  documents: KEYS.featureDocuments,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {
