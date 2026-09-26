@@ -69,6 +69,10 @@ function Attention({ entries, myOid }: { entries: QueuedAction[]; myOid: string 
   if (!entries.length) return null;
 
   const decide = async (q: QueuedAction, mine: boolean) => {
+    if (!mine && myOid !== null && q.userOid !== myOid) {
+      const ok = window.confirm(`Discard ${q.userName}'s change "${q.action.label}"? It will not be sent.`);
+      if (!ok) return;
+    }
     setBusy(q.id);
     try {
       if (mine) await keepMine(q);

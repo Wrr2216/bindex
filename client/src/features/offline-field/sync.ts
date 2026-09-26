@@ -27,6 +27,10 @@ export const SYNC_TAG = "bindex-offline-sync";
 // goes to "Needs attention" instead, where a person can retry it.
 const MAX_ATTEMPTS = 5;
 const POLL_MS = 30_000;
+// One plan request stays well inside the server's limits (2,000 changes, a
+// 1 MB body); anything beyond waits for the next run, oldest first.
+const PLAN_MAX_ACTIONS = 500;
+const PLAN_MAX_CHARS = 600_000;
 
 export type SyncOutcome = {
   sent: number;
@@ -75,11 +79,45 @@ export function requestSync(delayMs = 250): void {
 
 export function syncNow(): Promise<SyncOutcome> {
   if (!running) {
-    running = run().finally(() => {
+    // Two open tabs share one queue; only one of them sends it at a time.
+    const locks = "locks" in navigator ? navigator.locks : undefined;
+    const guarded: Promise<SyncOutcome> = locks
+      ? // The DOM typing does not unwrap an async callback's promise; the runtime does.
+        locks.request(SYNC_TAG, { ifAvailable: true }, (lock) => (lock ? run() : Promise.resolve(idle))).then((r) => r)
+      : run();
+    running = guarded.finally(() => {
       running = null;
     });
   }
   return running;
+}
+
+/**
+ * Who is signed in now, asked of the server: sending needs the network anyway,
+ * and the copy of the session is gone once a device stops working offline.
+ */
+async function currentUserOid(): Promise<string | null> {
+  try {
+    const res = await nativeFetch("/api/me", { credentials: "include" });
+    if (res.ok) return ((await res.json()) as { user: { oid: string } }).user.oid;
+    if (res.status === 401) return null;
+  } catch {
+    // Offline: fall back to the copy, and the plan request will find out.
+  }
+  return (await store.cachedUser())?.oid ?? null;
+}
+
+/** The oldest changes that fit in one plan request. */
+function planBatch<T>(entries: T[], size: (e: T) => number): T[] {
+  const out: T[] = [];
+  let chars = 0;
+  for (const e of entries) {
+    const n = size(e);
+    if (out.length && (out.length >= PLAN_MAX_ACTIONS || chars + n > PLAN_MAX_CHARS)) break;
+    out.push(e);
+    chars += n;
+  }
+  return out;
 }
 
 type SyncRegistration = ServiceWorkerRegistration & {
@@ -151,6 +189,8 @@ async function errorText(res: Response): Promise<string> {
 /** Keep the server's answer to a change on the copy, where it is an item. */
 async function keepAnswer(res: Response): Promise<void> {
   if (!res.headers.get("Content-Type")?.includes("json")) return;
+  // A device that stopped working offline still sends its queue, but keeps nothing.
+  if (!(await store.deviceEnabled())) return;
   const body = (await res.json().catch(() => null)) as Partial<ItemDetail> | null;
   if (body && typeof body === "object" && body.id && Array.isArray(body.identifiers)) {
     await store.putServerItem(body as ItemDetail);
@@ -158,14 +198,21 @@ async function keepAnswer(res: Response): Promise<void> {
 }
 
 async function run(): Promise<SyncOutcome> {
-  const [queue, me] = await Promise.all([store.listQueue(), store.cachedUser()]);
-  // Only the person signed in can send their own changes; anyone else's wait
-  // until they sign in on this device again.
-  const mine = me ? queue.filter((q) => q.userOid === me.oid) : [];
-  if (!mine.some((q) => q.status === "pending")) {
+  const queue = await store.listQueue();
+  if (!queue.some((q) => q.status === "pending")) {
     await refreshQueueStatus();
     return idle;
   }
+  const oid = await currentUserOid();
+  // Only the person signed in can send their own changes; anyone else's wait
+  // until they sign in on this device again.
+  const all = oid ? queue.filter((q) => q.userOid === oid) : [];
+  if (!all.some((q) => q.status === "pending")) {
+    await refreshQueueStatus();
+    return idle;
+  }
+  const inputs = planBatch(all.map(toPlanInput), (p) => JSON.stringify(p).length);
+  const mine = all.slice(0, inputs.length);
 
   setState({ syncing: true });
   const outcome: SyncOutcome = { ...idle };
@@ -176,7 +223,7 @@ async function run(): Promise<SyncOutcome> {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actions: mine.map(toPlanInput) }),
+        body: JSON.stringify({ actions: inputs }),
       });
       if (!res.ok) {
         outcome.error =
@@ -319,7 +366,7 @@ export async function keepMine(q: QueuedAction): Promise<void> {
 export async function keepServer(q: QueuedAction): Promise<void> {
   await store.finishQueued(q, "discarded", "Discarded; the server's version was kept.");
   const itemId = q.action.itemId;
-  if (itemId) {
+  if (itemId && (await store.deviceEnabled())) {
     try {
       const res = await nativeFetch(`/api/items/${itemId}`, { credentials: "include" });
       if (res.ok) await store.putServerItem((await res.json()) as ItemDetail);

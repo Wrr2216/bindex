@@ -31,6 +31,9 @@ import type { FieldAction, QueuedAction, ReplayRequest } from "./types";
  */
 
 const READ_TIMEOUT_MS = 8_000;
+// Every request waits for the device settings, so storage that never answers
+// (some private modes hang rather than refuse) must not hold the app up.
+const STORAGE_TIMEOUT_MS = 3_000;
 // A write that has not answered by now is queued. If the first attempt did get
 // through, the queued copy carries the same key and the server answers it
 // from what it stored.
@@ -65,7 +68,7 @@ async function load(): Promise<void> {
     return;
   }
   try {
-    await openDb();
+    await withTimeout(openDb(), STORAGE_TIMEOUT_MS);
     const [device, config] = await Promise.all([store.deviceEnabled(), getMeta("config")]);
     deviceOn = device;
     featureOn = config?.features.offline === true;
@@ -102,6 +105,12 @@ type ReadRoute = {
   observe?: (ctx: Ctx, res: Response) => Promise<void>;
   /** Also observe on devices that did not opt in (the feature switch itself). */
   alwaysObserve?: boolean;
+  /**
+   * Wait for the network however long it takes, falling back only when it is
+   * gone. For reconciling a walk, where the copy may hold only part of the
+   * building and a slow answer is still the right one.
+   */
+  noTimeout?: boolean;
 };
 
 const cachedJson = (body: unknown) => respond(body, 200, "cached");
@@ -274,6 +283,7 @@ const READS: ReadRoute[] = [
   {
     method: "POST",
     pattern: new RegExp(`^/api/locations/${ID}/verify$`),
+    noTimeout: true,
     offline: async ({ request, match }) => {
       const body = await jsonBody<{ codes: string[] }>(request);
       if (!body || !(await store.getLocation(match[1]!))) return null;
@@ -284,6 +294,7 @@ const READS: ReadRoute[] = [
   {
     method: "POST",
     pattern: /^\/api\/audit\/reconcile$/,
+    noTimeout: true,
     offline: async ({ request }) => {
       const body = await jsonBody<{ codes: string[]; companyId?: string }>(request);
       if (!body) return null;
@@ -310,7 +321,7 @@ async function handleRead(route: ReadRoute, ctx: Ctx): Promise<Response> {
   if (navigator.onLine !== false) {
     const attempt = nativeFetch(ctx.request.clone());
     try {
-      const res = await withTimeout(attempt, READ_TIMEOUT_MS);
+      const res = route.noTimeout ? await attempt : await withTimeout(attempt, READ_TIMEOUT_MS);
       noteOnline();
       observe(res);
       if (res.status === 401 && ctx.url.pathname === "/api/me") void setMeta("me", null);
