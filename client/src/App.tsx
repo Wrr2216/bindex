@@ -16,6 +16,8 @@ import { Audit } from "./pages/Audit";
 import { BuildingAudit } from "./pages/BuildingAudit";
 import { Settings } from "./pages/Settings";
 import { PrintLabels } from "./pages/PrintLabels";
+import { TagsPage } from "./features/tag-commissioning/TagsPage";
+import { NfcTapLayer } from "./features/tag-commissioning/NfcTapLayer";
 
 function Loading() {
   return (
@@ -60,8 +62,10 @@ function AppShell() {
           {features.audit && <Route path="audit" element={<Audit />} />}
           {features.audit && <Route path="audit/building" element={<BuildingAudit />} />}
           <Route path="settings" element={<Settings />} />
+          <Route path="tags" element={<TagsPage />} />
         </Route>
       </Routes>
+      <NfcTapLayer />
     </ScanProvider>
   );
 }
