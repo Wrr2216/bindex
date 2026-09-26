@@ -12,6 +12,7 @@ import {
   entities,
 } from "../db/schema";
 import { badRequest } from "../lib/errors";
+import { clearJobsCoreTables, exportJobsCoreTables, restoreJobsCoreTables } from "./jobs-core/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -42,6 +43,15 @@ const TABLES = [
   "item_images",
   "item_events",
   "item_assignments",
+  "job_types",
+  "projects",
+  "project_phases",
+  "jobs",
+  "job_tasks",
+  "shipments",
+  "shipment_status_history",
+  "job_items",
+  "job_item_stage_history",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -56,6 +66,15 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   item_images: [],
   item_events: ["createdAt"],
   item_assignments: ["checkedOutAt", "checkedInAt"],
+  job_types: ["createdAt", "updatedAt"],
+  projects: ["createdAt", "updatedAt"],
+  project_phases: ["createdAt"],
+  jobs: ["scheduledStart", "scheduledEnd", "startedAt", "completedAt", "createdAt", "updatedAt"],
+  job_tasks: ["dueAt", "startedAt", "completedAt", "createdAt", "updatedAt"],
+  shipments: ["eta", "departedAt", "arrivedAt", "createdAt", "updatedAt"],
+  shipment_status_history: ["createdAt"],
+  job_items: ["stageAt", "createdAt", "updatedAt"],
+  job_item_stage_history: ["createdAt"],
 };
 
 export type Backup = {
@@ -88,6 +107,7 @@ export async function buildBackup(): Promise<Backup> {
     item_images: imgs,
     item_events: evts,
     item_assignments: asg,
+    ...(await exportJobsCoreTables()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -160,6 +180,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
 
     // Children before parents. The foreign keys would cascade anyway; doing it
     // explicitly keeps the order visible.
+    await clearJobsCoreTables(tx, { keepJobTypes: d.job_types.length === 0 });
     await tx.delete(itemAssignments);
     await tx.delete(itemEvents);
     await tx.delete(itemImages);
@@ -210,6 +231,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     d.item_assignments = d.item_assignments.filter((a) => !a.unitId || present.has(a.unitId as string));
     for (const part of chunk(d.item_assignments, 500)) await tx.insert(itemAssignments).values(part as never);
     unitCount = present.size;
+    await restoreJobsCoreTables(tx, d);
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,
