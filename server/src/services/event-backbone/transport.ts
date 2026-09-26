@@ -84,7 +84,11 @@ export type PostResult = {
 
 const MAX_BODY_KEPT = 2048;
 
-function guardedLookup(allowPrivate: boolean): net.LookupFunction {
+/**
+ * dns.lookup, refusing names that resolve to a blocked address. Given to the
+ * socket as its lookup, so the check covers the address actually connected to.
+ */
+export function guardedLookup(allowPrivate: boolean): net.LookupFunction {
   return ((hostname: string, options: dns.LookupOptions, callback: (...args: unknown[]) => void) => {
     dns.lookup(hostname, { ...options, all: true }, (err, addresses) => {
       if (err) return callback(err);
@@ -144,16 +148,10 @@ export function postJson(
         agent: false,
       },
       (res) => {
+        const status = res.statusCode ?? null;
         const chunks: Buffer[] = [];
         let kept = 0;
-        res.on("data", (chunk: Buffer) => {
-          if (kept < MAX_BODY_KEPT) {
-            chunks.push(chunk);
-            kept += chunk.length;
-          }
-        });
-        res.on("end", () => {
-          const status = res.statusCode ?? null;
+        const finish = () => {
           const text = Buffer.concat(chunks).toString("utf8").slice(0, MAX_BODY_KEPT);
           const location = res.headers.location;
           const error =
@@ -161,8 +159,18 @@ export function postJson(
               ? `Redirect to ${location ?? "(no location)"} not followed. Use the final URL.`
               : null;
           done({ status, error, body: text });
+        };
+        res.on("data", (chunk: Buffer) => {
+          chunks.push(chunk);
+          kept += chunk.length;
+          // Only the start is kept for the log; stop downloading the rest.
+          if (kept >= MAX_BODY_KEPT) {
+            finish();
+            res.destroy();
+          }
         });
-        res.on("error", (err) => done({ status: res.statusCode ?? null, error: err.message, body: "" }));
+        res.on("end", finish);
+        res.on("error", (err) => done({ status, error: err.message, body: "" }));
       },
     );
     timer = setTimeout(() => {

@@ -318,7 +318,20 @@ export async function redeliver(deliveryId: string): Promise<DeliveryInfo> {
   const delivery = await insertLeased(target.id, old.audit_log_id, old.event_type, true);
   const body = JSON.stringify(toEnvelope(rowToEntry(event.rows[0])));
   const result = await send(target, delivery.id, delivery.event_type, body);
-  return toInfo(await recordOutcome(delivery, result, true));
+  const after = await recordOutcome(delivery, result, true);
+  if (after.status === "succeeded") {
+    // The event is delivered now, so the original's scheduled retry would only
+    // send it again. One already being sent is left to finish.
+    await pool.query(
+      `UPDATE webhook_deliveries
+          SET next_attempt_at = NULL, updated_at = now(),
+              last_error = coalesce(last_error || ' ', '') || $2
+        WHERE id = $1 AND status = 'failed' AND next_attempt_at IS NOT NULL
+          AND (locked_until IS NULL OR locked_until < now())`,
+      [old.id, `Sent again as delivery ${after.id}.`],
+    );
+  }
+  return toInfo(after);
 }
 
 export async function listDeliveries(

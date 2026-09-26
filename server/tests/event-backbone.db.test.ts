@@ -436,6 +436,26 @@ describe("webhooks end to end", () => {
     respondWith = 200;
   });
 
+  dbIt("a successful resend cancels the original's scheduled retry", async () => {
+    respondWith = 500;
+    const entry = await m.bus.publish("wms.resent", {});
+    await m.delivery.runDeliveryBatch();
+    const [original] = await deliveryFor(entry!.id);
+    assert.equal(original!.status, "failed");
+    assert.ok(original!.next_attempt_at);
+
+    respondWith = 200;
+    const again = await m.delivery.redeliver(original!.id);
+    assert.equal(again.status, "succeeded");
+    const [after] = await q<{ status: string; next_attempt_at: Date | null; last_error: string }>(
+      "SELECT status, next_attempt_at, last_error FROM webhook_deliveries WHERE id = $1",
+      [original!.id],
+    );
+    assert.equal(after!.status, "failed");
+    assert.equal(after!.next_attempt_at, null);
+    assert.match(after!.last_error, new RegExp(`Sent again as delivery ${again.id}\\.$`));
+  });
+
   dbIt("pings and redelivers on demand", async () => {
     const before = received.length;
     const ping = await m.delivery.pingEndpoint(endpointId, admin);

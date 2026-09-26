@@ -392,6 +392,10 @@ describe("webhook transport", () => {
       seen.push(req.url ?? "");
       if (req.url === "/redirect") {
         res.writeHead(302, { Location: "http://example.com/" }).end();
+      } else if (req.url === "/huge") {
+        // Starts a body it never finishes; the client keeps the start and leaves.
+        res.writeHead(500, { "Content-Type": "text/plain" });
+        res.write("e".repeat(64 * 1024));
       } else if (req.url === "/slow") {
         // Never answers; the client's timeout has to end it.
       } else {
@@ -461,6 +465,39 @@ describe("webhook transport", () => {
     assert.equal(allowed.status, 200);
     assert.equal(allowed.body, "ok");
     assert.equal(allowed.error, null);
+  });
+
+  it("checks the addresses a name resolves to, at connect time", async () => {
+    type Lookup = (host: string, opts: object, cb: (err: Error | null, addr?: unknown, family?: number) => void) => void;
+    const resolve = (allowPrivate: boolean, all: boolean) =>
+      new Promise<{ err: Error | null; addr: unknown }>((done) =>
+        (transport.guardedLookup(allowPrivate) as unknown as Lookup)("localhost", { all }, (err, addr) =>
+          done({ err, addr }),
+        ),
+      );
+    const blocked = await resolve(false, false);
+    assert.match(blocked.err?.message ?? "", /localhost resolves to a private address/);
+    const single = await resolve(true, false);
+    assert.equal(single.err, null);
+    assert.equal(typeof single.addr, "string");
+    const all = await resolve(true, true);
+    assert.ok(Array.isArray(all.addr) && all.addr.length > 0);
+
+    // And the socket really uses it: a name, not a literal, reaches the server.
+    const viaName = await transport.postJson(
+      new URL(`${base.replace("127.0.0.1", "localhost")}/hook`),
+      "{}",
+      {},
+      { timeoutMs: 2000, allowPrivate: true },
+    );
+    assert.equal(viaName.status, 200);
+  });
+
+  it("keeps only the start of a long response", async () => {
+    const r = await transport.postJson(new URL(`${base}/huge`), "{}", {}, { timeoutMs: 5000, allowPrivate: true });
+    assert.equal(r.status, 500);
+    assert.equal(r.body.length, 2048);
+    assert.ok(r.ms < 2000, `took ${r.ms}ms; should not wait for the rest`);
   });
 
   it("does not follow redirects", async () => {
