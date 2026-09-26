@@ -2,7 +2,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
-import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, inArray, type SQL } from "drizzle-orm";
 import type { PoolClient } from "pg";
 import { db, pool } from "../../db/client";
 import {

@@ -27,6 +27,14 @@ let plate: Plate;
 let items: Items;
 let pool: Client["pool"];
 
+// Unique per run, so the suite can run again against the same scratch database.
+const RUN = Date.now().toString(16).slice(-6).toUpperCase();
+const SERIAL = `SN${RUN}`;
+const MAC_RAW = `a4bb6d${RUN.toLowerCase()}`;
+const MAC = MAC_RAW.toUpperCase().match(/.{2}/g)!.join(":");
+const TAG = `IT-${RUN}`;
+const UNIT_SERIAL = `UNIT-${RUN}`;
+
 const sha = (b: Buffer) => createHash("sha256").update(b).digest("hex");
 
 async function readAll(stream: Readable): Promise<Buffer> {
@@ -192,25 +200,25 @@ describe("media-ai-core with Postgres", { skip: url ? false : "set TEST_DATABASE
 
   it("saves an accepted data-plate reading under the uniqueness rules", async () => {
     const detail = await plate.applyDataPlate(
-      { ownerType: "item", ownerId: itemId, brand: "Dell", model: "Latitude 5440", serial: "7XK2P93", mac: "a4bb6d123456", assetTag: "IT-0042", partNumber: "0R9KW3" },
+      { ownerType: "item", ownerId: itemId, brand: "Dell", model: "Latitude 5440", serial: SERIAL, mac: MAC_RAW, assetTag: TAG, partNumber: "0R9KW3" },
       "tester",
     );
     assert.equal(detail.brand, "Dell");
     assert.equal(detail.model, "Latitude 5440");
     const ids = detail.identifiers.map((i) => `${i.type}:${i.value}`).sort();
-    assert.deepEqual(ids, ["asset_tag:IT-0042", "mac:A4:BB:6D:12:34:56", "serial:7XK2P93", "sku:0R9KW3"]);
+    assert.deepEqual(ids, [`asset_tag:${TAG}`, `mac:${MAC}`, `serial:${SERIAL}`, "sku:0R9KW3"]);
     assert.ok(detail.events.some((e) => e.detail.source === "data-plate"));
 
     // Reading the same label again changes nothing and is not an error.
-    const again = await plate.applyDataPlate({ ownerType: "item", ownerId: itemId, serial: "7XK2P93" }, null);
+    const again = await plate.applyDataPlate({ ownerType: "item", ownerId: itemId, serial: SERIAL }, null);
     assert.equal(again.identifiers.length, 4);
 
     // The same serial on another item is refused, naming where it is.
     await assert.rejects(
-      plate.applyDataPlate({ ownerType: "item", ownerId: otherItemId, serial: "7XK2P93" }, null),
+      plate.applyDataPlate({ ownerType: "item", ownerId: otherItemId, serial: SERIAL }, null),
       (e: { status: number; message: string }) => e.status === 409 && e.message.includes("Test laptop"),
     );
-    const taken = await plate.findTaken({ serial: "7XK2P93", mac: "A4:BB:6D:12:34:56", assetTag: "FREE-1" }, { itemId: otherItemId });
+    const taken = await plate.findTaken({ serial: SERIAL, mac: MAC, assetTag: `FREE-${RUN}` }, { itemId: otherItemId });
     assert.equal(taken.serial?.itemId, itemId);
     assert.equal(taken.mac?.itemName, "Test laptop");
     assert.equal(taken.assetTag, null);
@@ -219,11 +227,11 @@ describe("media-ai-core with Postgres", { skip: url ? false : "set TEST_DATABASE
   });
 
   it("puts a unit's serial on the unit", async () => {
-    const detail = await plate.applyDataPlate({ ownerType: "unit", ownerId: unitId, serial: "UNIT-SN-1" }, null);
-    assert.equal(detail.units.find((u) => u.id === unitId)?.serial, "UNIT-SN-1");
-    assert.ok(!detail.identifiers.some((i) => i.value === "UNIT-SN-1"));
+    const detail = await plate.applyDataPlate({ ownerType: "unit", ownerId: unitId, serial: UNIT_SERIAL }, null);
+    assert.equal(detail.units.find((u) => u.id === unitId)?.serial, UNIT_SERIAL);
+    assert.ok(!detail.identifiers.some((i) => i.value === UNIT_SERIAL));
     await assert.rejects(
-      plate.applyDataPlate({ ownerType: "item", ownerId: otherItemId, serial: "UNIT-SN-1" }, null),
+      plate.applyDataPlate({ ownerType: "item", ownerId: otherItemId, serial: UNIT_SERIAL }, null),
       (e: { status: number }) => e.status === 409,
     );
     await assert.rejects(plate.applyDataPlate({ ownerType: "unit", ownerId: unitId, mac: "12:34" }, null), /MAC address/);

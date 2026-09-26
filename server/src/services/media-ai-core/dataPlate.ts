@@ -358,7 +358,12 @@ export async function applyDataPlate(input: ApplyDataPlateInput, userOid: string
     const t = taken[field];
     if (!t) continue;
     const value = field === "serial" ? serial : field === "mac" ? mac : assetTag;
-    const where = t.itemId === itemId ? "this item already, as a different kind of identifier" : `"${t.itemName}"`;
+    const where =
+      t.itemId !== itemId
+        ? `"${t.itemName}"`
+        : t.unitId
+          ? "another unit of this item"
+          : "this item, as a different kind of identifier";
     throw conflict(`${LABELS[field]} "${value}" is already on ${where}. Correct the reading, or remove it there first.`);
   }
 
