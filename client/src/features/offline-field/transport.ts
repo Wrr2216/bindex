@@ -44,6 +44,17 @@ let deviceOn = false;
 let featureOn = false;
 const active = () => deviceOn && featureOn;
 
+// The instance's words, from the last configuration seen, for messages made
+// here rather than on a screen.
+let words = { item: "item", location: "location" };
+const learnWords = (config: AppConfig | undefined) => {
+  if (!config?.terms) return;
+  words = {
+    item: config.terms.item.singular.toLowerCase(),
+    location: config.terms.location.singular.toLowerCase(),
+  };
+};
+
 const noteOnline = () => setState({ online: true });
 const noteOffline = () => setState({ online: false });
 
@@ -55,8 +66,8 @@ const respond = (body: unknown, status: number, mode: "cached" | "queued" | "loc
 
 const offlineError = (message: string) => respond({ error: message, code: "offline" }, 503, "local");
 
-const NOT_ON_DEVICE =
-  "You are offline, and this is not in the offline copy on this device. Make its location available offline, or try again with a connection.";
+const notOnDevice = () =>
+  `You are offline, and this is not in the offline copy on this device. Make its ${words.location} available offline, or try again with a connection.`;
 
 // ---- Start-up ---------------------------------------------------------------
 
@@ -72,6 +83,7 @@ async function load(): Promise<void> {
     const [device, config] = await Promise.all([store.deviceEnabled(), getMeta("config")]);
     deviceOn = device;
     featureOn = config?.features.offline === true;
+    learnWords(config);
     setState({ ready: true, deviceEnabled: deviceOn, featureEnabled: featureOn });
     await refreshQueueStatus();
   } catch {
@@ -135,6 +147,7 @@ const READS: ReadRoute[] = [
     observe: async (_ctx, res) => {
       const config = (await res.json()) as AppConfig;
       featureOn = config.features?.offline === true;
+      learnWords(config);
       setState({ featureEnabled: featureOn });
       if (deviceOn) await setMeta("config", config);
     },
@@ -167,9 +180,9 @@ const READS: ReadRoute[] = [
     offline: async ({ match }) => {
       const code = decodeURIComponent(match[1]!);
       const hit = await store.resolveCode(code);
-      if (!hit) return offlineError(NOT_ON_DEVICE);
+      if (!hit) return offlineError(notOnDevice());
       const item = await store.itemDetail(hit.itemId, hit.unitId);
-      return item ? cachedJson({ found: true, item }) : offlineError(NOT_ON_DEVICE);
+      return item ? cachedJson({ found: true, item }) : offlineError(notOnDevice());
     },
     observe: async (_ctx, res) => {
       const body = (await res.json()) as { found: boolean; item?: ItemDetail };
@@ -334,7 +347,7 @@ async function handleRead(route: ReadRoute, ctx: Ctx): Promise<Response> {
     }
   }
   const answer = await route.offline(ctx).catch(() => null);
-  return answer ?? offlineError(NOT_ON_DEVICE);
+  return answer ?? offlineError(notOnDevice());
 }
 
 /** Pass a request through, noting whether the network answered. */
@@ -367,23 +380,22 @@ type WriteRoute = {
 
 const itemAnswer = (itemId: string, photo?: Blob) => async () => {
   const item = await store.itemDetail(itemId);
-  if (!item) return offlineError(NOT_ON_DEVICE);
+  if (!item) return offlineError(notOnDevice());
   if (photo) item.primaryImageUrl = URL.createObjectURL(photo);
   return respond(item, 202, "queued");
 };
 
 async function itemName(itemId: string): Promise<string> {
-  return (await store.getItem(itemId))?.name ?? "item";
+  return (await store.getItem(itemId))?.name ?? `this ${words.item}`;
 }
 
 async function placeName(locationId: string | null | undefined): Promise<string> {
-  if (!locationId) return "no location";
-  return (await store.getLocation(locationId))?.name ?? "another location";
+  if (!locationId) return `no ${words.location}`;
+  return (await store.getLocation(locationId))?.name ?? `another ${words.location}`;
 }
 
 async function holderName(entityId: string | null | undefined): Promise<string> {
-  if (!entityId) return "someone";
-  return (await store.allEntities()).find((e) => e.id === entityId)?.name ?? "someone";
+  return (entityId && (await store.allEntities()).find((e) => e.id === entityId)?.name) || "them";
 }
 
 const onlyKeys = (body: unknown, allowed: string[]): Record<string, unknown> | null => {
@@ -512,7 +524,7 @@ const WRITES: WriteRoute[] = [
         },
         answer: async () => {
           const loc = await store.getLocation(locationId);
-          if (!loc) return offlineError(NOT_ON_DEVICE);
+          if (!loc) return offlineError(notOnDevice());
           const [lk, all, items] = await Promise.all([store.lookups(), store.allLocations(), store.allItems()]);
           return respond(toLocationDetail(loc, lk, all, items), 202, "queued");
         },
@@ -596,8 +608,7 @@ async function queueChange(
   // made against and to show its effect.
   if (action.itemId && !item) {
     return {
-      error:
-        "You are offline, and this record is not on this device, so the change cannot be kept for later. Make its location available offline first.",
+      error: `You are offline, and this ${words.item} is not on this device, so the change cannot be kept for later. Make its ${words.location} available offline first.`,
     };
   }
 

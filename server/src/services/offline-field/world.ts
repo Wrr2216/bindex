@@ -114,5 +114,6 @@ export async function planQueue(actions: PlanAction[]): Promise<PlanResult[]> {
     item: config.terms.item.singular.toLowerCase(),
     items: config.terms.item.plural.toLowerCase(),
     location: config.terms.location.singular.toLowerCase(),
+    holder: config.terms.holder.singular.toLowerCase(),
   });
 }

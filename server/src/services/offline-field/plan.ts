@@ -115,9 +115,9 @@ export type World = {
 };
 
 /** Words for the records, from the instance vocabulary, in lower case. */
-export type PlanTerms = { item: string; items: string; location: string };
+export type PlanTerms = { item: string; items: string; location: string; holder: string };
 
-const DEFAULT_TERMS: PlanTerms = { item: "item", items: "items", location: "location" };
+const DEFAULT_TERMS: PlanTerms = { item: "item", items: "items", location: "location", holder: "assignee" };
 
 /** Every id the planner will need to look up. Drives world.ts. */
 export function referencedIds(actions: PlanAction[]) {
@@ -248,7 +248,7 @@ function evaluate(a: PlanAction, world: World, terms: PlanTerms): Evaluated {
         return {
           verdict: "conflict",
           code: "holder_deleted",
-          reason: "The person or team it was being checked out to was deleted on the server.",
+          reason: `The ${terms.holder} it was being checked out to was deleted on the server.`,
           canKeepMine: false,
         };
       }

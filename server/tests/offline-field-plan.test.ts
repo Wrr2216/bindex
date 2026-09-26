@@ -304,12 +304,12 @@ describe("conflict rules: observations", () => {
   });
 
   it("uses the instance's own words in reasons", () => {
-    const [r] = planSync([action("note")], world({ items: [] }), {
-      item: "asset",
-      items: "assets",
-      location: "bay",
-    });
+    const terms = { item: "asset", items: "assets", location: "bay", holder: "crew" };
+    const [r] = planSync([action("note")], world({ items: [] }), terms);
     assert.match((r as { reason: string }).reason, /asset/);
+    const gone = "00000000-0000-4000-8000-00000000dead";
+    const [h] = planSync([action("checkout", { entityId: gone, base: { holderId: null } })], world(), terms);
+    assert.match((h as { reason: string }).reason, /The crew it was being checked out to/);
   });
 });
 
