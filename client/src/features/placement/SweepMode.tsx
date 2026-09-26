@@ -98,10 +98,11 @@ export function SweepMode() {
       const bad = r.entries.some((x) => x.outcome === "not_on_job" || x.outcome === "misplaced");
       play(bad ? "alarm" : r.entries.some((x) => x.outcome === "placed") ? "ok" : "already");
     } catch (err) {
-      // Put them back so the next batch retries them.
-      queue.current.unshift(...codes);
+      // Forget them, so reading those tags again sends them again.
       for (const c of codes) sessionCodes.current.delete(c);
-      setError(errorText(err, "The reads could not be saved. They will be sent again with the next ones."));
+      setSeen(sessionCodes.current.size);
+      setError(`${errorText(err, "The last reads could not be saved.")} Read those tags again.`);
+      play("warn");
     } finally {
       inFlight.current = false;
       if (queue.current.length && timer.current === null) timer.current = window.setTimeout(() => void flush(), FLUSH_MS);
