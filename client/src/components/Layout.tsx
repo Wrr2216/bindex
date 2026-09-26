@@ -28,6 +28,7 @@ export function Layout() {
     ...(features.jobs ? [{ to: "/jobs", label: "Jobs" }] : []),
     ...(features.consumables ? [{ to: "/supplies", label: "Supplies" }] : []),
     { to: "/tags", label: "Tags" },
+    ...(features.offline ? [{ to: "/offline", label: "Offline" }] : []),
     { to: "/settings", label: "Settings" },
   ];
 

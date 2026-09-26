@@ -171,6 +171,10 @@ const schema = z.object({
   // Hour of the day (server time, 0-23) after which the daily low-stock
   // digest is sent through the notification destinations above. -1 turns it off.
   CONSUMABLES_DIGEST_HOUR: z.coerce.number().int().min(-1).max(23).default(7),
+  // ---- T08: offline field mode --------------------------------------------
+  // Most items one "Make available offline" may copy to a device. Guards a
+  // phone against a whole large instance; pick a location to go smaller.
+  OFFLINE_SNAPSHOT_MAX_ITEMS: z.coerce.number().int().positive().default(10000),
 });
 
 const parsed = schema.safeParse(process.env);

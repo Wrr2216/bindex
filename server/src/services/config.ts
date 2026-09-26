@@ -52,6 +52,8 @@ export type Features = {
   consumables: boolean;
   /** Colour, lot and number stickers from an older labelling system. */
   legacyTags: boolean;
+  /** Keep a copy on a device and queue changes while it has no connection. */
+  offline: boolean;
 };
 
 export type AppConfig = {
@@ -108,6 +110,7 @@ const KEYS = {
   featureRegisterReconcile: "features.register_reconcile",
   featureConsumables: "features.consumables",
   featureLegacyTags: "features.legacy_tags",
+  featureOffline: "features.offline",
 } as const;
 
 function defaults(): AppConfig {
@@ -144,6 +147,7 @@ function defaults(): AppConfig {
       registerReconcile: true,
       consumables: false,
       legacyTags: false,
+      offline: false,
     },
   };
 }
@@ -209,6 +213,7 @@ function build(stored: Map<string, string>): AppConfig {
       registerReconcile: flag(KEYS.featureRegisterReconcile, base.features.registerReconcile),
       consumables: flag(KEYS.featureConsumables, base.features.consumables),
       legacyTags: flag(KEYS.featureLegacyTags, base.features.legacyTags),
+      offline: flag(KEYS.featureOffline, base.features.offline),
     },
   };
 }
@@ -301,6 +306,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   registerReconcile: KEYS.featureRegisterReconcile,
   consumables: KEYS.featureConsumables,
   legacyTags: KEYS.featureLegacyTags,
+  offline: KEYS.featureOffline,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {

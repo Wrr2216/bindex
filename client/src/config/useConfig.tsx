@@ -42,6 +42,7 @@ const FALLBACK: AppConfig = {
     registerReconcile: true,
     consumables: false,
     legacyTags: false,
+    offline: false,
   },
   label: { widthMm: 62, heightMm: 25.4 },
   integrations: {

@@ -14,6 +14,7 @@ import { apiRouter } from "./routes/api";
 import { configRouter } from "./routes/config";
 import { deviceRouter } from "./routes/device";
 import { manifestRouter } from "./routes/manifest";
+import { offlineFieldPublicRouter } from "./routes/offline-field";
 import { seedConfig } from "./services/config";
 import { ensureBootstrapAdmin } from "./services/users";
 import { runNinjaSync } from "./services/ninjaone/sync";
@@ -71,6 +72,8 @@ app.use("/api/config", configRouter);
 app.use("/api/device", deviceRouter);
 // Built from the configuration, so it has to come before the static handler.
 app.use(manifestRouter);
+// The service worker is stamped with the build, so it too comes before them.
+app.use(offlineFieldPublicRouter);
 app.use("/api", apiRouter);
 
 // Unmatched API routes answer with JSON rather than the single-page shell.

@@ -288,6 +288,7 @@ export interface Features {
   registerReconcile: boolean;
   consumables: boolean;
   legacyTags: boolean;
+  offline: boolean;
 }
 
 /**

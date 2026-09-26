@@ -25,12 +25,15 @@ import { jobsCoreRouter } from "./jobs-core";
 import { registerReconcileRouter } from "./register-reconcile";
 import { consumablesRouter } from "./consumables";
 import { tagCommissioningRouter } from "./tag-commissioning";
+import { idempotency, offlineFieldRouter } from "./offline-field";
 
 export const apiRouter = Router();
 
 // Everything below needs a signed-in session or a valid API key.
 apiRouter.use(attachApiKeyUser);
 apiRouter.use(requireApiAuth);
+// A retried request carrying an Idempotency-Key is answered, not re-applied.
+apiRouter.use(idempotency);
 
 apiRouter.get("/me", (req, res) => res.json({ user: currentUser(req) }));
 
@@ -58,6 +61,7 @@ apiRouter.use(jobsCoreRouter);
 apiRouter.use("/register-reconcile", registerReconcileRouter);
 apiRouter.use("/consumables", consumablesRouter);
 apiRouter.use("/tag-commissioning", tagCommissioningRouter);
+apiRouter.use("/offline", offlineFieldRouter);
 
 apiRouter.delete(
   "/identifiers/:id",

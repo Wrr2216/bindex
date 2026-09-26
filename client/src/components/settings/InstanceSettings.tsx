@@ -113,6 +113,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Colour, lot and number stickers from an older labelling system: entry, lookup and a coloured dot in lists.",
   },
+  {
+    key: "offline",
+    title: "Work offline on this device",
+    description:
+      "Let a phone or tablet keep a copy for dead zones: scans, moves, check-outs, spot checks, audits, notes and photos keep working and are sent when the signal returns. Each device opts in on its Offline screen.",
+  },
 ];
 
 export function InstanceSettings() {
