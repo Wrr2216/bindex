@@ -1517,3 +1517,85 @@ ACCEPTANCE
   entry, add the new features to the README, link each `docs/<slug>.md` from
   the README Documentation list, and unify the two batch code resolvers from
   T01 and T03 into one module.
+
+## 6. Status
+
+Every feature is merged into the integration branch
+`claude/tagdd-feature-parity-igoea3`. Around the merges the integrator bumped
+`BACKUP_VERSION` to 5, published job, task, stage and shipment changes and
+reader-driven moves as events, printed handling notes on manifests and load
+sheets, linked job and shipment pages to the features that work on them, and
+made server test files run one at a time. Of the steps in section 5, only
+unifying the batch code resolvers is still open.
+
+| ID | Feature | Pull request | Status | Document |
+|---|---|---|---|---|
+| T01 | Tracking core and fixed RFID readers | [#6](https://github.com/Wrr2216/bindex/pull/6) | Merged into the integration branch | [tracking-core.md](tracking-core.md) |
+| T02 | Attachments, signatures, AI vision; data-plate capture | [#7](https://github.com/Wrr2216/bindex/pull/7) | Merged into the integration branch | [media-ai-core.md](media-ai-core.md) |
+| T03 | Projects, jobs, shipments and relocation manifests | [#9](https://github.com/Wrr2216/bindex/pull/9) | Merged into the integration branch | [jobs-core.md](jobs-core.md) |
+| T04 | Tamper-evident audit log, event bus, webhooks | [#4](https://github.com/Wrr2216/bindex/pull/4) | Merged into the integration branch | [event-backbone.md](event-backbone.md) |
+| T05 | Asset register import and reconciliation | [#8](https://github.com/Wrr2216/bindex/pull/8) | Merged into the integration branch | [register-reconcile.md](register-reconcile.md) |
+| T06 | Consumables and equipment accountability | [#5](https://github.com/Wrr2216/bindex/pull/5) | Merged into the integration branch | [consumables.md](consumables.md) |
+| T07 | Tag commissioning: NFC, RFID encoding, legacy stickers | [#10](https://github.com/Wrr2216/bindex/pull/10) | Merged into the integration branch | [tag-commissioning.md](tag-commissioning.md) |
+| T08 | Offline field mode | [#11](https://github.com/Wrr2216/bindex/pull/11) | Merged into the integration branch | [offline-field.md](offline-field.md) |
+| T09 | BLE beacons, gateways and room-level presence | [#23](https://github.com/Wrr2216/bindex/pull/23) | Merged into the integration branch | [ble.md](ble.md) |
+| T10 | GPS trackers, maps and geofences | [#19](https://github.com/Wrr2216/bindex/pull/19) | Merged into the integration branch | [gps.md](gps.md) |
+| T11 | Room-based placement guidance | [#24](https://github.com/Wrr2216/bindex/pull/24) | Merged into the integration branch | [placement.md](placement.md) |
+| T12 | AI container capture and condition records | [#13](https://github.com/Wrr2216/bindex/pull/13) | Merged into the integration branch | [ai-condition.md](ai-condition.md) |
+| T13 | Pre/post facility inspections | [#14](https://github.com/Wrr2216/bindex/pull/14) | Merged into the integration branch | [inspections.md](inspections.md) |
+| T14 | Chain of custody and digital sign-off | [#17](https://github.com/Wrr2216/bindex/pull/17) | Merged into the integration branch | [custody.md](custody.md) |
+| T15 | External portal: stakeholders and third-party crews | [#21](https://github.com/Wrr2216/bindex/pull/21) | Merged into the integration branch | [portal.md](portal.md) |
+| T16 | Claims and incidents | [#25](https://github.com/Wrr2216/bindex/pull/25) | Merged into the integration branch | [claims.md](claims.md) |
+| T17 | Documents and conditional packets | [#20](https://github.com/Wrr2216/bindex/pull/20) | Merged into the integration branch | [documents.md](documents.md) |
+| T18 | Crew check-in and credentials | [#16](https://github.com/Wrr2216/bindex/pull/16) | Merged into the integration branch | [crew.md](crew.md) |
+| T19 | Valuation, high-value declarations, receipts, warranty | [#15](https://github.com/Wrr2216/bindex/pull/15) | Merged into the integration branch | [valuation.md](valuation.md) |
+| T20 | Teardown video to reassembly guide | [#18](https://github.com/Wrr2216/bindex/pull/18) | Merged into the integration branch | [teardown.md](teardown.md) |
+| T21 | AI bulk capture: walkthroughs and paper manifests | [#12](https://github.com/Wrr2216/bindex/pull/12) | Merged into the integration branch | [bulk-capture.md](bulk-capture.md) |
+| T22 | Operations intelligence: anomalies, dwell, load planning | [#22](https://github.com/Wrr2216/bindex/pull/22) | Merged into the integration branch | [ops-intel.md](ops-intel.md) |
+
+**Not verified against real hardware or real providers:** the Zebra, Impinj and Speedway Connect reader adapters; the Minew, Ingics, Kontakt.io and Teltonika Bluetooth gateway formats; GPS trackers and apps (Traccar Client, OsmAnd, Traccar forwarding); Zebra RFID ZPL print-and-encode; Web NFC on Android phones, and dual-frequency inlays; AI vision and transcription providers (tested against local stand-ins); SMTP (tested against a stub); the external crew credential verifier (tested against a stand-in); the Snipe-IT and Homebox presets against live exports; and the Docker image build with ffmpeg and poppler.
+
+### Known follow-ups
+
+Gathered from the feature documents and from reading the merged code.
+
+- **Custody outside its own screens.** Moving an item from its page, bulk
+  edits, the check-out button and reader zone moves do not check custody
+  control yet. A hook in `services/items.ts` and `services/assignments.ts`
+  would, as the stage guard does for jobs ([custody](custody.md#follow-ups)).
+- **One batch code resolver.** The tracking core (`resolveCodes`), jobs
+  (`resolveScanCodes`) and consumables (`resolveCodes`) each resolve scanned
+  codes in batches. Section 5 asks for one module.
+- **Bulk capture into tags and jobs.** Stickers read from paper inventories stay
+  in `metadata.sticker` instead of becoming legacy sticker identifiers, and a
+  commit cannot add its items to a job's manifest
+  ([bulk capture](bulk-capture.md#limits-and-follow-ups)).
+- **Offline scope.** Offline field mode queues moves, check-outs, spot checks,
+  audits, notes and photos. Job stage scans, custody signatures and crew
+  check-in still need a connection.
+- **Sharing through the portal.** No document share provider is registered, so
+  a document's Share button stays hidden
+  ([documents](documents.md#sharing-through-the-portal)). Inspection reports
+  keep their own share links, and teardown guides have none; both could be
+  offered through portal links instead.
+- **Job-scoped declarations.** A high-value declaration for a job stores the
+  job reference as text. It should link to the job and fill from its manifest
+  ([valuation](valuation.md#limits-and-follow-ups)).
+- **Item history not published.** Register reconciliation's actions and
+  imports, and offline field notes, write item history directly, so they reach
+  neither the audit log nor webhooks.
+- **More custody.** The current custodian on the job manifest, the receiver's
+  signing link inside the portal, signing links sent by email, and an
+  into-storage transfer recorded when a vault's tracker enters its store's
+  geofence.
+- **Several replicas.** Dock-door pass tracking, duplicate filtering, Bluetooth
+  presence, GPS fence evaluation and rate limits are held per process. With
+  more than one replica, pin each device to one of them.
+- **Media.** Resumable uploads for long videos, and poster frames and durations
+  for video attachments now that ffmpeg is in the image.
+- **Handling notes.** The container contents sheet does not print them, and the
+  room written on a box is not mapped to a placement destination
+  ([condition records](ai-condition.md#follow-ups)).
+- **Crew.** Fixed badge readers at a gate, automatic check-out after a shift,
+  and per-role permissions for managing credentials
+  ([crew](crew.md#follow-ups)).
