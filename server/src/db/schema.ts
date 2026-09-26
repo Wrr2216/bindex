@@ -215,3 +215,4 @@ export type User = typeof users.$inferSelect;
 export * from "./tables/event-backbone";
 export * from "./tables/tracking-core";
 export * from "./tables/media-ai-core";
+export * from "./tables/jobs-core";

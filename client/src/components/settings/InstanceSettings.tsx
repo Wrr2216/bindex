@@ -89,6 +89,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Photos, video and files on every record, and reading serial numbers and data plates from a photo of the label. Reading labels needs a vision model to be configured.",
   },
+  {
+    key: "jobs",
+    title: "Projects, jobs and shipments",
+    description:
+      "Plan moves and deliveries as jobs, print floor and department manifests, and scan everything through pack, load, deliver and place.",
+  },
 ];
 
 export function InstanceSettings() {

@@ -20,6 +20,14 @@ import { AuditLogPage } from "./features/event-backbone/AuditLogPage";
 import { WebhooksPage } from "./features/event-backbone/WebhooksPage";
 import { LiveReads } from "./features/tracking-core/LiveReads";
 import { DevicesPage } from "./features/tracking-core/DevicesPage";
+import {
+  JobDetailPage,
+  JobTypesPage,
+  JobsPage,
+  ProjectDetailPage,
+  ProjectsPage,
+  ShipmentDetailPage,
+} from "./features/jobs-core";
 
 function Loading() {
   return (
@@ -68,6 +76,12 @@ function AppShell() {
           <Route path="settings/webhooks" element={<WebhooksPage />} />
           {features.tracking && <Route path="tracking" element={<LiveReads />} />}
           {features.tracking && <Route path="settings/devices" element={<DevicesPage />} />}
+          {features.jobs && <Route path="jobs" element={<JobsPage />} />}
+          {features.jobs && <Route path="jobs/:id" element={<JobDetailPage />} />}
+          {features.jobs && <Route path="projects" element={<ProjectsPage />} />}
+          {features.jobs && <Route path="projects/:id" element={<ProjectDetailPage />} />}
+          {features.jobs && <Route path="shipments/:id" element={<ShipmentDetailPage />} />}
+          {features.jobs && <Route path="settings/job-types" element={<JobTypesPage />} />}
         </Route>
       </Routes>
     </ScanProvider>

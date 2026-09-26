@@ -13,6 +13,7 @@ import {
   trackingDevices,
 } from "../db/schema";
 import { badRequest } from "../lib/errors";
+import { clearJobsCoreTables, exportJobsCoreTables, restoreJobsCoreTables } from "./jobs-core/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -44,6 +45,15 @@ const TABLES = [
   "item_events",
   "item_assignments",
   "tracking_devices",
+  "job_types",
+  "projects",
+  "project_phases",
+  "jobs",
+  "job_tasks",
+  "shipments",
+  "shipment_status_history",
+  "job_items",
+  "job_item_stage_history",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -59,6 +69,15 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   item_events: ["createdAt"],
   item_assignments: ["checkedOutAt", "checkedInAt"],
   tracking_devices: ["lastSeenAt", "createdAt", "updatedAt"],
+  job_types: ["createdAt", "updatedAt"],
+  projects: ["createdAt", "updatedAt"],
+  project_phases: ["createdAt"],
+  jobs: ["scheduledStart", "scheduledEnd", "startedAt", "completedAt", "createdAt", "updatedAt"],
+  job_tasks: ["dueAt", "startedAt", "completedAt", "createdAt", "updatedAt"],
+  shipments: ["eta", "departedAt", "arrivedAt", "createdAt", "updatedAt"],
+  shipment_status_history: ["createdAt"],
+  job_items: ["stageAt", "createdAt", "updatedAt"],
+  job_item_stage_history: ["createdAt"],
 };
 
 export type Backup = {
@@ -94,6 +113,7 @@ export async function buildBackup(): Promise<Backup> {
     item_events: evts,
     item_assignments: asg,
     tracking_devices: devs,
+    ...(await exportJobsCoreTables()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -169,6 +189,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
 
     // Children before parents. The foreign keys would cascade anyway; doing it
     // explicitly keeps the order visible.
+    await clearJobsCoreTables(tx, { keepJobTypes: d.job_types.length === 0 });
     await tx.delete(itemAssignments);
     await tx.delete(trackingDevices);
     await tx.delete(itemEvents);
@@ -241,6 +262,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
         WHERE unit_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM item_units u WHERE u.id = k.unit_id)`);
       await tx.execute(sql`INSERT INTO tracking_devices SELECT * FROM backup_kept_devices`);
     }
+    await restoreJobsCoreTables(tx, d);
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,
