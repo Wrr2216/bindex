@@ -266,6 +266,16 @@ in `normalize.ts` and `vocab.ts`.
 When changing a prompt, add the replies you see in the wild to
 `server/tests/ai-condition-normalize.test.ts`.
 
+**Developing without a key.** `server/tests/ai-condition-stub.ts` wraps the
+media-ai-core stand-in and answers each condition prompt with a plausible
+reply (a dish pack, a scratched desk, a new crack), and label reads with the
+sample data plate:
+
+```bash
+pnpm --filter bindex-server exec tsx tests/ai-condition-stub.ts 4112
+LLM_BASE_URL=http://127.0.0.1:4112/v1 LLM_API_KEY=stub LLM_VISION_MODEL=stub pnpm dev
+```
+
 ## HTTP API
 
 All under `/api/condition`, behind the usual session or API key (read-only
