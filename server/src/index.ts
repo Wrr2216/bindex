@@ -26,6 +26,8 @@ import { wireJobEvents } from "./services/integration/jobEvents";
 import { HttpError, describeError } from "./lib/errors";
 import { startEventBackbone } from "./services/event-backbone";
 import { startLowStockDigest } from "./services/consumables/lowstock";
+import { bleDeviceRouter } from "./routes/ble";
+import { startBle } from "./services/ble";
 
 const app = express();
 // One proxy hop, which is what a container behind a reverse proxy sees. Needed
@@ -70,6 +72,7 @@ app.use("/api/config", configRouter);
 // Reader-bridge ingest is token-authed and mounted before the session guard so
 // hardware can post without a browser cookie.
 app.use("/api/device", deviceRouter);
+app.use("/api/device/ble", bleDeviceRouter);
 // Built from the configuration, so it has to come before the static handler.
 app.use(manifestRouter);
 // The service worker is stamped with the build, so it too comes before them.
@@ -146,6 +149,7 @@ async function main(): Promise<void> {
     startSightingsPrune();
     startAttachmentSweeper();
     startLowStockDigest();
+    startBle();
   });
 }
 
