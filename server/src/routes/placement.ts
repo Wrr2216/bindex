@@ -177,6 +177,22 @@ placementRouter.get(
   }),
 );
 
+const kioskScanSchema = z.object({ code, deviceId: uuid.nullish(), locationId: uuid.nullish() });
+
+// A label scanned at the kiosk tablet. Only looks.
+placementRouter.post(
+  "/jobs/:id/kiosk/scan",
+  asyncHandler(async (req, res) => {
+    const body = parse(kioskScanSchema, req.body);
+    const entry = await placement.kioskScan(param(req, "id"), body.code, {
+      deviceId: body.deviceId ?? undefined,
+      locationId: body.locationId ?? undefined,
+      who: who(req),
+    });
+    res.json({ entry });
+  }),
+);
+
 // --- Destination rules ---------------------------------------------------------------------
 
 const rootsSchema = {

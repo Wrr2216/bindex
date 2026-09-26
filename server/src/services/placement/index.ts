@@ -15,7 +15,7 @@ export { loadTree, forgetTree, type LineView, type Place } from "./data";
 export { listPlacementJobs, jobProgress, setFloorColors, type JobProgress } from "./jobs";
 export { lookup, placeLines, markMissing, roomStatus, sweep, type Card, type RoomStatus, type SweepResult, type Who } from "./scan";
 export { getRoomMap, setRoomMap, proposals, applyProposals } from "./destinations";
-export { kioskFeed, type KioskPage } from "./kiosk";
+export { kioskFeed, kioskScan, type KioskPage } from "./kiosk";
 export { listObservations } from "./observations";
 export {
   applyReads,

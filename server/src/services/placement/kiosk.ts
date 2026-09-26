@@ -3,6 +3,7 @@ import { getDeviceRow, getFeed, readSettings, type SightingDirection } from "../
 import { floorColor } from "./colors";
 import { jobLines, jobSettings, loadJob, loadTree, otherOpenJobs, place, type LineView, type Place } from "./data";
 import { handlingKey, handlingNotesFor } from "./handling";
+import { lookup, type Who } from "./scan";
 import { relation, type Tree } from "./tree";
 
 /**
@@ -119,5 +120,35 @@ export async function kioskFeed(
     zone: place(zoneId, tree),
     entries,
     unknown: page.sightings.length - seen.length,
+  };
+}
+
+/**
+ * A label scanned at the kiosk tablet, answered the way a portal read is.
+ * Only looks: nothing is flagged or noted. Null for a code that names nothing.
+ */
+export async function kioskScan(
+  jobId: string,
+  code: string,
+  opts: { deviceId?: string; locationId?: string; who: Who },
+): Promise<KioskEntry | null> {
+  const card = await lookup(jobId, code, { record: false, who: opts.who });
+  if (!card.item) return null;
+  const tree = await loadTree();
+  const device = opts.deviceId ? await getDeviceRow(opts.deviceId) : null;
+  const zoneId = opts.locationId ?? (device ? deviceZone(device) : null);
+  return {
+    id: 0,
+    at: new Date().toISOString(),
+    direction: null,
+    deviceName: null,
+    code: card.code,
+    outcome: card.outcome === "not_on_job" ? "not_on_job" : kioskOutcome(card.line, zoneId, tree),
+    itemId: card.item.id,
+    itemName: card.item.name,
+    unitId: card.item.unitId,
+    line: card.line,
+    otherJobs: card.otherJobs,
+    handlingNotes: card.handlingNotes,
   };
 }

@@ -193,6 +193,13 @@ export async function jobLines(
     where += ` AND ji.id = ANY($${params.length}::uuid[])`;
   }
   const { rows } = await pool.query<LineRow>(`${LINE_SQL} ${where} ${LINE_ORDER} LIMIT ${MAX_LINES}`, params);
+  // A room made in the last few seconds is not in the cached tree yet; one
+  // fresh read names it rather than showing the line with no destination.
+  const known = (id: string | null) => !id || tree.byId.has(id);
+  if (!rows.every((r) => known(r.destination_location_id) && known(r.origin_location_id) && known(r.last_actual_id))) {
+    forgetTree();
+    tree = await loadTree();
+  }
   return rows.map((r) => lineView(r, tree, colors));
 }
 

@@ -243,7 +243,8 @@ async function tick(): Promise<void> {
     // Catch up in batches after a pause, without starving the event loop.
     for (let i = 0; i < 20; i++) {
       const run = await processNewSightings();
-      if (run) lastRun = { ...run, at: new Date().toISOString() };
+      // Most runs find nothing new; the status shows the last one that did.
+      if (run && (run.reads > 0 || !lastRun)) lastRun = { ...run, at: new Date().toISOString() };
       if (!run?.more) break;
     }
   } catch (err) {
