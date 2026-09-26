@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { createCanvas } from "@napi-rs/canvas";
+import { ownDatabase, whileLocked } from "./ai-condition-helpers";
 import { startAiStub, type AiStub } from "./media-ai-core-stub";
 
 // With no vision model configured, the AI drafts answer { available: false }
 // without reaching out to anything, and manual condition reports and captures
 // still work. Needs Postgres, like ai-condition-db.test.ts:
 //
-//   TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/bindex_ai_condition_test \
+//   TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/bindex_test \
 //     pnpm --filter bindex-server exec tsx --test tests/ai-condition-unconfigured.test.ts
+//
+// It works in a database of its own next to that one; see ai-condition-helpers.ts.
 
 const url = process.env.TEST_DATABASE_URL;
 
@@ -21,14 +24,15 @@ describe("ai-condition without a vision model", { skip: url ? false : "set TEST_
 
   before(async () => {
     stub = await startAiStub();
-    process.env.DATABASE_URL = url;
+    const own = await ownDatabase(url!);
+    process.env.DATABASE_URL = own;
     process.env.SESSION_SECRET ??= "test-secret-at-least-16-chars";
     process.env.LOG_LEVEL = "error";
     process.env.LLM_BASE_URL = stub.url;
     process.env.LLM_API_KEY = "";
     process.env.LLM_VISION_MODEL = "";
     const { runMigrations } = await import("../src/db/migrate");
-    await runMigrations();
+    await whileLocked(own, runMigrations);
     svc = await import("../src/services/ai-condition");
     pool = (await import("../src/db/client")).pool;
     const items = await import("../src/services/items");

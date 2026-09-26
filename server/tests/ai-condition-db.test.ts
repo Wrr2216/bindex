@@ -1,19 +1,21 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, it } from "node:test";
 import { createCanvas } from "@napi-rs/canvas";
+import { ownDatabase, whileLocked } from "./ai-condition-helpers";
 import { chatReply, startAiStub, type AiStub, type CapturedChat, type StubResponse } from "./media-ai-core-stub";
 
 // Condition reports, container capture, sweeps, handling notes, the backup
 // round trip, and the AI drafts against a local provider stand-in, on a real
-// Postgres. CI has no database, so this runs only when TEST_DATABASE_URL names
-// a scratch database (it is migrated and written to, and a backup is restored
-// over it):
+// Postgres. CI has no database, so this runs only when TEST_DATABASE_URL is
+// set:
 //
-//   createdb bindex_ai_condition_test
-//   TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/bindex_ai_condition_test \
+//   TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/bindex_test \
 //     pnpm --filter bindex-server exec tsx --test tests/ai-condition-db.test.ts
+//
+// It works in a database of its own next to that one; see ai-condition-helpers.ts.
 
-const url = process.env.TEST_DATABASE_URL;
+const baseUrl = process.env.TEST_DATABASE_URL;
+let url: string | undefined;
 
 type Svc = typeof import("../src/services/ai-condition");
 type Media = typeof import("../src/services/media-ai-core");
@@ -84,7 +86,7 @@ async function auditTypes(subjectId: string): Promise<string[]> {
   return rows.map((r) => r.type);
 }
 
-describe("ai-condition with Postgres", { skip: url ? false : "set TEST_DATABASE_URL to run" }, () => {
+describe("ai-condition with Postgres", { skip: baseUrl ? false : "set TEST_DATABASE_URL to run" }, () => {
   const RUN = Date.now().toString(36);
   let locationId: string;
   let roomId: string;
@@ -95,6 +97,7 @@ describe("ai-condition with Postgres", { skip: url ? false : "set TEST_DATABASE_
 
   before(async () => {
     stub = await startAiStub({ chat: (c) => onChat(c) });
+    url = await ownDatabase(baseUrl!);
     process.env.DATABASE_URL = url;
     process.env.SESSION_SECRET ??= "test-secret-at-least-16-chars";
     process.env.LOG_LEVEL = "error";
@@ -102,7 +105,7 @@ describe("ai-condition with Postgres", { skip: url ? false : "set TEST_DATABASE_
     process.env.LLM_API_KEY = "stub-key";
     process.env.LLM_VISION_MODEL = "vision-model";
     const { runMigrations } = await import("../src/db/migrate");
-    await runMigrations();
+    await whileLocked(url, runMigrations);
     svc = await import("../src/services/ai-condition");
     media = await import("../src/services/media-ai-core");
     items = await import("../src/services/items");

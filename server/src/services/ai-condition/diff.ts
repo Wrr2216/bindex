@@ -23,6 +23,10 @@ export type DefectDiff = {
   worsened: DefectPair[];
   improved: DefectPair[];
   unchanged: DefectPair[];
+  /** Per defect of the after list, in its order, for marking a list on screen. */
+  afterStatus: ("new" | "worse" | "better" | "same")[];
+  /** Per defect of the before list: gone, or still there in some form. */
+  beforeStatus: ("gone" | "matched")[];
 };
 
 const SYNONYMS: Record<string, string> = {
@@ -95,7 +99,15 @@ export function diffDefects(before: Defect[], after: Defect[]): DefectDiff {
 
   const usedB = new Set<number>();
   const usedA = new Set<number>();
-  const diff: DefectDiff = { added: [], resolved: [], worsened: [], improved: [], unchanged: [] };
+  const diff: DefectDiff = {
+    added: [],
+    resolved: [],
+    worsened: [],
+    improved: [],
+    unchanged: [],
+    afterStatus: after.map(() => "new"),
+    beforeStatus: before.map(() => "gone"),
+  };
   const pairs: { b: number; a: number }[] = [];
   for (const c of candidates) {
     if (usedB.has(c.b) || usedA.has(c.a)) continue;
@@ -110,6 +122,8 @@ export function diffDefects(before: Defect[], after: Defect[]): DefectDiff {
     if (delta > 0) diff.worsened.push(pair);
     else if (delta < 0) diff.improved.push(pair);
     else diff.unchanged.push(pair);
+    diff.afterStatus[a] = delta > 0 ? "worse" : delta < 0 ? "better" : "same";
+    diff.beforeStatus[b] = "matched";
   }
   after.forEach((d, a) => {
     if (!usedA.has(a)) diff.added.push(d);

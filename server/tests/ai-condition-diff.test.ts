@@ -59,6 +59,8 @@ describe("diffDefects", () => {
     assert.deepEqual(r.worsened, [{ before: beforeList[1], after: afterList[1] }]);
     assert.deepEqual(r.improved, [{ before: beforeList[2], after: afterList[2] }]);
     assert.deepEqual(r.unchanged, [{ before: beforeList[0], after: afterList[0] }]);
+    assert.deepEqual(r.afterStatus, ["same", "worse", "better", "new"]);
+    assert.deepEqual(r.beforeStatus, ["matched", "matched", "matched", "gone"]);
   });
 
   it("does not pair defects of different types in the same place", () => {
@@ -87,6 +89,7 @@ describe("diffDefects", () => {
     const r = diff.diffDefects([d("lid", "scratch")], [d("lid", "scratch"), d("lid", "scratch", "moderate")]);
     assert.equal(r.unchanged.length, 1);
     assert.deepEqual(r.added, [d("lid", "scratch", "moderate")]);
+    assert.deepEqual(r.afterStatus, ["same", "new"]);
   });
 
   it("gives the same answer whichever order ties are listed in", () => {
@@ -101,7 +104,15 @@ describe("diffDefects", () => {
   });
 
   it("handles empty lists", () => {
-    assert.deepEqual(diff.diffDefects([], []), { added: [], resolved: [], worsened: [], improved: [], unchanged: [] });
+    assert.deepEqual(diff.diffDefects([], []), {
+      added: [],
+      resolved: [],
+      worsened: [],
+      improved: [],
+      unchanged: [],
+      afterStatus: [],
+      beforeStatus: [],
+    });
     assert.equal(diff.diffDefects([], [d("lid", "crack")]).added.length, 1);
     assert.equal(diff.diffDefects([d("lid", "crack")], []).resolved.length, 1);
   });
