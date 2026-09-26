@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { documentsApi, type CustomFieldInput } from "./api";
 import type { CustomField, FieldType } from "./types";
-import { BTN, BTN_DANGER, BTN_QUIET, CARD, DocumentsNav, FIELD, LABEL, Notice, SELECT, errorText, keyFromLabel, useIsAdmin } from "./ui";
+import { BTN, BTN_DANGER, BTN_QUIET, CARD, LIST, DocumentsNav, FIELD, LABEL, Notice, SELECT, errorText, keyFromLabel, useIsAdmin } from "./ui";
 
 /**
  * The custom field library: definitions made once and dropped into any
@@ -185,7 +185,7 @@ export function FieldsPage() {
       )}
       {fields && fields.length === 0 && !draft && <Notice>No fields in the library yet.</Notice>}
       {fields && fields.length > 0 && (
-        <ul className={`${CARD} divide-y divide-slate-800 p-0`}>
+        <ul className={LIST}>
           {fields.map((f) => (
             <li key={f.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
               <span className="min-w-0 flex-1">

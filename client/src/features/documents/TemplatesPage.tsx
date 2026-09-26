@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useTerms } from "../../config/useConfig";
 import { documentsApi } from "./api";
 import type { Block, TemplateSummary } from "./types";
-import { BTN, CARD, DocumentsNav, FIELD, LABEL, Notice, SELECT, errorText, fmtDateTime, useIsAdmin } from "./ui";
+import { BTN, CARD, LIST, DocumentsNav, FIELD, LABEL, Notice, SELECT, errorText, fmtDateTime, useIsAdmin } from "./ui";
 
 /**
  * A starting point that shows every kind of block, for "Start from the example".
@@ -107,7 +107,7 @@ export function TemplatesPage() {
       {error && <Notice tone="error">{error}</Notice>}
       {rows && rows.length === 0 && <Notice>No templates yet.</Notice>}
       {rows && rows.length > 0 && (
-        <ul className={`${CARD} divide-y divide-slate-800 p-0`}>
+        <ul className={LIST}>
           {rows.map((t) => (
             <li key={t.id}>
               <Link to={`/settings/document-templates/${t.id}`} className="flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-slate-800/40">

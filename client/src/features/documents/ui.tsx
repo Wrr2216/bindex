@@ -16,6 +16,8 @@ export const BTN_QUIET =
 export const BTN_DANGER =
   "rounded-lg border border-red-900 px-3 py-2 text-sm text-red-300 hover:bg-red-950/50 disabled:opacity-50";
 export const CARD = "rounded-xl border border-slate-800 bg-slate-900 p-4";
+/** A card holding a list of rows, each with its own padding. */
+export const LIST = "divide-y divide-slate-800 rounded-xl border border-slate-800 bg-slate-900";
 export const H2 = "text-sm font-semibold uppercase tracking-wide text-slate-400";
 export const LABEL = "block text-xs font-medium uppercase tracking-wide text-slate-400";
 

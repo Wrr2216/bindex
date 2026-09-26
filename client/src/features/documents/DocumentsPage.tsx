@@ -6,7 +6,7 @@ import type { DocumentStatus, DocumentSummary, TemplateSummary } from "./types";
 import {
   BTN,
   BTN_QUIET,
-  CARD,
+  LIST,
   DocumentsNav,
   FIELD,
   JobPicker,
@@ -94,7 +94,7 @@ export function DocumentsPage() {
 
 export function DocumentList({ rows, showJob = false }: { rows: DocumentSummary[]; showJob?: boolean }) {
   return (
-    <ul className={`${CARD} divide-y divide-slate-800 p-0`}>
+    <ul className={LIST}>
       {rows.map((d) => (
         <li key={d.id}>
           <Link to={`/documents/${d.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-slate-800/40">
