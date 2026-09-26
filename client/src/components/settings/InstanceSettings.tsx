@@ -95,6 +95,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Plan moves and deliveries as jobs, print floor and department manifests, and scan everything through pack, load, deliver and place.",
   },
+  {
+    key: "custody",
+    title: "Chain of custody",
+    description:
+      "Signed handoffs with seals, receipts and an audit trail per item; delivery sign-off for shipments; and items that cannot be marked delivered without one.",
+  },
 ];
 
 export function InstanceSettings() {

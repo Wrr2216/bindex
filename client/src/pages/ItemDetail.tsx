@@ -13,6 +13,7 @@ import { NfcTagUrl } from "../components/NfcTagUrl";
 import { useScan } from "../scan/ScanProvider";
 import { LastSeenCard } from "../features/tracking-core/LastSeenCard";
 import { ItemMediaSection } from "../features/media-ai-core";
+import { ItemCustodySection } from "../features/custody";
 import {
   AlertIcon,
   ArrowLeftIcon,
@@ -406,6 +407,7 @@ export function ItemDetail() {
           )}
 
           {config.features.tracking && !isDomain && <LastSeenCard itemId={item.id} />}
+          {config.features.custody && !isDomain && <ItemCustodySection itemId={item.id} />}
 
           <AssignmentSection item={item} onChange={setItem} />
 

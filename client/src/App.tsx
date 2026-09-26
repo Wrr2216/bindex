@@ -28,6 +28,7 @@ import {
   ProjectsPage,
   ShipmentDetailPage,
 } from "./features/jobs-core";
+import { CustodyPage, NewTransferPage, SignOffPage, TransferPage } from "./features/custody";
 
 function Loading() {
   return (
@@ -82,6 +83,10 @@ function AppShell() {
           {features.jobs && <Route path="projects/:id" element={<ProjectDetailPage />} />}
           {features.jobs && <Route path="shipments/:id" element={<ShipmentDetailPage />} />}
           {features.jobs && <Route path="settings/job-types" element={<JobTypesPage />} />}
+          {features.custody && <Route path="custody" element={<CustodyPage />} />}
+          {features.custody && <Route path="custody/new" element={<NewTransferPage />} />}
+          {features.custody && <Route path="custody/transfers/:id" element={<TransferPage />} />}
+          {features.custody && <Route path="custody/shipments/:id/sign-off" element={<SignOffPage />} />}
         </Route>
       </Routes>
     </ScanProvider>

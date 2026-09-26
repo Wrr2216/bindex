@@ -706,16 +706,6 @@ export async function recordEvidence(
 
 // --- Reading ------------------------------------------------------------------------------
 
-export type TransferView = CustodyTransfer & {
-  purposeLabel: string;
-  required: CustodyParty[];
-  missing: CustodyParty[];
-  link: { state: ReturnType<typeof linkState>; party: CustodyParty | null; expiresAt: Date | null };
-  counted: number;
-  lines: CustodyTransferItem[];
-  signatures: Signature[];
-};
-
 /** Never hand the stored link hash to a client. */
 function present(t: CustodyTransfer) {
   const { linkTokenHash: _hash, ...rest } = t;
@@ -733,6 +723,11 @@ export async function getTransfer(id: string) {
     missing: t.status === "void" ? [] : missingSignatures(t.purpose, { from: t.fromSignatureId, to: t.toSignatureId }),
     link: { state: linkState(t), party: t.linkParty, expiresAt: t.linkExpiresAt },
     counted: countable(lines),
+    // Exactly the words each party will be asked to agree to.
+    statements: {
+      from: statementFor(t.purpose, "from", { code: t.code, fromName: t.fromName, toName: t.toName, count: countable(lines) }),
+      to: statementFor(t.purpose, "to", { code: t.code, fromName: t.fromName, toName: t.toName, count: countable(lines) }),
+    },
     lines,
     signatures,
   };
