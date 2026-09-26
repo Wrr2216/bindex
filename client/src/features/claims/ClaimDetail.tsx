@@ -542,7 +542,9 @@ function TransitionDialog({
     under_review: claim.status === "submitted" ? "Tell the reporter it is being looked at." : "Reopening starts a fresh decision deadline.",
     approved:
       claim.totals.fromLines && claim.totals.undecidedLines > 0
-        ? `Decide every line first: ${claim.totals.undecidedLines} still need a resolution and an approved amount.`
+        ? `Decide every line first: ${claim.totals.undecidedLines} ${
+            claim.totals.undecidedLines === 1 ? "line still needs" : "lines still need"
+          } a resolution and an approved amount.`
         : `Approves ${money(claim.totals.approvedTotalCents)}. Say what the decision rests on.`,
     denied: "Say why, in words the reporter can be given.",
     paid: "Record what was paid and how.",
