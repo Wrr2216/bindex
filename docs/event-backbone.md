@@ -399,7 +399,9 @@ might rotate the session secret.
 
 The chain proves the log has not been edited **since the hashes were
 computed**. Someone with full control of the database can rewrite rows and
-recompute every hash after them, and the chain on its own cannot tell. What
+recompute every hash after them, and the chain on its own cannot tell.
+Likewise, deleting the newest entries leaves a shorter chain that is still
+valid; it shows up only as a head older than one recorded elsewhere. What
 catches that is a copy of a hash held elsewhere: the checkpoint notifications,
 the `hash` in every webhook a receiver stored, an exported file, or the signed
 checkpoints themselves (forging one needs the signing key, which lives in the
