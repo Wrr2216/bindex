@@ -140,7 +140,7 @@ export function MovePage() {
   );
   useScanTo((code) => void onScan(code), "one");
 
-  if (!(reason in TITLES)) return <Navigate to="/supplies" replace />;
+  if (!Object.hasOwn(TITLES, reason)) return <Navigate to="/supplies" replace />;
   if (reason === "adjust" && user?.role !== "admin") {
     return (
       <div className="space-y-4">
