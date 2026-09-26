@@ -62,6 +62,8 @@ export type Features = {
   inspections: boolean;
   /** Values and their history, high-value declarations, receipts, warranty and service. */
   valuation: boolean;
+  /** Crew badges, credentials and check-in on jobs. */
+  crew: boolean;
 };
 
 export type AppConfig = {
@@ -123,6 +125,7 @@ const KEYS = {
   featureAiCondition: "features.ai_condition",
   featureInspections: "features.inspections",
   featureValuation: "features.valuation",
+  featureCrew: "features.crew",
 } as const;
 
 function defaults(): AppConfig {
@@ -164,6 +167,7 @@ function defaults(): AppConfig {
       aiCondition: true,
       inspections: false,
       valuation: true,
+      crew: false,
     },
   };
 }
@@ -234,6 +238,7 @@ function build(stored: Map<string, string>): AppConfig {
       aiCondition: flag(KEYS.featureAiCondition, base.features.aiCondition),
       inspections: flag(KEYS.featureInspections, base.features.inspections),
       valuation: flag(KEYS.featureValuation, base.features.valuation),
+      crew: flag(KEYS.featureCrew, base.features.crew),
     },
   };
 }
@@ -331,6 +336,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   aiCondition: KEYS.featureAiCondition,
   inspections: KEYS.featureInspections,
   valuation: KEYS.featureValuation,
+  crew: KEYS.featureCrew,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {

@@ -12,6 +12,7 @@ import { EventBackboneSettings } from "../features/event-backbone/SettingsSectio
 import { BulkCaptureSettingsSection } from "../features/bulk-capture/SettingsSection";
 import { ConditionSettingsSection } from "../features/ai-condition";
 import { ValuationSettingsSection } from "../features/valuation/ValuationSettingsSection";
+import { CrewSettingsSection } from "../features/crew";
 import type { NinjaStatus, RegistrarStatus, SyncRun } from "../types";
 
 /** The NinjaOne connect flow returns here with a query parameter to report on. */
@@ -293,6 +294,7 @@ export function Settings() {
           {config.features.bulkCapture && <BulkCaptureSettingsSection />}
           <ConditionSettingsSection />
           <ValuationSettingsSection />
+          {config.features.crew && <CrewSettingsSection />}
         </>
       )}
     </div>

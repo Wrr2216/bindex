@@ -175,6 +175,16 @@ const schema = z.object({
   // Most items one "Make available offline" may copy to a device. Guards a
   // phone against a whole large instance; pick a location to go smaller.
   OFFLINE_SNAPSHOT_MAX_ITEMS: z.coerce.number().int().positive().default(10000),
+  // ---- T18: crew check-in and credentials --------------------------------
+  // Optional external verifier asked about every badge scanned at check-in.
+  // Blank turns it off; check-ins then go on the credentials stored here.
+  CREDENTIAL_VERIFY_URL: z.string().default(""),
+  CREDENTIAL_VERIFY_TOKEN: z.string().default(""),
+  CREDENTIAL_VERIFY_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
+  // Window for the daily digest of expiring crew credentials; 0 disables it.
+  CREW_EXPIRY_ALERT_DAYS: z.coerce.number().int().nonnegative().default(30),
+  // The digest goes out at the first hourly check at or after this UTC hour.
+  CREW_DIGEST_HOUR_UTC: z.coerce.number().int().min(0).max(23).default(13),
 });
 
 const parsed = schema.safeParse(process.env);

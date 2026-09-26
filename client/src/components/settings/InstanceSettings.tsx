@@ -143,6 +143,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Values with their history, AI estimates from photos, signed high-value declarations, receipts matched to items, warranty and service reminders, and an insurance valuation report.",
   },
+  {
+    key: "crew",
+    title: "Crew check-in",
+    description:
+      "Badges for workers and subcontractors, their licences and inductions, and scanning them in on a job with each required credential shown green, amber or red. Needs jobs for the check-in itself.",
+  },
 ];
 
 export function InstanceSettings() {

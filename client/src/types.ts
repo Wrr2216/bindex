@@ -293,6 +293,7 @@ export interface Features {
   aiCondition: boolean;
   inspections: boolean;
   valuation: boolean;
+  crew: boolean;
 }
 
 /**

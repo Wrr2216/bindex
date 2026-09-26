@@ -226,3 +226,4 @@ export * from "./tables/bulk-capture";
 export * from "./tables/ai-condition";
 export * from "./tables/inspections";
 export * from "./tables/valuation";
+export * from "./tables/crew";

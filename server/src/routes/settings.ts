@@ -71,6 +71,7 @@ const configPatch = z.object({
       aiCondition: z.boolean().optional(),
       inspections: z.boolean().optional(),
       valuation: z.boolean().optional(),
+      crew: z.boolean().optional(),
     })
     .optional(),
 });

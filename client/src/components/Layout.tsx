@@ -35,6 +35,7 @@ export function Layout() {
     ...(features.aiCondition ? [{ to: "/condition", label: "Condition" }] : []),
     ...(features.inspections ? [{ to: "/inspections", label: "Inspections" }] : []),
     ...(features.valuation ? [{ to: "/valuation", label: "Valuation" }] : []),
+    ...(features.crew ? [{ to: "/crew", label: "Crew" }] : []),
     { to: "/settings", label: "Settings" },
   ];
 

@@ -39,6 +39,7 @@ import { CaptureSessionPage } from "./features/bulk-capture/CaptureSessionPage";
 import { ConditionPage, SweepPage } from "./features/ai-condition";
 import { InspectionDetailPage, InspectionsListPage } from "./features/inspections";
 import { DeclarationPage, ReceiptPage, ValuationPage } from "./features/valuation";
+import { CrewBadgePage, CrewCheckInPage, CrewPage, CrewSettingsPage, CrewWorkerPage } from "./features/crew";
 
 function Loading() {
   return (
@@ -106,6 +107,11 @@ function AppShell() {
           {features.valuation && <Route path="valuation" element={<ValuationPage />} />}
           {features.valuation && <Route path="valuation/declarations/:id" element={<DeclarationPage />} />}
           {features.valuation && <Route path="valuation/receipts/:id" element={<ReceiptPage />} />}
+          {features.crew && <Route path="crew" element={<CrewPage />} />}
+          {features.crew && <Route path="crew/jobs/:jobId" element={<CrewCheckInPage />} />}
+          {features.crew && <Route path="crew/workers/:id" element={<CrewWorkerPage />} />}
+          {features.crew && <Route path="crew/badge/:code" element={<CrewBadgePage />} />}
+          {features.crew && <Route path="settings/crew" element={<CrewSettingsPage />} />}
         </Route>
       </Routes>
       <NfcTapLayer />

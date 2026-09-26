@@ -30,6 +30,7 @@ import { bulkCaptureRouter } from "./bulk-capture";
 import { aiConditionRouter } from "./ai-condition";
 import { inspectionsRouter } from "./inspections";
 import { valuationRouter } from "./valuation";
+import { crewRouter } from "./crew";
 
 export const apiRouter = Router();
 
@@ -70,6 +71,7 @@ apiRouter.use("/bulk-capture", bulkCaptureRouter);
 apiRouter.use("/condition", aiConditionRouter);
 apiRouter.use("/inspections", inspectionsRouter);
 apiRouter.use("/valuation", valuationRouter);
+apiRouter.use("/crew", crewRouter);
 
 apiRouter.delete(
   "/identifiers/:id",
