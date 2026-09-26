@@ -38,6 +38,7 @@ import { documentsRouter } from "./documents";
 import { portalAdminRouter } from "./portal";
 import { opsIntelRouter } from "./ops-intel";
 import { bleRouter } from "./ble";
+import { placementRouter } from "./placement";
 
 export const apiRouter = Router();
 
@@ -86,6 +87,7 @@ apiRouter.use(documentsRouter);
 apiRouter.use("/portal-grants", portalAdminRouter);
 apiRouter.use("/ops", opsIntelRouter);
 apiRouter.use("/ble", bleRouter);
+apiRouter.use("/placement", placementRouter);
 
 apiRouter.delete(
   "/identifiers/:id",

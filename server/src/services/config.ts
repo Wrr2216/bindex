@@ -78,6 +78,8 @@ export type Features = {
   opsIntel: boolean;
   /** Bluetooth beacons, gateways and room-level presence. Needs tracking. */
   ble: boolean;
+  /** Room-based placement guidance and delivery matching. Needs jobs. */
+  placement: boolean;
 };
 
 export type AppConfig = {
@@ -147,6 +149,7 @@ const KEYS = {
   featurePortal: "features.portal",
   featureOpsIntel: "features.ops_intel",
   featureBle: "features.ble",
+  featurePlacement: "features.placement",
 } as const;
 
 function defaults(): AppConfig {
@@ -196,6 +199,7 @@ function defaults(): AppConfig {
       portal: false,
       opsIntel: false,
       ble: false,
+      placement: false,
     },
   };
 }
@@ -275,6 +279,7 @@ function build(stored: Map<string, string>): AppConfig {
       opsIntel: flag(KEYS.featureOpsIntel, base.features.opsIntel),
       // Beacons are tracking devices, so they go when tracking does.
       ble: flag(KEYS.featureBle, base.features.ble) && flag(KEYS.featureTracking, base.features.tracking),
+      placement: flag(KEYS.featurePlacement, base.features.placement),
     },
   };
 }
@@ -380,6 +385,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   portal: KEYS.featurePortal,
   opsIntel: KEYS.featureOpsIntel,
   ble: KEYS.featureBle,
+  placement: KEYS.featurePlacement,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {

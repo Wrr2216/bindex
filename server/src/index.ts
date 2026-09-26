@@ -39,6 +39,7 @@ import { startPortalNotifier } from "./services/portal";
 import { startOpsIntel } from "./services/ops-intel";
 import { bleDeviceRouter } from "./routes/ble";
 import { startBle } from "./services/ble";
+import { startPlacementReaders } from "./services/placement";
 
 const app = express();
 // One proxy hop, which is what a container behind a reverse proxy sees. Needed
@@ -177,6 +178,7 @@ async function main(): Promise<void> {
     startPortalNotifier();
     startOpsIntel();
     startBle();
+    startPlacementReaders();
   });
 }
 

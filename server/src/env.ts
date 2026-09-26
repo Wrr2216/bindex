@@ -255,6 +255,11 @@ const schema = z.object({
   BLE_MQTT_PASSWORD: z.string().default(""),
   // Payload format on those topics: auto, generic, minew, ingics, kontakt or teltonika.
   BLE_MQTT_FORMAT: z.enum(["auto", "generic", "minew", "ingics", "kontakt", "teltonika"]).default("auto"),
+  // ---- T11: placement guidance ------------------------------------------------
+  // How often reads from room readers are checked against where each line is
+  // going, in seconds. 0 stops readers from placing anything; sweeps and the
+  // placement card keep working.
+  PLACEMENT_READER_POLL_SECONDS: z.coerce.number().nonnegative().default(2),
 });
 
 const parsed = schema.safeParse(process.env);

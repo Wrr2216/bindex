@@ -56,6 +56,13 @@ import {
 import { PortalAdminPage, PortalLinkPage } from "./features/portal";
 import { InsightsPage } from "./features/ops-intel";
 import { BlePage } from "./features/ble/BlePage";
+import {
+  PlacementHomePage,
+  PlacementJobPage,
+  PlacementKioskPage,
+  PlacementSweepPage,
+  PlacementWherePage,
+} from "./features/placement";
 
 function Loading() {
   return (
@@ -158,6 +165,11 @@ function AppShell() {
           {features.portal && <Route path="portal" element={<PortalAdminPage />} />}
           {features.opsIntel && <Route path="insights" element={<InsightsPage />} />}
           {features.ble && <Route path="ble" element={<BlePage />} />}
+          {features.jobs && features.placement && <Route path="placement" element={<PlacementHomePage />} />}
+          {features.jobs && features.placement && <Route path="placement/jobs/:id" element={<PlacementJobPage />} />}
+          {features.jobs && features.placement && <Route path="placement/jobs/:id/where" element={<PlacementWherePage />} />}
+          {features.jobs && features.placement && <Route path="placement/jobs/:id/sweep" element={<PlacementSweepPage />} />}
+          {features.jobs && features.placement && <Route path="placement/jobs/:id/kiosk" element={<PlacementKioskPage />} />}
         </Route>
       </Routes>
       <NfcTapLayer />

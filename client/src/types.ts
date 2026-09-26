@@ -301,6 +301,7 @@ export interface Features {
   portal: boolean;
   opsIntel: boolean;
   ble: boolean;
+  placement: boolean;
 }
 
 /**

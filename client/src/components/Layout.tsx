@@ -43,6 +43,7 @@ export function Layout() {
     ...(features.portal && user?.role === "admin" ? [{ to: "/portal", label: "Portal" }] : []),
     ...(features.opsIntel ? [{ to: "/insights", label: "Insights" }] : []),
     ...(features.ble ? [{ to: "/ble", label: "Bluetooth" }] : []),
+    ...(features.jobs && features.placement ? [{ to: "/placement", label: "Placement" }] : []),
     { to: "/settings", label: "Settings" },
   ];
 

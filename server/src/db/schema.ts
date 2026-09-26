@@ -234,3 +234,4 @@ export * from "./tables/documents";
 export * from "./tables/portal";
 export * from "./tables/ops-intel";
 export * from "./tables/ble";
+export * from "./tables/placement";

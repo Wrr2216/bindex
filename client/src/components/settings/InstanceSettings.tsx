@@ -191,6 +191,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Bluetooth tags on equipment placed room by room from gateways, room beacons for phones, and alerts for missing tags and flat batteries. Needs Readers, beacons and trackers.",
   },
+  {
+    key: "placement",
+    title: "Placement guidance",
+    description:
+      "Tell delivery crews which room each thing goes to, confirm placement by scan, room sweep or room reader, and flag anything in the wrong room or off the wrong truck. Needs projects, jobs and shipments.",
+  },
 ];
 
 export function InstanceSettings() {
