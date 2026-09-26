@@ -120,7 +120,7 @@ function LineRow({
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="font-medium text-slate-100">
-              <ItemLink itemId={line.itemId}>{line.itemName ?? line.currentItemName ?? "Deleted item"}</ItemLink>
+              <ItemLink itemId={line.currentItemName !== null ? line.itemId : null}>{line.itemName ?? line.currentItemName ?? "Deleted item"}</ItemLink>
             </p>
             <p className="flex flex-wrap gap-x-2 text-xs text-slate-400">
               {line.assetCode && <span className="font-mono">{line.assetCode}</span>}

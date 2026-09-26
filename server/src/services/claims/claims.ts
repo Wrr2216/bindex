@@ -31,7 +31,7 @@ import { isExceptionStage, resolveScanCodes, stageLabel } from "../jobs-core";
 import { deleteAttachmentsForOwner } from "../media-ai-core";
 import { announce } from "./events";
 import { buildEvidence } from "./evidence";
-import { OPEN_STATUSES, TYPE_INFO, isIncidentCategory, isMoneyType } from "./model";
+import { OPEN_STATUSES, isIncidentCategory, isMoneyType } from "./model";
 import { clean, decisionRefusal, withClaimCode, type ClaimActor } from "./shared";
 import { claimTotals, normalizeLineDecision, type ClaimTotals } from "./totals";
 import { checkTransition, computeSla, transitionStamps, transitionsFrom, type Sla, type Transition } from "./workflow";
@@ -294,6 +294,7 @@ function lineValues(claimId: string, line: ResolvedLine, position: number): type
     claimId,
     position,
     jobItemId: line.jobItemId,
+    jobId: line.jobId,
     itemId: line.itemId,
     unitId: line.unitId,
     itemName: line.itemName,
@@ -572,7 +573,6 @@ export async function getClaim(id: string, viewer?: ClaimActor): Promise<ClaimDe
   if (!head) throw notFound("Claim not found. It may have been deleted.");
   const claim = head.claim;
 
-  const lineShipments = schema.shipments;
   const [lineRows, activity] = await Promise.all([
     db
       .select({
@@ -580,13 +580,13 @@ export async function getClaim(id: string, viewer?: ClaimActor): Promise<ClaimDe
         currentItemName: items.name,
         stage: jobItems.stage,
         jobCode: jobs.code,
-        shipmentCode: lineShipments.code,
+        shipmentCode: shipments.code,
       })
       .from(claimLines)
       .leftJoin(items, eq(claimLines.itemId, items.id))
       .leftJoin(jobItems, eq(claimLines.jobItemId, jobItems.id))
-      .leftJoin(jobs, eq(jobItems.jobId, jobs.id))
-      .leftJoin(lineShipments, eq(jobItems.shipmentId, lineShipments.id))
+      .leftJoin(jobs, eq(claimLines.jobId, jobs.id))
+      .leftJoin(shipments, eq(jobItems.shipmentId, shipments.id))
       .where(eq(claimLines.claimId, id))
       .orderBy(asc(claimLines.position), asc(claimLines.createdAt)),
     db.select().from(claimActivity).where(eq(claimActivity.claimId, id)).orderBy(asc(claimActivity.createdAt), asc(claimActivity.id)),
@@ -1111,4 +1111,3 @@ export async function listReviewers(viewer: ClaimActor): Promise<{ userOid: stri
   return out;
 }
 
-export { TYPE_INFO };

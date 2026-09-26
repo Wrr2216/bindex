@@ -64,7 +64,8 @@ function tripText(e: LineEvidence, fmt: Fmt): string | null {
     t.placedAt && `Placed ${fmt.at(t.placedAt)}`,
     ...t.exceptions.map((x) => `${x.stage.replace(/_/g, " ")} ${fmt.at(x.at)}`),
   ].filter(Boolean);
-  return [`${e.jobCode ?? "Job"}${e.shipmentCode ? ` / ${e.shipmentCode}` : ""}:`, steps.join("  ·  ") || "no stage changes yet"].join(" ");
+  const job = e.jobCode ?? "A job since deleted (history from the audit log)";
+  return [`${job}${e.shipmentCode ? ` / ${e.shipmentCode}` : ""}:`, steps.join("  ·  ") || "no stage changes yet"].join(" ");
 }
 
 const NOTE_SOURCE = {

@@ -320,6 +320,34 @@ describe("claims against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
     assert.equal(rows[0].n, 1);
   });
 
+  it("keeps a line's trip when its job is deleted, from the audit log", async () => {
+    const { createItem } = await import("../src/services/items");
+    const crate = await createItem({ name: `Crate ${tag}`, valueCents: 1_000 }, null);
+    const job = await core.createJob({ name: `Short-lived ${tag}` }, crew);
+    await core.addItemsByCodes(job.id, [crate.assetCode], {}, crew);
+    await core.advanceStage(job.id, [crate.assetCode], "packed", { via: "scan", note: "Lid split at pack", ...crew });
+    await core.advanceStage(job.id, [crate.assetCode], "missing", { via: "manual", ...crew });
+    const line = (await core.listJobItems(job.id)).lines[0]!;
+    const claim = await claims.createClaim({ type: "loss", title: "Crate lost", lines: [{ jobItemId: line.id }] }, reporter);
+    cleanup.push(() => pool.query("DELETE FROM claims WHERE id = $1", [claim.id]));
+
+    await core.deleteJob(job.id);
+    const after = await claims.getClaim(claim.id);
+    assert.equal(after.jobId, job.id, "the claim still names the job");
+    assert.equal(after.lines[0]!.jobItemId, line.id);
+    const pack = await claims.getEvidence(claim.id);
+    const e = pack.lines[0]!;
+    assert.deepEqual(
+      e.stageHistory.map((h) => h.toStage),
+      ["packed", "missing"],
+      "rebuilt from the job.stage_changed events",
+    );
+    assert.ok(e.trip?.packedAt);
+    assert.ok(e.conditionNotes.some((n) => n.text === "Lid split at pack"));
+    const { pdf } = await claims.claimPdf(claim.id, "UTC");
+    assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");
+  });
+
   it("puts claims in the instance backup", async () => {
     const { buildBackup } = await import("../src/services/backup");
     const backup = await buildBackup();

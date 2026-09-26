@@ -222,7 +222,11 @@ type AuditRow = {
   actor_name: string | null;
   subject_type: string | null;
   subject_id: string | null;
-  job_item_ids: string[] | null;
+  /** For job.stage_changed: this event's entries for the claim's lines. */
+  stage_lines: { jobItemId: string; from: string | null; to: string }[] | null;
+  via: string | null;
+  note: string | null;
+  device_id: string | null;
 };
 
 /**
@@ -239,10 +243,11 @@ async function auditFor(
   try {
     const { rows } = await pool.query<AuditRow>(
       `SELECT a.id::text AS id, a.type, a.occurred_at, a.hash, a.actor_name, a.subject_type, a.subject_id,
-              CASE WHEN a.type = 'job.stage_changed' THEN ARRAY(
-                SELECT l->>'jobItemId'
+              CASE WHEN a.type = 'job.stage_changed' THEN (
+                SELECT jsonb_agg(l)
                   FROM jsonb_array_elements(CASE jsonb_typeof(a.data->'lines') WHEN 'array' THEN a.data->'lines' ELSE '[]'::jsonb END) l
-                 WHERE l->>'jobItemId' = ANY($5::text[])) END AS job_item_ids
+                 WHERE l->>'jobItemId' = ANY($5::text[])) END AS stage_lines,
+              a.data->>'via' AS via, a.data->>'note' AS note, a.data->>'deviceId' AS device_id
          FROM audit_log a
         WHERE (a.subject_type = 'claim' AND a.subject_id = $1)
            OR (a.subject_type = 'item' AND a.subject_id = ANY($2::text[]))
@@ -261,6 +266,44 @@ async function auditFor(
     logger.warn("claims.evidence.audit_failed", { claimId, err: describeError(err) });
     return [];
   }
+}
+
+type HistoryStep = Awaited<ReturnType<typeof lineHistory>>[number];
+
+/**
+ * A manifest line's stage changes as the audit log recorded them, for a line
+ * whose job has since been deleted (and its history with it). Oldest first.
+ * A bulk read of more than a few hundred lines is recorded in part, so this
+ * can be shorter than the history it stands in for.
+ */
+function historyFromAudit(rows: readonly AuditRow[], jobItemId: string): HistoryStep[] {
+  const out: HistoryStep[] = [];
+  for (const r of rows) {
+    for (const l of r.stage_lines ?? []) {
+      if (l.jobItemId !== jobItemId || !l.to) continue;
+      out.push({
+        id: `audit-${r.id}`,
+        jobItemId,
+        jobId: r.subject_id ?? "",
+        itemId: "",
+        unitId: null,
+        shipmentId: null,
+        fromStage: l.from ?? null,
+        toStage: l.to,
+        via: r.via ?? "unknown",
+        deviceId: r.device_id,
+        userOid: null,
+        actor: r.actor_name,
+        note: r.note,
+        createdAt: new Date(r.occurred_at),
+        itemName: "",
+        assetCode: "",
+        unitCode: null,
+        shipmentCode: null,
+      });
+    }
+  }
+  return out.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 }
 
 /**
@@ -399,7 +442,11 @@ export async function buildEvidence(
         .where(inArray(jobItems.id, jobItemIds))
     : [];
   const jobLineById = new Map(jobLines.map((j) => [j.id, j]));
-  const jobIds = [...new Set(jobLines.map((j) => j.jobId))];
+  // The line's own job id is kept on the claim, so the audit log still finds
+  // its stage changes after the job itself has been deleted.
+  const jobIds = [
+    ...new Set([...jobLines.map((j) => j.jobId), ...lines.map((l) => l.jobId).filter((j): j is string => j !== null)]),
+  ];
 
   const [histories, reports, hops, shipment, claimSignatures] = await Promise.all([
     Promise.all(jobItemIds.map(async (id) => [id, await lineHistory(id)] as const)).then((h) => new Map(h)),
@@ -432,7 +479,11 @@ export async function buildEvidence(
 
   const lineEvidence: LineEvidence[] = lines.map((line) => {
     const jobLine = line.jobItemId ? jobLineById.get(line.jobItemId) ?? null : null;
-    const history = line.jobItemId ? histories.get(line.jobItemId) ?? [] : [];
+    const history = !line.jobItemId
+      ? []
+      : jobLine
+        ? histories.get(line.jobItemId) ?? []
+        : historyFromAudit(auditRows, line.jobItemId);
     const trip = history.length ? tripFromHistory(history) : null;
 
     const lineReports = reports.rows.filter((r) => covers(r, line));
@@ -482,7 +533,7 @@ export async function buildEvidence(
         (a) =>
           (a.subject_type === "item" && a.subject_id === line.itemId) ||
           (a.subject_type === "unit" && line.unitId !== null && a.subject_id === line.unitId) ||
-          (line.jobItemId !== null && (a.job_item_ids ?? []).includes(line.jobItemId)),
+          (line.jobItemId !== null && (a.stage_lines ?? []).some((l) => l.jobItemId === line.jobItemId)),
       )
       .map(auditView);
 
@@ -494,7 +545,7 @@ export async function buildEvidence(
       itemName: line.itemName,
       assetCode: line.assetCode,
       jobItemId: line.jobItemId,
-      jobId: jobLine?.jobId ?? null,
+      jobId: jobLine?.jobId ?? line.jobId,
       jobCode: jobLine?.jobCode ?? null,
       shipmentCode: jobLine?.shipmentCode ?? null,
       currentStage: jobLine?.stage ?? null,

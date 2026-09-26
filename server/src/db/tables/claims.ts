@@ -55,6 +55,7 @@ export const claimLines = pgTable("claim_lines", {
   claimId: uuid("claim_id").notNull(),
   position: integer("position").default(0).notNull(),
   jobItemId: uuid("job_item_id"),
+  jobId: uuid("job_id"),
   itemId: uuid("item_id"),
   unitId: uuid("unit_id"),
   itemName: text("item_name"),

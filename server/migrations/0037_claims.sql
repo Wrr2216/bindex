@@ -10,6 +10,11 @@
 -- snapshot of the item's name, code and declared value, because a claim is a
 -- record that has to stay readable after the item it names is deleted.
 --
+-- For the same reason the job, shipment, manifest line, item and unit a claim
+-- points at are kept as plain ids rather than foreign keys: deleting a job
+-- must not quietly cut a claim loose from the trip it is about. Their stage
+-- changes stay in the audit log, which the evidence pack falls back on.
+--
 -- claim_activity is the claim's own history: comments, status changes with
 -- their notes, assignments, line edits and exports. Each row points at the
 -- audit-log entry it was published as, once there is one.
@@ -31,8 +36,8 @@ CREATE TABLE IF NOT EXISTS claims (
   status                 text NOT NULL DEFAULT 'draft',
   title                  text NOT NULL,
   description            text,
-  job_id                 uuid REFERENCES jobs(id) ON DELETE SET NULL,
-  shipment_id            uuid REFERENCES shipments(id) ON DELETE SET NULL,
+  job_id                 uuid,
+  shipment_id            uuid,
   -- Where it happened, for site damage and incidents.
   location_id            uuid REFERENCES locations(id) ON DELETE SET NULL,
   occurred_at            timestamptz,
@@ -102,11 +107,12 @@ CREATE TABLE IF NOT EXISTS claim_lines (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   claim_id              uuid NOT NULL REFERENCES claims(id) ON DELETE CASCADE,
   position              integer NOT NULL DEFAULT 0,
-  -- The manifest line it travelled on, when there is one: its stage history
-  -- is the line's trip.
-  job_item_id           uuid REFERENCES job_items(id) ON DELETE SET NULL,
-  item_id               uuid REFERENCES items(id) ON DELETE SET NULL,
-  unit_id               uuid REFERENCES item_units(id) ON DELETE SET NULL,
+  -- The manifest line it travelled on, when there is one, and that line's
+  -- job: its stage history is the line's trip.
+  job_item_id           uuid,
+  job_id                uuid,
+  item_id               uuid,
+  unit_id               uuid,
   item_name             text,
   asset_code            text,
   declared_value_cents  bigint,
