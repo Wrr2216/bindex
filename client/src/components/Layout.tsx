@@ -41,6 +41,7 @@ export function Layout() {
     ...(features.gps && features.tracking ? [{ to: "/gps", label: "Map" }] : []),
     ...(features.documents ? [{ to: "/documents", label: "Documents" }] : []),
     ...(features.portal && user?.role === "admin" ? [{ to: "/portal", label: "Portal" }] : []),
+    ...(features.opsIntel ? [{ to: "/insights", label: "Insights" }] : []),
     { to: "/settings", label: "Settings" },
   ];
 

@@ -41,6 +41,7 @@ import { clearCustodyTables, exportCustodyTables, restoreCustodyTables } from ".
 import { clearGpsTables, exportGpsTables, restoreGpsTables } from "./gps/backup";
 import { DOCUMENTS_DATE_FIELDS, exportDocumentsTables, restoreDocumentsTables } from "./documents/backup";
 import { exportPortalTables, keepPortalSecrets, restorePortalTables } from "./portal/backup";
+import { exportOpsIntelTables, restoreOpsIntelTables } from "./ops-intel/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -124,6 +125,7 @@ const TABLES = [
   "document_exports",
   "portal_grants",
   "portal_notes",
+  "ops_location_profiles",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -180,6 +182,7 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   ...DOCUMENTS_DATE_FIELDS,
   portal_grants: ["expiresAt", "revokedAt", "lastUsedAt", "createdAt", "updatedAt"],
   portal_notes: ["createdAt"],
+  ops_location_profiles: ["createdAt", "updatedAt"],
 };
 
 export type Backup = {
@@ -237,6 +240,7 @@ export async function buildBackup(): Promise<Backup> {
     ...(await exportGpsTables()),
     ...(await exportDocumentsTables()),
     ...(await exportPortalTables()),
+    ...(await exportOpsIntelTables()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -433,6 +437,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     await restoreGpsTables(tx, d);
     await restoreDocumentsTables(tx, d);
     await restorePortalTables(tx, d);
+    await restoreOpsIntelTables(tx, d);
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,

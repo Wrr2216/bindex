@@ -77,6 +77,7 @@ const configPatch = z.object({
       gps: z.boolean().optional(),
       documents: z.boolean().optional(),
       portal: z.boolean().optional(),
+      opsIntel: z.boolean().optional(),
     })
     .optional(),
 });

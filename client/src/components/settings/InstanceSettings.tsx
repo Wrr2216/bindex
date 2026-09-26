@@ -179,6 +179,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Share a project, job or shipment with someone outside through a link: customers follow progress, and subcontracted crews scan, add photos and sign. Needs projects, jobs and shipments.",
   },
+  {
+    key: "opsIntel",
+    title: "Operations insights",
+    description:
+      "Rules that catch cartons left behind, duplicate records and tags in two places at once; dwell time and slotting suggestions; load plans against vehicle capacity.",
+  },
 ];
 
 export function InstanceSettings() {

@@ -299,6 +299,7 @@ export interface Features {
   gps: boolean;
   documents: boolean;
   portal: boolean;
+  opsIntel: boolean;
 }
 
 /**

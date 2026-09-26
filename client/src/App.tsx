@@ -54,6 +54,7 @@ import {
   JobDocumentsPage,
 } from "./features/documents";
 import { PortalAdminPage, PortalLinkPage } from "./features/portal";
+import { InsightsPage } from "./features/ops-intel";
 
 function Loading() {
   return (
@@ -154,6 +155,7 @@ function AppShell() {
           {features.documents && <Route path="settings/document-packets" element={<DocumentPacketsPage />} />}
           {features.documents && <Route path="settings/document-fields" element={<DocumentFieldsPage />} />}
           {features.portal && <Route path="portal" element={<PortalAdminPage />} />}
+          {features.opsIntel && <Route path="insights" element={<InsightsPage />} />}
         </Route>
       </Routes>
       <NfcTapLayer />

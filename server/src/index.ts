@@ -36,6 +36,7 @@ import { mapTileSources } from "./services/gps/tiles";
 import { startGpsPrune } from "./services/gps/prune";
 import { portalRouter } from "./routes/portal";
 import { startPortalNotifier } from "./services/portal";
+import { startOpsIntel } from "./services/ops-intel";
 
 const app = express();
 // One proxy hop, which is what a container behind a reverse proxy sees. Needed
@@ -171,6 +172,7 @@ async function main(): Promise<void> {
     startTeardownWorker();
     startGpsPrune();
     startPortalNotifier();
+    startOpsIntel();
   });
 }
 

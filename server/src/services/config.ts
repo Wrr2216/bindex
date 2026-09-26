@@ -74,6 +74,8 @@ export type Features = {
   documents: boolean;
   /** Links for people without an account to follow or work on a job. */
   portal: boolean;
+  /** Operations insights: anomaly rules, storage analytics and load planning. */
+  opsIntel: boolean;
 };
 
 export type AppConfig = {
@@ -141,6 +143,7 @@ const KEYS = {
   featureGps: "features.gps",
   featureDocuments: "features.documents",
   featurePortal: "features.portal",
+  featureOpsIntel: "features.ops_intel",
 } as const;
 
 function defaults(): AppConfig {
@@ -188,6 +191,7 @@ function defaults(): AppConfig {
       gps: false,
       documents: false,
       portal: false,
+      opsIntel: false,
     },
   };
 }
@@ -264,6 +268,7 @@ function build(stored: Map<string, string>): AppConfig {
       gps: flag(KEYS.featureGps, base.features.gps),
       documents: flag(KEYS.featureDocuments, base.features.documents),
       portal: flag(KEYS.featurePortal, base.features.portal),
+      opsIntel: flag(KEYS.featureOpsIntel, base.features.opsIntel),
     },
   };
 }
@@ -367,6 +372,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   gps: KEYS.featureGps,
   documents: KEYS.featureDocuments,
   portal: KEYS.featurePortal,
+  opsIntel: KEYS.featureOpsIntel,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {

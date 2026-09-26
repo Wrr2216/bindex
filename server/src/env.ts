@@ -217,6 +217,10 @@ const schema = z.object({
   // Minimum minutes between two milestone emails to the same person; the
   // milestones in between go out together.
   PORTAL_NOTIFY_INTERVAL_MIN: z.coerce.number().nonnegative().default(15),
+  // ---- T22: operations insights ------------------------------------------
+  // Minutes between scheduled runs of the anomaly rules while the feature is
+  // on. 0 stops the schedule; runs can still be started from the Insights page.
+  OPS_INTEL_INTERVAL_MIN: z.coerce.number().int().nonnegative().default(15),
 });
 
 const parsed = schema.safeParse(process.env);
