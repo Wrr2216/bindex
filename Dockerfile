@@ -19,6 +19,10 @@ WORKDIR /app
 RUN corepack enable
 # The canvas module used to render labels links against libstdc++ on Alpine.
 RUN apk add --no-cache libstdc++
+# T20: ffmpeg takes the narration out of teardown videos and a picture per
+# step. Optional: delete this line for a smaller image, and those two stages
+# are skipped (see docs/teardown.md).
+RUN apk add --no-cache ffmpeg
 
 # A standalone production install for the server alone, which keeps the client
 # toolchain out of the image.
