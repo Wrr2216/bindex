@@ -28,6 +28,7 @@ import {
   ProjectsPage,
   ShipmentDetailPage,
 } from "./features/jobs-core";
+import { InspectionDetailPage, InspectionsListPage } from "./features/inspections";
 
 function Loading() {
   return (
@@ -82,6 +83,8 @@ function AppShell() {
           {features.jobs && <Route path="projects/:id" element={<ProjectDetailPage />} />}
           {features.jobs && <Route path="shipments/:id" element={<ShipmentDetailPage />} />}
           {features.jobs && <Route path="settings/job-types" element={<JobTypesPage />} />}
+          {features.inspections && <Route path="inspections" element={<InspectionsListPage />} />}
+          {features.inspections && <Route path="inspections/:id" element={<InspectionDetailPage />} />}
         </Route>
       </Routes>
     </ScanProvider>

@@ -95,6 +95,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Plan moves and deliveries as jobs, print floor and department manifests, and scan everything through pack, load, deliver and place.",
   },
+  {
+    key: "inspections",
+    title: "Site inspections",
+    description:
+      "Survey a building's walls, doors, floors, docks and elevators before and after a move, compare the two, collect sign-off and share the report. Reading damage from a photo needs a vision model.",
+  },
 ];
 
 export function InstanceSettings() {

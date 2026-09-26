@@ -26,6 +26,7 @@ export function Layout() {
     ...(features.audit ? [{ to: "/audit", label: "Audit" }] : []),
     ...(features.tracking ? [{ to: "/tracking", label: "Tracking" }] : []),
     ...(features.jobs ? [{ to: "/jobs", label: "Jobs" }] : []),
+    ...(features.inspections ? [{ to: "/inspections", label: "Inspections" }] : []),
     { to: "/settings", label: "Settings" },
   ];
 
