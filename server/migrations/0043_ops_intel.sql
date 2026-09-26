@@ -2,9 +2,10 @@
 -- found them, and per-location facts the analytics need (distance to the dock,
 -- site coordinates, vehicle capacity).
 --
--- Nothing here references another feature's tables with a foreign key except
--- locations, and that one on purpose does not cascade into restores: see
--- ops_location_profiles below. Every statement can run twice.
+-- Nothing here has a foreign key to another feature's tables: anomalies
+-- outlive what they were about, and location profiles have to survive a
+-- backup restore (see ops_location_profiles below). Every statement can run
+-- twice.
 
 -- ---------------------------------------------------------------------------
 -- Anomalies
