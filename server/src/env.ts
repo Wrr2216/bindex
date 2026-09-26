@@ -167,6 +167,11 @@ const schema = z.object({
   STT_BASE_URL: z.string().default(""),
   STT_API_KEY: z.string().default(""),
   STT_MODEL: z.string().default("whisper-1"),
+  // ---- T20: teardown guides ---------------------------------------------
+  // ffmpeg pulls the narration out of teardown videos and grabs a still per
+  // step. Optional: without it on PATH (or at this path) those steps are
+  // skipped and the guide is written by hand.
+  FFMPEG_PATH: z.string().default("ffmpeg"),
 });
 
 const parsed = schema.safeParse(process.env);
