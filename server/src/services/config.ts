@@ -56,6 +56,8 @@ export type Features = {
   offline: boolean;
   /** Walkthroughs, desk surveys and paper inventories turned into items with AI. */
   bulkCapture: boolean;
+  /** Condition reports, container capture and condition sweeps (T12). */
+  aiCondition: boolean;
 };
 
 export type AppConfig = {
@@ -114,6 +116,7 @@ const KEYS = {
   featureLegacyTags: "features.legacy_tags",
   featureOffline: "features.offline",
   featureBulkCapture: "features.bulk_capture",
+  featureAiCondition: "features.ai_condition",
 } as const;
 
 function defaults(): AppConfig {
@@ -152,6 +155,7 @@ function defaults(): AppConfig {
       legacyTags: false,
       offline: false,
       bulkCapture: true,
+      aiCondition: true,
     },
   };
 }
@@ -219,6 +223,7 @@ function build(stored: Map<string, string>): AppConfig {
       legacyTags: flag(KEYS.featureLegacyTags, base.features.legacyTags),
       offline: flag(KEYS.featureOffline, base.features.offline),
       bulkCapture: flag(KEYS.featureBulkCapture, base.features.bulkCapture),
+      aiCondition: flag(KEYS.featureAiCondition, base.features.aiCondition),
     },
   };
 }
@@ -313,6 +318,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   legacyTags: KEYS.featureLegacyTags,
   offline: KEYS.featureOffline,
   bulkCapture: KEYS.featureBulkCapture,
+  aiCondition: KEYS.featureAiCondition,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {

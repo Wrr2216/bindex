@@ -10,6 +10,7 @@ import { DevicesSettingsSection } from "../features/tracking-core/DevicesSetting
 import { BUTTON, BUTTON_QUIET, Pill, Section } from "../components/ui";
 import { EventBackboneSettings } from "../features/event-backbone/SettingsSections";
 import { BulkCaptureSettingsSection } from "../features/bulk-capture/SettingsSection";
+import { ConditionSettingsSection } from "../features/ai-condition";
 import type { NinjaStatus, RegistrarStatus, SyncRun } from "../types";
 
 /** The NinjaOne connect flow returns here with a query parameter to report on. */
@@ -289,6 +290,7 @@ export function Settings() {
           <BackupSection />
           <EventBackboneSettings />
           {config.features.bulkCapture && <BulkCaptureSettingsSection />}
+          <ConditionSettingsSection />
         </>
       )}
     </div>

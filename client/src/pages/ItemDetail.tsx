@@ -15,6 +15,7 @@ import { LastSeenCard } from "../features/tracking-core/LastSeenCard";
 import { ItemMediaSection } from "../features/media-ai-core";
 import { ItemTagPanel } from "../features/tag-commissioning/ItemTagPanel";
 import { ItemTagChip } from "../features/tag-commissioning/badges";
+import { ItemConditionSection } from "../features/ai-condition";
 import {
   AlertIcon,
   ArrowLeftIcon,
@@ -315,6 +316,8 @@ export function ItemDetail() {
           )}
 
           {!isDomain && <ItemMediaSection item={item} onChange={setItem} />}
+
+          <ItemConditionSection item={item} onChange={setItem} />
 
           {hasVehicleInfo && (
             <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">

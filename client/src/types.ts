@@ -290,6 +290,7 @@ export interface Features {
   legacyTags: boolean;
   offline: boolean;
   bulkCapture: boolean;
+  aiCondition: boolean;
 }
 
 /**

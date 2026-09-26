@@ -27,6 +27,7 @@ import { consumablesRouter } from "./consumables";
 import { tagCommissioningRouter } from "./tag-commissioning";
 import { idempotency, offlineFieldRouter } from "./offline-field";
 import { bulkCaptureRouter } from "./bulk-capture";
+import { aiConditionRouter } from "./ai-condition";
 
 export const apiRouter = Router();
 
@@ -64,6 +65,7 @@ apiRouter.use("/consumables", consumablesRouter);
 apiRouter.use("/tag-commissioning", tagCommissioningRouter);
 apiRouter.use("/offline", offlineFieldRouter);
 apiRouter.use("/bulk-capture", bulkCaptureRouter);
+apiRouter.use("/condition", aiConditionRouter);
 
 apiRouter.delete(
   "/identifiers/:id",
