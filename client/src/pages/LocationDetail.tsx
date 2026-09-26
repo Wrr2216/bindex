@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { NfcTagUrl } from "../components/NfcTagUrl";
 import { VerifyContents } from "../components/VerifyContents";
+import { LocationMediaSection } from "../features/media-ai-core";
 import { ArrowLeftIcon, CloseIcon, PencilIcon } from "../components/icons";
 import type { Item, LocationDetail as Detail } from "../types";
 
@@ -415,6 +416,8 @@ export function LocationDetail() {
           )}
         </ul>
       </section>
+
+      <LocationMediaSection locationId={loc.id} />
 
       <NfcTagUrl path={`/locations/${loc.id}`} kind="location" />
     </div>
