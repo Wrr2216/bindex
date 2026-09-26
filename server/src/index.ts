@@ -19,6 +19,7 @@ import { ensureBootstrapAdmin } from "./services/users";
 import { runNinjaSync } from "./services/ninjaone/sync";
 import { runRegistrarSync } from "./services/registrars/sync";
 import { sendExpiryDigest } from "./services/registrars/alerts";
+import { startAttachmentSweeper } from "./services/media-ai-core";
 import { HttpError, describeError } from "./lib/errors";
 
 const app = express();
@@ -132,6 +133,7 @@ async function main(): Promise<void> {
     }
     startNinjaSync();
     startRegistrarSync();
+    startAttachmentSweeper();
   });
 }
 
