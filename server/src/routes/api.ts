@@ -21,6 +21,7 @@ import { photosRouter } from "./photos";
 import { eventBackboneRouter } from "./event-backbone";
 import { trackingRouter } from "./tracking-core";
 import { mediaAiCoreRouter } from "./media-ai-core";
+import { bulkCaptureRouter } from "./bulk-capture";
 
 export const apiRouter = Router();
 
@@ -50,6 +51,7 @@ apiRouter.use("/photos", photosRouter);
 apiRouter.use(eventBackboneRouter);
 apiRouter.use("/tracking", trackingRouter);
 apiRouter.use(mediaAiCoreRouter);
+apiRouter.use("/bulk-capture", bulkCaptureRouter);
 
 apiRouter.delete(
   "/identifiers/:id",

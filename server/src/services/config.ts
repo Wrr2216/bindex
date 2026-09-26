@@ -44,6 +44,8 @@ export type Features = {
   tracking: boolean;
   /** Photos, video and files on records, and reading labels with AI. */
   aiCapture: boolean;
+  /** Walkthroughs, desk surveys and paper inventories turned into items with AI. */
+  bulkCapture: boolean;
 };
 
 export type AppConfig = {
@@ -96,6 +98,7 @@ const KEYS = {
   featureSpotCheck: "spot_check_enabled",
   featureTracking: "features.tracking",
   featureAiCapture: "features.ai_capture",
+  featureBulkCapture: "features.bulk_capture",
 } as const;
 
 function defaults(): AppConfig {
@@ -128,6 +131,7 @@ function defaults(): AppConfig {
       spotCheck: false,
       tracking: true,
       aiCapture: true,
+      bulkCapture: true,
     },
   };
 }
@@ -189,6 +193,7 @@ function build(stored: Map<string, string>): AppConfig {
       spotCheck: flag(KEYS.featureSpotCheck, base.features.spotCheck),
       tracking: flag(KEYS.featureTracking, base.features.tracking),
       aiCapture: flag(KEYS.featureAiCapture, base.features.aiCapture),
+      bulkCapture: flag(KEYS.featureBulkCapture, base.features.bulkCapture),
     },
   };
 }
@@ -277,6 +282,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   spotCheck: KEYS.featureSpotCheck,
   tracking: KEYS.featureTracking,
   aiCapture: KEYS.featureAiCapture,
+  bulkCapture: KEYS.featureBulkCapture,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {
