@@ -30,14 +30,16 @@ const toBuffer = (body: unknown): Buffer | null => {
 };
 
 /**
- * Watch a response so its body can be stored once it has gone out. Routes
- * answer with res.json or res.send, both of which pass through res.send; a
- * route that streams with res.write is remembered without its body.
+ * Record a response's outcome at the moment the route produces it, not when it
+ * is delivered. In a dead zone the connection often drops mid-request while
+ * the route carries on and commits the change; the device's retry must then
+ * find the stored answer, not a released key. Routes answer with res.json or
+ * res.send, which end in res.end; a route that streams with res.write is
+ * remembered without its body.
  */
 function watchResponse(
   res: Response,
-  onFinish: (status: number, body: Buffer | null, streamed: boolean) => void,
-  onAbort: () => void,
+  onAnswer: (status: number, body: Buffer | null, streamed: boolean) => void,
 ): void {
   let body: Buffer | null = null;
   let streamed = false;
@@ -49,22 +51,23 @@ function watchResponse(
     if (buf) body = buf;
     return send(chunk);
   };
-  const write = res.write.bind(res) as (...args: unknown[]) => boolean;
-  (res as unknown as { write: (...args: unknown[]) => boolean }).write = (...args) => {
+  const mutable = res as unknown as {
+    write: (...args: unknown[]) => boolean;
+    end: (...args: unknown[]) => Response;
+  };
+  const write = mutable.write.bind(res);
+  mutable.write = (...args) => {
     streamed = true;
     return write(...args);
   };
-
-  res.on("finish", () => {
-    if (settled) return;
-    settled = true;
-    onFinish(res.statusCode, body, streamed);
-  });
-  res.on("close", () => {
-    if (settled) return;
-    settled = true;
-    onAbort();
-  });
+  const end = mutable.end.bind(res);
+  mutable.end = (...args) => {
+    if (!settled) {
+      settled = true;
+      onAnswer(res.statusCode, body, streamed);
+    }
+    return end(...args);
+  };
 }
 
 /**
@@ -114,31 +117,25 @@ export const idempotency: RequestHandler = (req: Request, res: Response, next) =
           "The first request with this Idempotency-Key is still running. Try again in a moment.",
         );
       }
-      watchResponse(
-        res,
-        (status, body, streamed) => {
-          const keep = answerToKeep(status, streamed, body?.length ?? 0);
-          const contentType = String(res.getHeader("content-type") ?? "") || null;
-          const done =
-            keep === "release"
-              ? releaseIdempotencyKey(principal, key)
-              : storeIdempotentAnswer(
-                  principal,
-                  key,
-                  status,
-                  keep === "body" ? contentType : null,
-                  keep === "body" && body ? body : Buffer.alloc(0),
-                );
-          done.catch((err) =>
-            logger.warn("idempotency.finish_failed", { path, err: describeError(err) }),
-          );
-        },
-        () => {
-          releaseIdempotencyKey(principal, key).catch((err) =>
-            logger.warn("idempotency.release_failed", { path, err: describeError(err) }),
-          );
-        },
-      );
+      // A route that never answers (a crash, a hang) leaves the key pending;
+      // it is taken over once stale, see claimIdempotencyKey.
+      watchResponse(res, (status, body, streamed) => {
+        const keep = answerToKeep(status, streamed, body?.length ?? 0);
+        const contentType = String(res.getHeader("content-type") ?? "") || null;
+        const done =
+          keep === "release"
+            ? releaseIdempotencyKey(principal, key)
+            : storeIdempotentAnswer(
+                principal,
+                key,
+                status,
+                keep === "body" ? contentType : null,
+                keep === "body" && body ? body : Buffer.alloc(0),
+              );
+        done.catch((err) =>
+          logger.warn("idempotency.finish_failed", { path, err: describeError(err) }),
+        );
+      });
       next();
     })
     .catch(next);
