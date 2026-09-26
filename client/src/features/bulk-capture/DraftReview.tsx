@@ -155,8 +155,8 @@ export function DraftReview({ session, locations, onChange, onError }: Props) {
 
       {result && (
         <p className="rounded-lg border border-emerald-900/60 bg-emerald-950/20 px-3 py-2 text-sm text-emerald-300">
-          Created {result.itemCount} {(result.itemCount === 1 ? terms.item.singular : terms.item.plural).toLowerCase()}. Each
-          keeps a copy of the image it was read from.
+          Created {result.itemCount} {(result.itemCount === 1 ? terms.item.singular : terms.item.plural).toLowerCase()}.
+          {result.photos.saved > 0 && " Those read from an image keep a copy of it, under their photos."}
           {result.photos.failed > 0 && ` ${result.photos.failed} could not be given their image; see the server log.`}
         </p>
       )}
