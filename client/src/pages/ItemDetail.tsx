@@ -12,6 +12,7 @@ import { MoveAction } from "../components/MoveAction";
 import { NfcTagUrl } from "../components/NfcTagUrl";
 import { useScan } from "../scan/ScanProvider";
 import { LastSeenCard } from "../features/tracking-core/LastSeenCard";
+import { ItemMediaSection } from "../features/media-ai-core";
 import {
   AlertIcon,
   ArrowLeftIcon,
@@ -310,6 +311,8 @@ export function ItemDetail() {
           {!isDomain && config.integrations.webSearch && config.integrations.languageModel && (
             <PricingLookup item={item} onUpdated={setItem} />
           )}
+
+          {!isDomain && <ItemMediaSection item={item} onChange={setItem} />}
 
           {hasVehicleInfo && (
             <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">

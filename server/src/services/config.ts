@@ -42,6 +42,8 @@ export type Features = {
   spotCheck: boolean;
   /** Readers, beacons and trackers: devices, sightings and positions. */
   tracking: boolean;
+  /** Photos, video and files on records, and reading labels with AI. */
+  aiCapture: boolean;
 };
 
 export type AppConfig = {
@@ -93,6 +95,7 @@ const KEYS = {
   // deployments do not silently lose the setting.
   featureSpotCheck: "spot_check_enabled",
   featureTracking: "features.tracking",
+  featureAiCapture: "features.ai_capture",
 } as const;
 
 function defaults(): AppConfig {
@@ -124,6 +127,7 @@ function defaults(): AppConfig {
       askSearch: true,
       spotCheck: false,
       tracking: true,
+      aiCapture: true,
     },
   };
 }
@@ -184,6 +188,7 @@ function build(stored: Map<string, string>): AppConfig {
       askSearch: flag(KEYS.featureAskSearch, base.features.askSearch) && env.llmConfigured,
       spotCheck: flag(KEYS.featureSpotCheck, base.features.spotCheck),
       tracking: flag(KEYS.featureTracking, base.features.tracking),
+      aiCapture: flag(KEYS.featureAiCapture, base.features.aiCapture),
     },
   };
 }
@@ -271,6 +276,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   askSearch: KEYS.featureAskSearch,
   spotCheck: KEYS.featureSpotCheck,
   tracking: KEYS.featureTracking,
+  aiCapture: KEYS.featureAiCapture,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {

@@ -20,6 +20,7 @@ import { runNinjaSync } from "./services/ninjaone/sync";
 import { runRegistrarSync } from "./services/registrars/sync";
 import { sendExpiryDigest } from "./services/registrars/alerts";
 import { startSightingsPrune } from "./services/tracking/prune";
+import { startAttachmentSweeper } from "./services/media-ai-core";
 import { HttpError, describeError } from "./lib/errors";
 import { startEventBackbone } from "./services/event-backbone";
 
@@ -137,6 +138,7 @@ async function main(): Promise<void> {
     startRegistrarSync();
     startEventBackbone();
     startSightingsPrune();
+    startAttachmentSweeper();
   });
 }
 

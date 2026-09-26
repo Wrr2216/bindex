@@ -83,6 +83,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Register fixed RFID readers, dock portals and other devices, and see where things were last detected.",
   },
+  {
+    key: "aiCapture",
+    title: "AI capture from photos",
+    description:
+      "Photos, video and files on every record, and reading serial numbers and data plates from a photo of the label. Reading labels needs a vision model to be configured.",
+  },
 ];
 
 export function InstanceSettings() {

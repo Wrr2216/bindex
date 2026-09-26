@@ -155,6 +155,18 @@ const schema = z.object({
   TRACKING_DEDUP_SECONDS: z.coerce.number().nonnegative().default(5),
   // Largest request body a reader may post to /api/device.
   DEVICE_INGEST_MAX_MB: z.coerce.number().positive().default(16),
+  // ---- T02: attachments, AI vision and transcription ---------------------
+  // Files larger than ATTACHMENT_DB_MAX_MB (video, mostly) are written here.
+  // In a container, mount a volume at this path.
+  DATA_DIR: z.string().default("./data"),
+  ATTACHMENT_DB_MAX_MB: z.coerce.number().positive().default(8),
+  ATTACHMENT_MAX_MB: z.coerce.number().positive().default(512),
+  // A model that accepts images. Blank uses LLM_MODEL, which then has to.
+  LLM_VISION_MODEL: z.string().default(""),
+  // OpenAI-compatible /audio/transcriptions. Blank reuses the LLM provider.
+  STT_BASE_URL: z.string().default(""),
+  STT_API_KEY: z.string().default(""),
+  STT_MODEL: z.string().default("whisper-1"),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -201,6 +213,14 @@ export const env = {
   webSearchConfigured: Boolean(raw.BRAVE_API_KEY),
   pushoverConfigured: Boolean(raw.PUSHOVER_TOKEN && raw.PUSHOVER_USER),
   wazuhConfigured: Boolean(raw.WAZUH_HOST),
+
+  // T02
+  dataDir: path.resolve(process.cwd(), raw.DATA_DIR),
+  llmVisionModel: raw.LLM_VISION_MODEL.trim() || raw.LLM_MODEL,
+  llmVisionConfigured: Boolean(raw.LLM_API_KEY && (raw.LLM_VISION_MODEL.trim() || raw.LLM_MODEL)),
+  sttBaseUrl: raw.STT_BASE_URL.trim() || raw.LLM_BASE_URL,
+  sttApiKey: raw.STT_API_KEY || raw.LLM_API_KEY,
+  sttConfigured: Boolean(raw.STT_API_KEY || raw.LLM_API_KEY),
 };
 
 export type Env = typeof env;

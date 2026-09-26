@@ -214,3 +214,4 @@ export type ApiKey = typeof apiKeys.$inferSelect;
 export type User = typeof users.$inferSelect;
 export * from "./tables/event-backbone";
 export * from "./tables/tracking-core";
+export * from "./tables/media-ai-core";

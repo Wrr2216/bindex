@@ -281,6 +281,7 @@ export interface Features {
   askSearch: boolean;
   spotCheck: boolean;
   tracking: boolean;
+  aiCapture: boolean;
 }
 
 /**
