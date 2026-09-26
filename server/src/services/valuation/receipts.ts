@@ -12,7 +12,7 @@ import { createItem } from "../items";
 import { deleteAttachmentsForOwner, listAttachments, readAttachmentBytes, type Attachment } from "../media-ai-core";
 import { findTaken } from "../media-ai-core/dataPlate";
 import { proposeMatches, type LineProposal, type MatchCandidate } from "./matching";
-import { cleanText, squash, today } from "./parse";
+import { cleanText, latestDay, squash } from "./parse";
 import { pdfReadingAvailable, pdfToImages } from "./pdfImages";
 import { upsertProfileTx } from "./profiles";
 import { RECEIPT_PROMPT, RECEIPT_SYSTEM, normalizeReceipt, type ReceiptReading } from "./receiptParse";
@@ -161,7 +161,7 @@ export async function updateReceipt(id: string, patch: ReceiptPatch): Promise<Re
     throw conflict("This receipt is confirmed and its lines are saved on items. Only its notes can change.");
   }
   if (patch.purchaseDate && !/^\d{4}-\d{2}-\d{2}$/.test(patch.purchaseDate)) throw badRequest("Write the date as YYYY-MM-DD.");
-  if (patch.purchaseDate && patch.purchaseDate > today()) throw badRequest("The purchase date cannot be in the future.");
+  if (patch.purchaseDate && patch.purchaseDate > latestDay()) throw badRequest("The purchase date cannot be in the future.");
   await db.transaction(async (tx) => {
     await tx
       .update(receipts)

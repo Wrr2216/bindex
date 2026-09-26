@@ -57,7 +57,11 @@ export function parseMoneyInput(text: string): number | null {
 
 export const centsToInput = (cents: number | null | undefined) => (cents == null ? "" : (cents / 100).toFixed(2));
 
-export const todayIso = () => new Date().toISOString().slice(0, 10);
+/** Today in the viewer's own time zone, as YYYY-MM-DD for a date input. */
+export const todayIso = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 /** A YYYY-MM-DD date as the viewer writes dates, without letting a time zone move it a day. */
 export function formatDay(iso: string | null | undefined, locale?: string): string {

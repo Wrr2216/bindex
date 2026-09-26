@@ -13,7 +13,7 @@ import {
 } from "../../db/tables/valuation";
 import { badRequest, notFound } from "../../lib/errors";
 import { actorFromOid, publish } from "../event-backbone";
-import { cleanText, today } from "./parse";
+import { cleanText, latestDay, today } from "./parse";
 import { serviceStatus, type ServiceStatus } from "./schedule";
 import { getValuationSettings } from "./settings";
 
@@ -108,7 +108,7 @@ async function writeProfile(
     if ((key === "purchaseDate" || key === "warrantyEnds") && v !== null && !isDate(String(v))) {
       throw badRequest("Dates must be written as YYYY-MM-DD.");
     }
-    if (key === "purchaseDate" && v !== null && String(v) > today()) throw badRequest("The purchase date cannot be in the future.");
+    if (key === "purchaseDate" && v !== null && String(v) > latestDay()) throw badRequest("The purchase date cannot be in the future.");
     if ((key === "purchaseCents" || key === "usageHours") && v !== null && (typeof v !== "number" || v < 0 || !Number.isFinite(v))) {
       throw badRequest(key === "usageHours" ? "Hours of use cannot be negative." : "The purchase price cannot be negative.");
     }

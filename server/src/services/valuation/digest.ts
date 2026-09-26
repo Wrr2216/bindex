@@ -1,3 +1,4 @@
+import type { PoolClient } from "pg";
 import { pool } from "../../db/client";
 import { describeError } from "../../lib/errors";
 import { logger } from "../../lib/logger";
@@ -90,7 +91,7 @@ export function selectDue(warranties: WarrantyRow[], plans: PlanRow[], settings:
 
 const NAME = `CASE WHEN u.id IS NULL THEN i.name ELSE i.name || ' (' || coalesce(u.label, u.serial, u.asset_code) || ')' END`;
 
-async function loadRows(executor: { query: typeof pool.query }, alertDays: number): Promise<{ warranties: WarrantyRow[]; plans: PlanRow[] }> {
+async function loadRows(executor: Pick<PoolClient, "query">, alertDays: number): Promise<{ warranties: WarrantyRow[]; plans: PlanRow[] }> {
   const [w, p] = await Promise.all([
     executor.query<WarrantyRow>(
       `SELECT p.item_id AS "itemId", p.unit_id AS "unitId", ${NAME} AS name,
@@ -164,7 +165,7 @@ export async function runDigest(now = new Date()): Promise<{ announced: number; 
       await client.query("ROLLBACK");
       return { announced: 0, notified: false, skipped: "locked" };
     }
-    const loaded = await loadRows(client as unknown as { query: typeof pool.query }, settings.warrantyAlertDays);
+    const loaded = await loadRows(client, settings.warrantyAlertDays);
     open = selectDue(loaded.warranties, loaded.plans, settings, now);
     fresh = { warranty: open.warranty.filter((w) => w.isNew), service: open.service.filter((s) => s.isNew) };
     for (const w of fresh.warranty) {

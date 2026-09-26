@@ -19,7 +19,7 @@ import { RECEIPT_ELECTRONICS, VALUATION_GOOD } from "./valuation-fixtures";
 //     pnpm --filter bindex-server exec tsx --test tests/valuation-db.test.ts
 
 const url = process.env.TEST_DATABASE_URL;
-const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "bindex-valuation-data-"));
+let dataDir = "";
 
 type Valuation = typeof import("../src/services/valuation");
 type Media = typeof import("../src/services/media-ai-core");
@@ -82,6 +82,7 @@ describe("valuation with Postgres", { skip: url ? false : "set TEST_DATABASE_URL
 
   before(async () => {
     stub = await startAiStub({ chat: (c) => onChat(c) });
+    dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "bindex-valuation-data-"));
     process.env.DATABASE_URL = url;
     process.env.SESSION_SECRET ??= "test-secret-at-least-16-chars";
     process.env.DATA_DIR = dataDir;
@@ -121,7 +122,7 @@ describe("valuation with Postgres", { skip: url ? false : "set TEST_DATABASE_URL
   after(async () => {
     await stub?.close();
     await pool?.end();
-    fs.rmSync(dataDir, { recursive: true, force: true });
+    if (dataDir) fs.rmSync(dataDir, { recursive: true, force: true });
   });
 
   it("estimates a value from the item's photos, and records it with history", async () => {

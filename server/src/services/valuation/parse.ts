@@ -175,6 +175,13 @@ export function addMonths(isoDate: string, months: number): string {
 /** Today in UTC as YYYY-MM-DD. */
 export const today = (now = new Date()): string => now.toISOString().slice(0, 10);
 
+/**
+ * The latest date that is not in the future somewhere: tomorrow in UTC. A
+ * person east of UTC is already on tomorrow's date while UTC is not, and
+ * their "today" must not be refused as a future date.
+ */
+export const latestDay = (now = new Date()): string => today(new Date(now.getTime() + 86_400_000));
+
 /** Whole days from one YYYY-MM-DD date to another (negative when `to` is earlier). */
 export function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);

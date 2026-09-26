@@ -7,11 +7,11 @@ import { logger } from "../../lib/logger";
 import { getConfig } from "../config";
 import { lookupPricing, type PricingResult } from "../enrichment";
 import { publish, actorFromOid } from "../event-backbone";
-import { readAttachmentBytes } from "../media-ai-core";
+import { getAttachment, readAttachmentBytes } from "../media-ai-core";
 import { env } from "../../env";
 import { recordEvent } from "../items";
 import { estimateFromPhotos, type ValuationEstimate } from "./estimate";
-import { cleanText, today } from "./parse";
+import { cleanText, latestDay, today } from "./parse";
 import { getProfileMode } from "./profiles";
 import { isHighValue } from "./schedule";
 import { getValuationSettings } from "./settings";
@@ -119,7 +119,7 @@ export async function recordValuation(input: RecordValuationInput, userOid: stri
   const details = input.details ?? {};
   if (Buffer.byteLength(JSON.stringify(details)) > MAX_DETAILS_BYTES) throw badRequest("Valuation details are limited to 32 KB.");
   const valuedOn = input.valuedOn ?? today();
-  if (valuedOn > today()) throw badRequest("A valuation cannot be dated in the future.");
+  if (valuedOn > latestDay()) throw badRequest("A valuation cannot be dated in the future.");
 
   const config = await getConfig();
   const settings = await getValuationSettings();
@@ -260,12 +260,15 @@ export async function estimateValue(
 
   const images: { mime: string; bytes: Buffer }[] = [];
   for (const id of input.attachmentIds.slice(0, 6)) {
-    const { attachment, bytes } = await readAttachmentBytes(id, 25 * 1024 * 1024);
+    // Checked before the bytes are read, so a stray id cannot pull in someone else's large file.
+    const attachment = await getAttachment(id);
+    if (!attachment) throw notFound("One of those photos has been deleted. Pick the photos again.");
     const belongs =
       (attachment.ownerType === "item" && attachment.ownerId === owner.item.id) ||
       (attachment.ownerType === "unit" && owner.unit !== null && attachment.ownerId === owner.unit.id);
     if (!belongs) throw badRequest("Use photos attached to this item.");
     if (!attachment.mime.startsWith("image/")) throw badRequest("Only photos can be used for an estimate.");
+    const { bytes } = await readAttachmentBytes(id, 25 * 1024 * 1024);
     images.push({ mime: attachment.mime, bytes });
   }
 
