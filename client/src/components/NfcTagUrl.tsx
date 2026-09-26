@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { NfcWriteActions } from "../features/tag-commissioning/NfcWriteActions";
 
 /**
  * The URL to write onto an NFC tag for this record. Encode it as an NDEF URI
@@ -38,6 +39,7 @@ export function NfcTagUrl({ path, kind }: { path: string; kind: "item" | "locati
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
+      <NfcWriteActions url={url} />
     </section>
   );
 }

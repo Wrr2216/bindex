@@ -26,7 +26,7 @@ const unitSchema = z.object({
 });
 
 const identifierSchema = z.object({
-  type: z.enum(["upc", "serial", "asset_tag", "mac", "sku", "other", "rfid", "domain"]),
+  type: z.enum(["upc", "serial", "asset_tag", "mac", "sku", "other", "rfid", "domain", "nfc", "legacy"]),
   value: z.string().min(1),
 });
 

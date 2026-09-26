@@ -29,8 +29,12 @@ A present `x-api-key` header is authoritative. An unknown or revoked key is a
 
 Some endpoints are browser-only regardless of scope, because they change how the
 instance behaves for everyone or expose the whole database: `/api/settings`,
-`/api/backup`, and the device management connect flow. A key on those returns
-403 with code `session_required`.
+`/api/backup`, the device management connect flow, the audit log and webhook
+routes (`/api/audit-log`, `/api/webhooks`) and portal link management
+(`/api/portal-grants`). A key on those returns 403 with code `session_required`.
+API keys never qualify for administrator routes: any other route that needs
+an administrator refuses a request carrying a key with 403, even when an
+administrator's session cookie came along too.
 
 ## Conventions
 
@@ -52,6 +56,35 @@ Errors carry a stable machine-readable code alongside the message:
 | 404 | `not_found` | |
 | 409 | `conflict` | A uniqueness constraint rejected it. |
 | 500 | `internal` | Logged server-side with the real cause. |
+
+## Idempotency-Key
+
+A `POST`, `PUT`, `PATCH` or `DELETE` made with a session or an API key may
+carry an `Idempotency-Key` header, so a retry after a lost answer does not
+apply the change twice. Offline field mode sends one with every queued change;
+any script can do the same.
+
+```bash
+curl -X POST https://inventory.example.com/api/items/$ID/checkout \
+     -H "x-api-key: bdx_..." -H "Content-Type: application/json" \
+     -H "Idempotency-Key: 5f1c3e0a-7d8b-4f5e-9a51-0c2b1e9d4a77" \
+     -d '{"entityId":"..."}'
+```
+
+- The key is 1 to 255 visible characters. A UUID is ideal.
+- A request that succeeds (2xx) has its answer stored for 24 hours, scoped to
+  the person or API key that sent it. The same key from the same caller gets
+  that answer back with `Idempotent-Replayed: true`, and nothing runs again.
+- A request that fails changed nothing, so its key is released and a retry
+  runs for real.
+- The same key on a different method, path or body is a 422 with code
+  `idempotency_key_reused`. A key whose first request is still running is a
+  409 with code `idempotency_in_progress`; retry shortly.
+
+The token-authenticated routes in
+[Device and public endpoints](#device-and-public-endpoints) do not read the
+header. See [offline field mode](offline-field.md#idempotency-key) for the
+details.
 
 ## Scanning
 
@@ -94,9 +127,11 @@ create form.
 | `DELETE` | `/api/identifiers/:id` | |
 
 Identifier types are `upc`, `serial`, `asset_tag`, `mac`, `sku`, `rfid`,
-`domain` and `other`. Identity-bearing types (`serial`, `asset_tag`, `mac`,
-`rfid`) are unique across the whole instance. Product codes are not, because two
-identical tablets bought for two sites legitimately share a UPC.
+`nfc`, `legacy`, `domain` and `other`. Identity-bearing types (`serial`,
+`asset_tag`, `mac`, `rfid`, `nfc`, `legacy`) are unique across the whole
+instance. Product codes are not, because two identical tablets bought for two
+sites legitimately share a UPC. `nfc` and `legacy` are normalized as
+[tag commissioning](tag-commissioning.md#api) describes.
 
 ### Units
 
@@ -157,6 +192,8 @@ what was seen as spot-checked and flags what was not.
 
 For hardware that streams reads. Authenticated by a bearer token from
 `INGEST_TOKEN`, not by a session or an API key, because a reader has neither.
+Registered devices can use their own tokens instead; see
+[Device and public endpoints](#device-and-public-endpoints).
 
 ```bash
 curl -X POST https://inventory.example.com/api/device/scan \
@@ -168,6 +205,28 @@ curl -X POST https://inventory.example.com/api/device/scan \
 The audit screen polls `GET /api/audit/live?reader=dock-1&since=<seq>` for
 whatever arrived since its last poll. Reads are held in memory, per reader
 channel, and are lost on restart by design.
+
+## Device and public endpoints
+
+Hardware, and people without an account, use routes that take no session and
+no API key. Each checks its own credential, described in the document that
+owns it.
+
+| Prefix | Credential | Used by | Documented in |
+| --- | --- | --- | --- |
+| `/api/device/scan`, `/api/device/reads` (and `/zebra`, `/impinj`, `/speedway-connect`) | The device's token, or `INGEST_TOKEN` | RFID and NFC readers, dock-door portals, the reader bridge | [Tracking core](tracking-core.md#device-endpoints) |
+| `/api/device/ble/*` | The device's token; gateways also accept `INGEST_TOKEN` | Bluetooth gateways, phones hearing room beacons | [Bluetooth](ble.md#device-endpoints) |
+| `/api/device/gps/*` | The device's token, or `INGEST_TOKEN` | Traccar Client, OsmAnd, a Traccar server, scripts | [GPS](gps.md#connecting-trackers) |
+| `/api/portal/*` | A portal link token in `X-Portal-Token`, and `X-Portal-Pass` for a link that asks for an emailed code | Customers and subcontracted crews | [Portal](portal.md#http-api) |
+| `/api/claims-portal/*` | The same portal link token and pass | Filing a claim through a portal link | [Claims](claims.md#filing-from-the-portal) |
+| `/api/share/inspections/:token/*` | A signed, expiring token in the path | Read-only inspection reports | [Inspections](inspections.md#share-links) |
+| `/custody-sign/:token`, `/api/custody-public/:token/*` | A one-time token in the path | A party signing a custody transfer on their own phone | [Custody](custody.md#one-time-signing-links) |
+
+A device token is sent as `Authorization: Bearer`, `x-device-token`, an HTTP
+Basic password, or `?token=` for firmware that can send nothing else. Portal
+tokens are never read from the query string. `/api/portal` and
+`/api/claims-portal` are mounted before the session middleware, so a portal
+request never reads or creates a session.
 
 ## Search
 
@@ -241,3 +300,34 @@ PUT  /api/settings
 GET  /api/settings/users
 POST /api/settings/users
 ```
+
+## Feature APIs
+
+Each feature documents its own routes. All of them use the authentication and
+conventions above. Most answer `404 feature_disabled` while the feature's
+switch is off; each document says what stays available.
+
+| Feature | Base path | Reference |
+| --- | --- | --- |
+| Readers, beacons and trackers | `/api/tracking` | [tracking-core.md](tracking-core.md#session-api) |
+| Attachments, signatures and AI | `/api/attachments`, `/api/signatures`, `/api/ai` | [media-ai-core.md](media-ai-core.md#http-api) |
+| Projects, jobs and shipments | `/api/projects`, `/api/jobs`, `/api/shipments`, `/api/job-types` | [jobs-core.md](jobs-core.md#http-api) |
+| Audit log, webhooks and the event feed | `/api/audit-log`, `/api/webhooks`, `/api/events` | [event-backbone.md](event-backbone.md#api-reference) |
+| Register reconciliation | `/api/register-reconcile` | [register-reconcile.md](register-reconcile.md#api) |
+| Consumables and equipment | `/api/consumables` | [consumables.md](consumables.md#api) |
+| Tag commissioning | `/api/tag-commissioning` | [tag-commissioning.md](tag-commissioning.md#api) |
+| Offline field mode | `/api/offline` | [offline-field.md](offline-field.md#offline-endpoints) |
+| Bluetooth beacons | `/api/ble` | [ble.md](ble.md#session-api) |
+| GPS trackers and geofences | `/api/gps` | [gps.md](gps.md#api) |
+| Placement guidance | `/api/placement` | [placement.md](placement.md#http-api) |
+| Condition records and container capture | `/api/condition` | [ai-condition.md](ai-condition.md#http-api) |
+| Site inspections | `/api/inspections` | [inspections.md](inspections.md#http-api) |
+| Chain of custody | `/api/custody` | [custody.md](custody.md#http-api) |
+| External portal (administrators) | `/api/portal-grants` | [portal.md](portal.md#administrators) |
+| Claims and incidents | `/api/claims` | [claims.md](claims.md#http-api) |
+| Documents | `/api/documents`, `/api/document-templates`, `/api/document-fields`, `/api/document-packets` | [documents.md](documents.md#http-api) |
+| Crew check-in | `/api/crew` | [crew.md](crew.md#http-api) |
+| Valuation and warranty | `/api/valuation` | [valuation.md](valuation.md#http-api) |
+| Teardown guides | `/api/teardown` | [teardown.md](teardown.md#http-api) |
+| AI bulk capture | `/api/bulk-capture` | [bulk-capture.md](bulk-capture.md#http-api) |
+| Operations insights | `/api/ops` | [ops-intel.md](ops-intel.md#api) |

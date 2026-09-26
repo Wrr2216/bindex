@@ -32,6 +32,10 @@ services:
       PORT: "3000"
       # Defaults to the bundled database. Set DATABASE_URL in .env to use your own.
       DATABASE_URL: ${DATABASE_URL:-postgres://bindex:${POSTGRES_PASSWORD:-bindex}@db:5432/bindex}
+      # T02: attachments too large for the database (video) live on this volume.
+      DATA_DIR: /app/data
+    volumes:
+      - appdata:/app/data
     # Publishing the port makes `docker compose up` work on its own. On a
     # platform with its own reverse proxy, such as Coolify, remove this so the
     # app is reached through the proxy rather than directly on the host.
@@ -63,3 +67,4 @@ services:
 
 volumes:
   pgdata:
+  appdata:

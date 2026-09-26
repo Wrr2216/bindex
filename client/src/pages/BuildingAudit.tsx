@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useScan } from "../scan/ScanProvider";
+import { ReaderChannelPicker } from "../features/tracking-core/ReaderChannelPicker";
 import type { AuditLocationGroup, AuditResult, Company } from "../types";
 
 /**
@@ -182,14 +183,7 @@ export function BuildingAudit() {
           Use M7e live reader
         </label>
         {rfidEnabled && (
-          <input
-            value={rfidReaderId}
-            onChange={(e) => setRfidReaderId(e.target.value.trim())}
-            disabled={scanning}
-            aria-label="Reader channel id"
-            placeholder="reader id"
-            className="w-32 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-slate-100 disabled:opacity-60"
-          />
+          <ReaderChannelPicker value={rfidReaderId} onChange={setRfidReaderId} disabled={scanning} />
         )}
         {rfidEnabled && (
           <span className="text-xs text-slate-500">
@@ -210,7 +204,7 @@ export function BuildingAudit() {
           value={manual}
           onChange={(e) => setManual(e.target.value)}
           placeholder="Or type/scan a code here…"
-          className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+          className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
         />
         <button className="rounded-lg bg-slate-700 px-4 text-sm text-slate-100 hover:bg-slate-600">
           Add

@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
+import { useFeatures } from "../config/useConfig";
 import type { ItemDetail, Location, OverlayState } from "../types";
 import { useScannerListener } from "./useScannerListener";
 import { ItemOverlay } from "../components/ItemOverlay";
@@ -58,6 +59,7 @@ const RFID_POLL_MS = 350;
  */
 export function ScanProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
+  const crewOn = useFeatures().crew;
   const [state, setState] = useState<OverlayState>({ kind: "closed" });
   const [camera, setCamera] = useState(false);
   const [researching, setResearching] = useState(false);
@@ -109,6 +111,12 @@ export function ScanProvider({ children }: { children: ReactNode }) {
       navigate(`/items/${deepLink[1]}`);
       return;
     }
+    // A crew badge's QR holds a link to its worker, which is not an item.
+    const badge = crewOn ? code.match(/\/crew\/badge\/([^/?#\s]+)/) : null;
+    if (badge) {
+      navigate(`/crew/badge/${badge[1]}`);
+      return;
+    }
     setState({ kind: "loading", code });
     api.listLocations().then(setLocations).catch(() => undefined);
     let found = false;
@@ -140,7 +148,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
       if (enrichToken.current !== token) return;
       setState((s) => (s.kind === "create" && s.code === code ? { ...s, enriching: false } : s));
     }
-  }, [navigate]);
+  }, [navigate, crewOn]);
 
   // Reader input is listened for on every route, not just a search screen.
   useScannerListener(scan, true);

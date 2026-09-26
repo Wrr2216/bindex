@@ -18,7 +18,9 @@ export type IdentifierType =
   | "sku"
   | "other"
   | "rfid"
-  | "domain";
+  | "domain"
+  | "nfc"
+  | "legacy";
 
 export type ItemEventAction = "created" | "updated" | "scanned" | "moved" | "deleted";
 
@@ -212,3 +214,25 @@ export type SyncRun = typeof syncRuns.$inferSelect;
 export type NinjaoneToken = typeof ninjaoneTokens.$inferSelect;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type User = typeof users.$inferSelect;
+export * from "./tables/event-backbone";
+export * from "./tables/tracking-core";
+export * from "./tables/media-ai-core";
+export * from "./tables/jobs-core";
+export * from "./tables/register-reconcile";
+export * from "./tables/consumables";
+export * from "./tables/tag-commissioning";
+export * from "./tables/offline-field";
+export * from "./tables/bulk-capture";
+export * from "./tables/ai-condition";
+export * from "./tables/inspections";
+export * from "./tables/valuation";
+export * from "./tables/crew";
+export * from "./tables/custody";
+export * from "./tables/teardown";
+export * from "./tables/gps";
+export * from "./tables/documents";
+export * from "./tables/portal";
+export * from "./tables/ops-intel";
+export * from "./tables/ble";
+export * from "./tables/placement";
+export * from "./tables/claims";

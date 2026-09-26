@@ -2,12 +2,17 @@ import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { NfcTagUrl } from "../components/NfcTagUrl";
+import { ItemTagChip } from "../features/tag-commissioning/badges";
 import { VerifyContents } from "../components/VerifyContents";
+import { useFeatures } from "../config/useConfig";
+import { DetectedHere } from "../features/tracking-core/DetectedHere";
+import { LocationMediaSection } from "../features/media-ai-core";
 import { ArrowLeftIcon, CloseIcon, PencilIcon } from "../components/icons";
 import type { Item, LocationDetail as Detail } from "../types";
 
 export function LocationDetail() {
   const { id } = useParams<{ id: string }>();
+  const features = useFeatures();
   const [loc, setLoc] = useState<Detail | null>(null);
   const [adding, setAdding] = useState(false);
   const [q, setQ] = useState("");
@@ -386,7 +391,8 @@ export function LocationDetail() {
                 >
                   {c.name}
                 </Link>{" "}
-                <span className="text-sm text-slate-500">×{c.quantity}</span>
+                <span className="text-sm text-slate-500">×{c.quantity}</span>{" "}
+                <ItemTagChip itemId={c.id} />
                 {[c.brand, c.model].filter(Boolean).length > 0 && (
                   <p className="text-xs text-slate-500">{[c.brand, c.model].filter(Boolean).join(" · ")}</p>
                 )}
@@ -415,6 +421,9 @@ export function LocationDetail() {
           )}
         </ul>
       </section>
+
+      {features.tracking && <DetectedHere locationId={loc.id} />}
+      <LocationMediaSection locationId={loc.id} />
 
       <NfcTagUrl path={`/locations/${loc.id}`} kind="location" />
     </div>

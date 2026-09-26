@@ -6,7 +6,17 @@ import { ApiKeysSection } from "../components/ApiKeysSection";
 import { AccountsSection } from "../components/settings/AccountsSection";
 import { InstanceSettings } from "../components/settings/InstanceSettings";
 import { PasswordSection } from "../components/settings/PasswordSection";
+import { DevicesSettingsSection } from "../features/tracking-core/DevicesSettingsSection";
 import { BUTTON, BUTTON_QUIET, Pill, Section } from "../components/ui";
+import { EventBackboneSettings } from "../features/event-backbone/SettingsSections";
+import { BulkCaptureSettingsSection } from "../features/bulk-capture/SettingsSection";
+import { ConditionSettingsSection } from "../features/ai-condition";
+import { ValuationSettingsSection } from "../features/valuation/ValuationSettingsSection";
+import { CrewSettingsSection } from "../features/crew";
+import { GpsSettingsSection } from "../features/gps/GpsSettingsSection";
+import { DocumentsSettingsSection } from "../features/documents";
+import { BleSettingsSection } from "../features/ble/BleSettingsSection";
+import { PlacementReadersSection } from "../features/placement/ReadersSection";
 import type { NinjaStatus, RegistrarStatus, SyncRun } from "../types";
 
 /** The NinjaOne connect flow returns here with a query parameter to report on. */
@@ -281,8 +291,18 @@ export function Settings() {
           {config.integrations.ninjaone && <NinjaOneSection />}
           {config.features.domains && <RegistrarSection />}
           <ApiKeysSection />
+          {config.features.tracking && <DevicesSettingsSection />}
           {config.features.printing && <PrinterSection />}
           <BackupSection />
+          <EventBackboneSettings />
+          {config.features.bulkCapture && <BulkCaptureSettingsSection />}
+          <ConditionSettingsSection />
+          <ValuationSettingsSection />
+          {config.features.crew && <CrewSettingsSection />}
+          {config.features.gps && config.features.tracking && <GpsSettingsSection />}
+          <DocumentsSettingsSection />
+          {config.features.ble && <BleSettingsSection />}
+          {config.features.placement && config.features.jobs && config.features.tracking && <PlacementReadersSection />}
         </>
       )}
     </div>
