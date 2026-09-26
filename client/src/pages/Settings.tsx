@@ -7,6 +7,7 @@ import { AccountsSection } from "../components/settings/AccountsSection";
 import { InstanceSettings } from "../components/settings/InstanceSettings";
 import { PasswordSection } from "../components/settings/PasswordSection";
 import { BUTTON, BUTTON_QUIET, Pill, Section } from "../components/ui";
+import { EventBackboneSettings } from "../features/event-backbone/SettingsSections";
 import type { NinjaStatus, RegistrarStatus, SyncRun } from "../types";
 
 /** The NinjaOne connect flow returns here with a query parameter to report on. */
@@ -283,6 +284,7 @@ export function Settings() {
           <ApiKeysSection />
           {config.features.printing && <PrinterSection />}
           <BackupSection />
+          <EventBackboneSettings />
         </>
       )}
     </div>
