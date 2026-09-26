@@ -169,7 +169,7 @@ export function SignOffPage() {
             <Link to={`/custody/transfers/${transfer.id}`} className="font-mono text-sky-300 hover:underline">
               {transfer.code}
             </Link>
-            <StatusBadge status={transfer.status} />
+            <StatusBadge status={transfer.status} purpose={transfer.purpose} />
             <span>
               {transfer.fromName} → {transfer.toName}
             </span>

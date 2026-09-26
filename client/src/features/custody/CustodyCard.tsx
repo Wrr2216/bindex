@@ -19,7 +19,7 @@ function Hop({ hop, index }: { hop: ChainEntry; index: number }) {
           {hop.code}
         </Link>
         <span className="text-xs uppercase tracking-wide text-slate-400">{hop.purposeLabel}</span>
-        {hop.status !== "completed" && <StatusBadge status={hop.status} />}
+        {hop.status !== "completed" && <StatusBadge status={hop.status} purpose={hop.purpose} />}
         {hop.outcome !== "accepted" && <OutcomeBadge outcome={hop.outcome} />}
       </div>
       <p className="text-sm text-slate-200">

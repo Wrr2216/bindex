@@ -335,6 +335,26 @@ export function Signatures({
   const [busy, setBusy] = useState(false);
   const open = transfer.status === "draft" || transfer.status === "locked";
 
+  // While a link is out, watch for the other party signing on their own device.
+  const linkOut = open && transfer.link.state === "active";
+  const seen = useRef(transfer.updatedAt);
+  seen.current = transfer.updatedAt;
+  // Parents pass an inline callback; keeping it in a ref stops the timer restarting on every render.
+  const changed = useRef(onChanged);
+  changed.current = onChanged;
+  useEffect(() => {
+    if (!linkOut) return;
+    const timer = window.setInterval(() => {
+      custodyApi
+        .get(transfer.id)
+        .then((next) => {
+          if (next.updatedAt !== seen.current) changed.current(next);
+        })
+        .catch(() => undefined);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [linkOut, transfer.id]);
+
   const sendLink = async (party: Party) => {
     setBusy(true);
     setError(null);
@@ -538,7 +558,7 @@ export function TransferPage() {
             </h1>
             <p className="font-mono text-sm text-slate-400">{t.code}</p>
           </div>
-          <StatusBadge status={t.status} />
+          <StatusBadge status={t.status} purpose={t.purpose} />
         </div>
         <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
           {facts.map(([k, v]) => (

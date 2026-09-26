@@ -124,7 +124,7 @@ export function CustodyPage() {
                         .join(" · ")}
                     </p>
                   </div>
-                  <StatusBadge status={t.status} />
+                  <StatusBadge status={t.status} purpose={t.purpose} />
                 </Link>
               </li>
             ))}

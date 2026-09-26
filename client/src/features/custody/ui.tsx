@@ -60,8 +60,10 @@ const STATUS_TEXT: Record<CustodyStatus, string> = {
   void: "Void",
 };
 
-export function StatusBadge({ status }: { status: CustodyStatus }) {
-  return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_TONE[status]}`}>{STATUS_TEXT[status]}</span>;
+/** A delivery is not scanned: while open, its receiver is reviewing it. */
+export function StatusBadge({ status, purpose }: { status: CustodyStatus; purpose?: string }) {
+  const text = status === "draft" && purpose === "delivery" ? "Under review" : STATUS_TEXT[status];
+  return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_TONE[status]}`}>{text}</span>;
 }
 
 export const OUTCOME_TEXT: Record<Outcome, string> = {

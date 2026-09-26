@@ -180,8 +180,12 @@ export async function awaitingSignOff() {
               WHERE t.shipment_id = s.id AND t.purpose = 'delivery' AND t.status IN ('draft', 'locked')
               ORDER BY t.created_at DESC LIMIT 1) AS open_transfer_id
        FROM shipments s JOIN jobs j ON j.id = s.job_id
-      WHERE s.status IN ('loaded', 'in_transit', 'delivered')
+      WHERE s.status <> 'closed'
         AND j.status IN ('planned', 'in_progress')
+        -- On the road by its status, or by its lines: crews often scan the
+        -- truck full without moving the shipment itself along.
+        AND (s.status IN ('loaded', 'in_transit', 'delivered')
+             OR EXISTS (SELECT 1 FROM job_items ji WHERE ji.shipment_id = s.id AND ji.stage IN ('loaded', 'delivered', 'placed')))
         AND NOT EXISTS (SELECT 1 FROM custody_transfers t
                          WHERE t.shipment_id = s.id AND t.purpose = 'delivery' AND t.status = 'completed')
       ORDER BY s.eta ASC NULLS LAST, s.created_at DESC

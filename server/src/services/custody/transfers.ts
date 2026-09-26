@@ -765,8 +765,10 @@ export async function listTransfers(f: TransferFilters = {}) {
   const rows = await db
     .select({
       transfer: custodyTransfers,
-      lines: sql<number>`(SELECT count(*)::int FROM custody_transfer_items ti WHERE ti.transfer_id = ${custodyTransfers.id})`,
-      exceptions: sql<number>`(SELECT count(*)::int FROM custody_transfer_items ti WHERE ti.transfer_id = ${custodyTransfers.id} AND ti.outcome <> 'accepted')`,
+      // Spelled out: inside a subquery drizzle would print the bare column name, which binds to ti.id.
+      lines: sql<number>`(SELECT count(*)::int FROM custody_transfer_items ti WHERE ti.transfer_id = custody_transfers.id)`,
+      exceptions: sql<number>`(SELECT count(*)::int FROM custody_transfer_items ti
+                               WHERE ti.transfer_id = custody_transfers.id AND ti.outcome <> 'accepted')`,
     })
     .from(custodyTransfers)
     .where(and(...where))

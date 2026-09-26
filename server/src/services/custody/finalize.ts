@@ -103,7 +103,10 @@ export async function receiptDoc(t: CustodyTransfer, lines: CustodyTransferItem[
   );
 
   return {
-    kicker: t.purpose === "delivery" ? "DELIVERY RECEIPT  ·  CHAIN OF CUSTODY" : "CHAIN OF CUSTODY RECEIPT",
+    // A preview must not pass for the signed receipt it resembles.
+    kicker: `${t.status === "completed" ? "" : "PREVIEW, NOT A RECEIPT  ·  "}${
+      t.purpose === "delivery" ? "DELIVERY RECEIPT  ·  CHAIN OF CUSTODY" : "CHAIN OF CUSTODY RECEIPT"
+    }`,
     title: `${t.fromName} to ${t.toName}`,
     code: t.code,
     facts,

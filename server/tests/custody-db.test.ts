@@ -5,14 +5,18 @@ import { after, before, describe, it } from "node:test";
  * The custody acceptance flow against a real Postgres, through the service
  * functions the routes call. Opt-in, because CI has no database:
  *
- *   TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/bindex_custody \
+ *   CUSTODY_TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/bindex_custody \
  *     pnpm --filter bindex-server test
  *
  * It switches the custody and jobs features on in that database, creates its
  * own uniquely named records, and removes its jobs at the end.
+ *
+ * Its own variable rather than TEST_DATABASE_URL: the event backbone's test
+ * drops and recreates the database TEST_DATABASE_URL names, and test files run
+ * in parallel, so sharing it would pull the database out from under this one.
  */
 
-const url = process.env.TEST_DATABASE_URL;
+const url = process.env.CUSTODY_TEST_DATABASE_URL;
 if (url) process.env.DATABASE_URL = url;
 process.env.DATABASE_URL ??= "postgres://test/test";
 process.env.SESSION_SECRET ??= "test-secret-at-least-16-chars";
@@ -23,7 +27,7 @@ const PNG = Buffer.from(
   "base64",
 );
 
-describe("custody against Postgres", { skip: url ? false : "set TEST_DATABASE_URL to run" }, () => {
+describe("custody against Postgres", { skip: url ? false : "set CUSTODY_TEST_DATABASE_URL to run" }, () => {
   let custody: typeof import("../src/services/custody");
   let core: typeof import("../src/services/jobs-core");
   let pool: typeof import("../src/db/client").pool;
@@ -120,6 +124,10 @@ describe("custody against Postgres", { skip: url ? false : "set TEST_DATABASE_UR
     const stillBlocked = await core.advanceStage(job.id, [box.assetCode], "delivered", { via: "scan", ...actor });
     assert.equal(stillBlocked.blocked.length, 1);
 
+    // The truck is waiting for a sign-off: its lines are loaded even though nobody moved the shipment along.
+    const { awaitingSignOff } = await import("../src/services/custody/review");
+    assert.ok((await awaitingSignOff()).some((s) => s.id === truck.id));
+
     // The delivery sign-off for the shipment: every line, preset from its stage; the receiver marks the chair damaged.
     const signOff = await custody.startSignOff(truck.id, { to: { kind: "external", name: "Jo Park", org: "New HQ" } }, actor);
     assert.equal(signOff.purpose, "delivery");
@@ -146,6 +154,9 @@ describe("custody against Postgres", { skip: url ? false : "set TEST_DATABASE_UR
     assert.equal(stageOf(chair.id), "damaged");
     const shipment = await core.getShipment(truck.id);
     assert.equal(shipment.status, "delivered");
+    const [listed] = await custody.listTransfers({ shipmentId: truck.id, status: "completed" });
+    assert.equal(listed?.lineCount, 3);
+    assert.equal(listed?.exceptionCount, 1);
 
     // Placing is allowed now that the delivery covers the box.
     const placed = await core.advanceStage(job.id, [box.assetCode], "placed", { via: "scan", ...actor });

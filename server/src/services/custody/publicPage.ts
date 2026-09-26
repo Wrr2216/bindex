@@ -34,7 +34,7 @@ export function signPageHtml(appName: string, accent: string): string {
   .muted { color: #94a3b8; }
   .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 14px; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: 14px; }
+  .facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: 14px; margin: 0; }
   .facts dt { color: #94a3b8; }
   .facts dd { margin: 0; }
   ul.lines { list-style: none; margin: 0; padding: 0; }

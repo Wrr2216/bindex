@@ -404,6 +404,8 @@ custodyRouter.use("/custody", requireCustody, router);
 // --- The one-time signing link (no account) ----------------------------------------------
 
 const publicReads = rateLimit({ windowMs: 60_000, max: 120, key: (req) => `custody-link:${req.ip}` });
+// A long shipment shows several photos a line, all fetched at once.
+const publicPhotos = rateLimit({ windowMs: 60_000, max: 1200, key: (req) => `custody-photo:${req.ip}` });
 const publicSigns = rateLimit({ windowMs: 15 * 60_000, max: 20, key: (req) => `custody-sign:${req.ip}` });
 
 const noStore: RequestHandler = (_req, res, next) => {
@@ -445,7 +447,7 @@ custodyPublicRouter.get(
 
 custodyPublicRouter.get(
   "/api/custody-public/:token/photos/:attachmentId",
-  publicReads,
+  publicPhotos,
   requireCustody,
   asyncHandler(async (req, res) => {
     const attachmentId = param(req, "attachmentId");
