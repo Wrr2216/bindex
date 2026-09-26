@@ -28,6 +28,7 @@ import {
   ProjectsPage,
   ShipmentDetailPage,
 } from "./features/jobs-core";
+import { RegisterReconcile } from "./features/register-reconcile/RegisterReconcile";
 
 function Loading() {
   return (
@@ -82,6 +83,7 @@ function AppShell() {
           {features.jobs && <Route path="projects/:id" element={<ProjectDetailPage />} />}
           {features.jobs && <Route path="shipments/:id" element={<ShipmentDetailPage />} />}
           {features.jobs && <Route path="settings/job-types" element={<JobTypesPage />} />}
+          {features.registerReconcile && <Route path="audit/register/*" element={<RegisterReconcile />} />}
         </Route>
       </Routes>
     </ScanProvider>

@@ -95,6 +95,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Plan moves and deliveries as jobs, print floor and department manifests, and scan everything through pack, load, deliver and place.",
   },
+  {
+    key: "registerReconcile",
+    title: "Asset register reconciliation",
+    description:
+      "Import a register (CSV or XLSX, including Snipe-IT and Homebox exports), reconcile it against what is on file, or import it as new records. Reached from Audit.",
+  },
 ];
 
 export function InstanceSettings() {
