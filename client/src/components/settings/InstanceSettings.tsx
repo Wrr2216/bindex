@@ -119,6 +119,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Let a phone or tablet keep a copy for dead zones: scans, moves, check-outs, spot checks, audits, notes and photos keep working and are sent when the signal returns. Each device opts in on its Offline screen.",
   },
+  {
+    key: "bulkCapture",
+    title: "AI bulk capture",
+    description:
+      "Catalogue a room from photos or a walkthrough video, survey desks against a standard kit, and convert paper inventories, reviewing the AI's draft before anything is created. Needs a vision model to be configured.",
+  },
 ];
 
 export function InstanceSettings() {

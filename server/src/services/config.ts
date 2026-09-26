@@ -54,6 +54,8 @@ export type Features = {
   legacyTags: boolean;
   /** Keep a copy on a device and queue changes while it has no connection. */
   offline: boolean;
+  /** Walkthroughs, desk surveys and paper inventories turned into items with AI. */
+  bulkCapture: boolean;
 };
 
 export type AppConfig = {
@@ -111,6 +113,7 @@ const KEYS = {
   featureConsumables: "features.consumables",
   featureLegacyTags: "features.legacy_tags",
   featureOffline: "features.offline",
+  featureBulkCapture: "features.bulk_capture",
 } as const;
 
 function defaults(): AppConfig {
@@ -148,6 +151,7 @@ function defaults(): AppConfig {
       consumables: false,
       legacyTags: false,
       offline: false,
+      bulkCapture: true,
     },
   };
 }
@@ -214,6 +218,7 @@ function build(stored: Map<string, string>): AppConfig {
       consumables: flag(KEYS.featureConsumables, base.features.consumables),
       legacyTags: flag(KEYS.featureLegacyTags, base.features.legacyTags),
       offline: flag(KEYS.featureOffline, base.features.offline),
+      bulkCapture: flag(KEYS.featureBulkCapture, base.features.bulkCapture),
     },
   };
 }
@@ -307,6 +312,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   consumables: KEYS.featureConsumables,
   legacyTags: KEYS.featureLegacyTags,
   offline: KEYS.featureOffline,
+  bulkCapture: KEYS.featureBulkCapture,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {

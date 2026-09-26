@@ -289,6 +289,7 @@ export interface Features {
   consumables: boolean;
   legacyTags: boolean;
   offline: boolean;
+  bulkCapture: boolean;
 }
 
 /**

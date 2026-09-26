@@ -67,6 +67,7 @@ const configPatch = z.object({
       consumables: z.boolean().optional(),
       legacyTags: z.boolean().optional(),
       offline: z.boolean().optional(),
+      bulkCapture: z.boolean().optional(),
     })
     .optional(),
 });

@@ -26,6 +26,7 @@ import { registerReconcileRouter } from "./register-reconcile";
 import { consumablesRouter } from "./consumables";
 import { tagCommissioningRouter } from "./tag-commissioning";
 import { idempotency, offlineFieldRouter } from "./offline-field";
+import { bulkCaptureRouter } from "./bulk-capture";
 
 export const apiRouter = Router();
 
@@ -62,6 +63,7 @@ apiRouter.use("/register-reconcile", registerReconcileRouter);
 apiRouter.use("/consumables", consumablesRouter);
 apiRouter.use("/tag-commissioning", tagCommissioningRouter);
 apiRouter.use("/offline", offlineFieldRouter);
+apiRouter.use("/bulk-capture", bulkCaptureRouter);
 
 apiRouter.delete(
   "/identifiers/:id",

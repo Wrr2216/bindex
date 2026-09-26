@@ -34,6 +34,8 @@ import { TagsPage } from "./features/tag-commissioning/TagsPage";
 import { NfcTapLayer } from "./features/tag-commissioning/NfcTapLayer";
 import { OfflinePage } from "./features/offline-field/OfflinePage";
 import { OfflineStatus } from "./features/offline-field/OfflineStatus";
+import { CaptureListPage } from "./features/bulk-capture/CaptureListPage";
+import { CaptureSessionPage } from "./features/bulk-capture/CaptureSessionPage";
 
 function Loading() {
   return (
@@ -92,6 +94,8 @@ function AppShell() {
           {features.registerReconcile && <Route path="audit/register/*" element={<RegisterReconcile />} />}
           <Route path="tags" element={<TagsPage />} />
           {features.offline && <Route path="offline" element={<OfflinePage />} />}
+          {features.bulkCapture && <Route path="capture" element={<CaptureListPage />} />}
+          {features.bulkCapture && <Route path="capture/:id" element={<CaptureSessionPage />} />}
         </Route>
       </Routes>
       <NfcTapLayer />
