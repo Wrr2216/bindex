@@ -22,6 +22,7 @@ const SOURCE_LABEL = {
   line: "Manifest note",
   condition_report: "Condition report",
   pack_list: "Pack list",
+  portal: "Crew note (portal)",
   photo: "Photo caption",
   custody: "Custody",
 } as const;

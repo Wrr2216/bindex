@@ -23,6 +23,7 @@ import {
   custodyHopsFor,
   detectShapes,
   packListsFor,
+  portalNotesFor,
   type SourceAvailability,
 } from "./sources";
 import { attachmentPhase, sortNotes, tripFromHistory, type ConditionNote, type Phase, type Trip } from "./trip";
@@ -464,10 +465,11 @@ export async function buildEvidence(
     ...new Set([...jobLines.map((j) => j.jobId), ...lines.map((l) => l.jobId).filter((j): j is string => j !== null)]),
   ];
 
-  const [histories, reports, packs, hops, shipment, claimSignatures] = await Promise.all([
+  const [histories, reports, packs, crewNotes, hops, shipment, claimSignatures] = await Promise.all([
     Promise.all(jobItemIds.map(async (id) => [id, await lineHistory(id)] as const)).then((h) => new Map(h)),
     conditionReportsFor(shapes, itemIds),
     packListsFor(shapes, itemIds),
+    portalNotesFor(shapes, itemIds),
     custodyHopsFor(shapes, refs),
     shipmentEvidence(claim.shipmentId),
     Promise.all([
@@ -572,6 +574,11 @@ export async function buildEvidence(
       const text = packListText(p);
       const by = p.createdBy ? names.get(p.createdBy) ?? null : null;
       if (text) notes.push({ source: "pack_list", at: p.createdAt, stage: "pack", text, by, ref: p.id });
+    }
+    // Notes an outside crew left through a portal link, on this line or this item.
+    for (const n of crewNotes.rows.filter((n) => covers(n, line))) {
+      const text = `${n.condition ? `Condition ${n.condition}. ` : ""}${n.body}`;
+      notes.push({ source: "portal", at: n.createdAt, stage: null, text, by: n.author, ref: n.id });
     }
     for (const f of lineFiles) {
       if (f.caption) notes.push({ source: "photo", at: f.createdAt, stage: f.stage ?? f.phase, text: f.caption, by: f.createdByName, ref: f.id });

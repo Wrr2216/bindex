@@ -405,6 +405,13 @@ describe("claims against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
          created_at timestamptz NOT NULL DEFAULT now())`,
     );
     await standIn(
+      "portal_notes",
+      `CREATE TABLE portal_notes (
+         id uuid PRIMARY KEY DEFAULT gen_random_uuid(), grant_id uuid, author text NOT NULL, job_id uuid NOT NULL,
+         job_item_id uuid NOT NULL, item_id uuid NOT NULL, unit_id uuid, condition text, body text NOT NULL,
+         created_at timestamptz NOT NULL DEFAULT now())`,
+    );
+    await standIn(
       "custody_transfer_items",
       `CREATE TABLE custody_transfer_items (
          id uuid PRIMARY KEY DEFAULT gen_random_uuid(), transfer_id uuid NOT NULL REFERENCES custody_transfers(id) ON DELETE CASCADE,
@@ -447,11 +454,18 @@ describe("claims against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
       await transfer("completed", "damaged", "Glass door cracked");
       // Still being scanned: not a hand-over yet, so not evidence.
       await transfer("draft", "accepted", null);
+      const note = await pool.query(
+        `INSERT INTO portal_notes (author, job_id, job_item_id, item_id, condition, body)
+         VALUES ('Pat (Acme)', $1, $2, $3, 'damaged', 'Door glass cracked when unwrapped') RETURNING id`,
+        [jobId, vaseLine, vase.id],
+      );
+      inserted.push(["portal_notes", note.rows[0].id]);
 
       const pack = await claims.getEvidence(claimId);
       assert.equal(pack.sources.conditionReports, true);
       assert.equal(pack.sources.packLists, true);
       assert.equal(pack.sources.custody, true);
+      assert.equal(pack.sources.portalNotes, true);
       const line = pack.lines.find((l) => l.itemId === vase.id)!;
       assert.equal(line.conditionReports.length, 1);
       assert.equal(line.conditionReports[0]!.rating, "good");
@@ -468,6 +482,10 @@ describe("claims against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
       assert.ok(line.conditionNotes.some((n) => n.source === "pack_list" && n.text.includes('marked "FRAGILE living room"')));
       assert.ok(line.conditionNotes.some((n) => n.source === "custody" && n.text === "Carton dented on hand-off"));
       assert.ok(line.conditionNotes.some((n) => n.source === "custody" && n.text === "Received damaged: Glass door cracked"));
+      assert.ok(
+        line.conditionNotes.some((n) => n.source === "portal" && n.text === "Condition damaged. Door glass cracked when unwrapped" && n.by === "Pat (Acme)"),
+        "a crew's note left through a portal link",
+      );
       assert.equal(line.attachments.find((a) => a.id === packPhotoId)?.phase, "before");
       assert.equal(pack.lines.find((l) => l.itemId === lamp.id)!.custody.length, 0, "the lamp was not on that transfer");
       assert.equal(pack.unchangedSinceSubmission, false, "new records since submission change the fingerprint");
@@ -481,33 +499,57 @@ describe("claims against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
     }
   });
 
-  it("takes claims through a portal link, limited to what the link was given", async (t) => {
-    if ((await pool.query("SELECT to_regclass('portal_grants') IS NOT NULL AS ok")).rows[0].ok) {
-      t.skip("the real portal is installed here; its grants are made through its own code");
-      return;
+  it("takes claims through a portal link, checked the way the portal checks it", async () => {
+    const exists = async (table: string) =>
+      (await pool.query("SELECT to_regclass($1) IS NOT NULL AS ok", [table])).rows[0].ok as boolean;
+    const standIns: string[] = [];
+    if (!(await exists("portal_grants"))) {
+      standIns.unshift("portal_grants");
+      await pool.query(`
+        CREATE TABLE portal_grants (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(), scope text NOT NULL, project_id uuid, job_id uuid, shipment_id uuid,
+          role text NOT NULL DEFAULT 'viewer', grantee_name text NOT NULL, grantee_email text, grantee_org text,
+          require_code boolean NOT NULL DEFAULT false, token_hash text, expires_at timestamptz NOT NULL,
+          revoked_at timestamptz, last_used_at timestamptz)`);
     }
-    await pool.query(`
-      CREATE TABLE portal_grants (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(), scope text NOT NULL, scope_id uuid NOT NULL, role text NOT NULL,
-        grantee_name text, grantee_email text, grantee_org text, token_hash text NOT NULL,
-        expires_at timestamptz, revoked_at timestamptz, last_used_at timestamptz, created_by text)`);
+    if (!(await exists("portal_passes"))) {
+      standIns.unshift("portal_passes");
+      await pool.query(`
+        CREATE TABLE portal_passes (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(), grant_id uuid NOT NULL, pass_hash text NOT NULL,
+          expires_at timestamptz NOT NULL, last_used_at timestamptz)`);
+    }
+    const { getConfig, updateConfig } = await import("../src/services/config");
+    const portalWas = (await getConfig()).features.portal;
+    const grants: string[] = [];
     try {
-      const grant = async (over: { scope?: string; scopeId?: string; expires?: string | null; revoked?: boolean } = {}) => {
-        const token = randomBytes(24).toString("base64url");
-        await pool.query(
-          `INSERT INTO portal_grants (scope, scope_id, role, grantee_name, grantee_email, token_hash, expires_at, revoked_at)
-           VALUES ($1, $2, 'viewer', 'Pat Consignee', 'pat@example.test', $3, $4, $5)`,
+      const grant = async (
+        over: { scope?: "project" | "job" | "shipment"; target?: string; expires?: Date; revoked?: boolean; requireCode?: boolean } = {},
+      ) => {
+        const token = `bdxp_${randomBytes(32).toString("base64url")}`;
+        const scope = over.scope ?? "shipment";
+        const { rows } = await pool.query(
+          `INSERT INTO portal_grants (scope, ${scope}_id, role, grantee_name, grantee_email, grantee_org, require_code,
+                                      token_hash, expires_at, revoked_at)
+           VALUES ($1, $2, 'viewer', 'Pat Consignee', 'pat@example.test', 'Acme', $3, $4, $5, $6) RETURNING id`,
           [
-            over.scope ?? "shipment",
-            over.scopeId ?? shipmentId,
+            scope,
+            over.target ?? shipmentId,
+            over.requireCode ?? false,
             claims.hashPortalToken(token),
-            over.expires === undefined ? new Date(Date.now() + 3600_000) : over.expires,
+            over.expires ?? new Date(Date.now() + 3600_000),
             over.revoked ? new Date() : null,
           ],
         );
-        return token;
+        grants.push(rows[0].id);
+        return { token, id: rows[0].id as string };
       };
-      const token = await grant();
+      const { token } = await grant();
+
+      await updateConfig({ features: { portal: false } });
+      await assert.rejects(claims.portalView(token), statusOf("portal_unavailable"), "the portal switched off closes the door");
+      await updateConfig({ features: { portal: true } });
+
       const view = await claims.portalView(token);
       assert.deepEqual(
         view.lines.map((l) => l.jobItemId),
@@ -530,29 +572,50 @@ describe("claims against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
       });
       assert.equal(filed.status, "submitted");
       assert.equal(filed.estimatedTotalCents, 30_000);
-      const listedForGrant = await claims.portalView(token);
-      assert.deepEqual(listedForGrant.claims.map((c) => c.code), [filed.code]);
+      assert.deepEqual((await claims.portalView(token)).claims.map((c) => c.code), [filed.code]);
       const { rows } = await pool.query("SELECT id, reporter_grant_id, reporter_name, shipment_id FROM claims WHERE code = $1", [filed.code]);
       cleanup.push(() => pool.query("DELETE FROM claims WHERE id = $1", [rows[0].id]));
       assert.ok(rows[0].reporter_grant_id);
       assert.equal(rows[0].reporter_name, "Pat Consignee");
       assert.equal(rows[0].shipment_id, shipmentId);
       const audit = await pool.query(
-        "SELECT actor_kind, actor_id FROM audit_log WHERE type = 'claim.created' AND subject_id = $1",
+        "SELECT actor_kind, actor_id, actor_name FROM audit_log WHERE type = 'claim.created' AND subject_id = $1",
         [rows[0].id],
       );
       assert.equal(audit.rows[0].actor_kind, "system");
-      assert.match(audit.rows[0].actor_id, /^portal-grant:/);
+      assert.equal(audit.rows[0].actor_id, `portal:${rows[0].reporter_grant_id}`, "the same actor the portal records");
+      assert.equal(audit.rows[0].actor_name, "Pat Consignee, Acme (portal)");
 
       // A job link sees the whole job; a project link, an expired or a revoked one cannot file.
-      const jobView = await claims.portalView(await grant({ scope: "job", scopeId: jobId }));
+      const jobView = await claims.portalView((await grant({ scope: "job", target: jobId })).token);
       assert.deepEqual(jobView.lines.map((l) => l.jobItemId).sort(), [vaseLine, lampLine].sort());
-      await assert.rejects(claims.portalView(await grant({ scope: "project", scopeId: randomUUID() })), statusOf(403));
-      await assert.rejects(claims.portalView(await grant({ expires: new Date(Date.now() - 1000).toISOString() })), statusOf(410));
-      await assert.rejects(claims.portalView(await grant({ revoked: true })), statusOf(410));
-      await assert.rejects(claims.portalView("not-a-real-token"), statusOf(404));
+      const project = await core.createProject({ name: `Portal project ${tag}` }, crew);
+      cleanup.push(() => core.deleteProject(project.id));
+      await assert.rejects(claims.portalView((await grant({ scope: "project", target: project.id })).token), statusOf(403));
+      await assert.rejects(claims.portalView((await grant({ expires: new Date(Date.now() - 1000) })).token), statusOf("link_expired"));
+      await assert.rejects(claims.portalView((await grant({ revoked: true })).token), statusOf("link_revoked"));
+      await assert.rejects(claims.portalView(`bdxp_${"x".repeat(43)}`), statusOf("link_invalid"));
+      await assert.rejects(claims.portalView(null), statusOf("link_invalid"));
+
+      // A link that needs an emailed code works only with the pass the browser got for it.
+      const coded = await grant({ requireCode: true });
+      await assert.rejects(claims.portalView(coded.token), statusOf("code_required"));
+      const pass = `bdxs_${randomBytes(32).toString("base64url")}`;
+      await pool.query("INSERT INTO portal_passes (grant_id, pass_hash, expires_at) VALUES ($1, $2, now() + interval '1 hour')", [
+        coded.id,
+        claims.hashPortalToken(pass),
+      ]);
+      await assert.rejects(claims.portalView(coded.token, `bdxs_${"y".repeat(43)}`), statusOf("code_required"));
+      assert.deepEqual((await claims.portalView(coded.token, pass)).lines.map((l) => l.jobItemId), [vaseLine]);
     } finally {
-      await pool.query("DROP TABLE IF EXISTS portal_grants");
+      await updateConfig({ features: { portal: portalWas } });
+      if (!standIns.includes("portal_grants") && grants.length) {
+        await pool.query("DELETE FROM portal_grants WHERE id = ANY($1::uuid[])", [grants]);
+      }
+      if (!standIns.includes("portal_passes") && grants.length) {
+        await pool.query("DELETE FROM portal_passes WHERE grant_id = ANY($1::uuid[])", [grants]).catch(() => undefined);
+      }
+      for (const table of standIns) await pool.query(`DROP TABLE IF EXISTS ${table}`);
     }
   });
 });

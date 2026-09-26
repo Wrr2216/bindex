@@ -359,33 +359,50 @@ const portalBody = z.object({
     .max(500),
 });
 
+/**
+ * The link token travels in the X-Portal-Token header (or as a bearer token),
+ * never in the URL, which ends up in logs; a browser that entered an emailed
+ * code sends its pass in X-Portal-Pass. The same as the portal's own API.
+ */
+const presentedToken = (req: Request): string | null => {
+  const header = req.get("x-portal-token")?.trim();
+  if (header) return header;
+  const auth = req.get("authorization");
+  return auth?.startsWith("Bearer ") ? auth.slice(7).trim() || null : null;
+};
+const presentedPass = (req: Request): string | null => req.get("x-portal-pass")?.trim() || null;
+
 // Keyed on the token (hashed, so the limiter's memory holds no live tokens) and
 // the caller's address, so one leaked link cannot be hammered from anywhere.
-const portalKey = (req: Request) => `${req.ip}:${hashPortalToken(String(req.params.token ?? "")).slice(0, 16)}`;
+const portalKey = (req: Request) => `${req.ip}:${hashPortalToken(presentedToken(req) ?? "").slice(0, 16)}`;
 const portalReadLimit = rateLimit({ windowMs: 60_000, max: 60, key: portalKey });
 const portalFileLimit = rateLimit({ windowMs: 10 * 60_000, max: 5, key: portalKey });
 
 /**
- * Mounted before the session guard: a portal link is its own credential. The
- * token is checked on every request by the service, which answers 404 for a
- * token it does not know (or when there is no portal at all) and 410 for one
- * that has expired or been revoked.
+ * Mounted before the session middleware, like the portal: a link is its own
+ * credential, and a portal request never reads or creates a session. The
+ * service checks the link on every request and answers as the portal does:
+ * 404 when there is no portal, 401 for a link that does not work, has been
+ * revoked or has expired, or still needs its emailed code.
  */
 export const claimsPortalRouter = Router();
+claimsPortalRouter.use((_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  next();
+});
 claimsPortalRouter.use(featureGate);
 claimsPortalRouter.get(
-  "/:token",
+  "/",
   portalReadLimit,
   asyncHandler(async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    res.json(await portalView(param(req, "token")));
+    res.json(await portalView(presentedToken(req), presentedPass(req)));
   }),
 );
 claimsPortalRouter.post(
-  "/:token/claims",
+  "/claims",
   portalFileLimit,
   asyncHandler(async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    res.status(201).json(await portalFileClaim(param(req, "token"), parse(portalBody, req.body)));
+    res.status(201).json(await portalFileClaim(presentedToken(req), parse(portalBody, req.body), presentedPass(req)));
   }),
 );

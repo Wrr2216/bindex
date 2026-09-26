@@ -168,7 +168,7 @@ edits from the claim, so it is read-only by construction. For each line:
 | **Trip** | The manifest line's stage history: when it was first packed, loaded, delivered and placed (a skipped rung counts as reached at the same moment), and each exception stage. |
 | **Stage history** | Every stage change with time, stage, how (`scan`, `rfid`, `manual`, `portal`…), who, which device, which shipment, and its note. |
 | **Photos and files** | Attachments on the item, on the unit (for a unit line), on the claim line itself, and those a condition report points at. Signature images are shown with their signatures, not as photos. |
-| **Condition notes** | The manifest line's note, every note written with a stage change, photo captions, condition report notes, the pack list and custody hand-off notes, oldest first. |
+| **Condition notes** | The manifest line's note, every note written with a stage change, photo captions, condition report notes, the pack list, notes a third-party crew left through a portal link, and custody hand-off notes and findings, oldest first. |
 | **Condition reports** | When that feature is installed; see below. |
 | **Pack list** | For a container, what was recorded going into it when it was packed: size, the writing on it, handling flags and its contents. When that feature is installed. |
 | **Chain of custody** | Every hand-over the item was on, with both parties, the place, seals, signatures and what the receiver found. When that feature is installed; see below. |
@@ -218,8 +218,8 @@ download the PDF before deleting items that are on an open claim.
 
 ## Other features it reads
 
-Condition reports, container pack lists, custody transfers and portal grants
-belong to features that may not be installed. Their code is never imported:
+Condition reports, container pack lists, custody transfers, portal grants and
+portal crew notes belong to features that may not be installed. Their code is never imported:
 on each request the evidence builder looks for their tables in the catalog
 (`to_regclass`), reads
 whole rows as JSON (`to_jsonb(t)`) and normalizes each field from whichever of
@@ -234,7 +234,9 @@ recognised is logged once (`claims.evidence.source_unreadable` or
 | `condition_reports` | `id`, `item_id` | `unit_id`, `stage` (and `stage_label` for a custom stage), `rating`, `notes`, `ai_notes`, `defects` (jsonb `[{ area, type, severity, description }]`), `handling_note`, `attachment_ids` (uuid[] or jsonb), `created_by`, `created_at` |
 | `container_captures` | `id`, `item_id` | `size_class`, `handwritten_text`, `room`, `contents_summary`, `contents` (jsonb `[{ name, qty, condition, fragile }]`), `flags`, `attachment_ids`, `created_by`, `created_at` |
 | `custody_transfers` | `id`, and the items it moved: either rows in `custody_transfer_items` (`transfer_id` or `custody_transfer_id`, `item_id`, `unit_id`, and `outcome` and `note` for what the receiver found) or a column `items` / `item_ids` / `item_refs` (jsonb of ids or `{ itemId, unitId }`, or uuid[]) | `code`, `purpose`, `status` (draft and void transfers are left out; locked ones show as awaiting signatures), `at` / `completed_at` / `created_at`, the parties as `from_party` / `to_party` (text, or jsonb with `name`, `org`) or `from_name` + `from_org` / `to_name` + `to_org`, `location_id`, `location_name`, `lat`, `lng`, `seal_numbers`, `condition_note`, `from_signature_id`, `to_signature_id`, `content_hash`, `audit_entry_id` / `audit_log_id`, `receipt_attachment_id`. Attachments owned by `custody_transfer` (hand-over photos, the signed receipt) join the line's files. |
-| `portal_grants` | `id`, `token_hash` (sha256 hex of the token, as for API keys) | `scope` and `scope_id`, or one of `shipment_id` / `job_id` / `project_id`; `role`, `grantee_name`, `grantee_email`, `grantee_org`, `expires_at`, `revoked_at`, `last_used_at` (touched on use) |
+| `portal_grants` | `id`, `token_hash` (sha256 hex of the token, as for API keys) | `scope` and `scope_id`, or one of `shipment_id` / `job_id` / `project_id`; `role`, `grantee_name`, `grantee_email`, `grantee_org`, `require_code`, `expires_at`, `revoked_at`, `last_used_at` (touched on use) |
+| `portal_passes` | `grant_id`, `pass_hash`, `expires_at` | `last_used_at` (touched on use). Without it, a link that needs a code cannot file. |
+| `portal_notes` | `id`, `item_id`, `body`, `created_at` | `job_item_id`, `unit_id`, `author`, `condition`: a third-party crew's notes on a line, added to its condition notes |
 
 A condition report on an item counts for every line of that item; one on a
 unit only for that unit's line. A pack list belongs to its container. A
@@ -248,33 +250,44 @@ registered exception stage is flagged the same way as the built-in ones.
 
 ## Filing from the portal
 
-With the portal feature installed (its `portal_grants` table exists), someone
-holding a link scoped to a **shipment** or a **job** can file a claim on it:
+With the portal installed and switched on (its `portal_grants` table exists and
+`features.portal` is on), someone holding a link scoped to a **shipment** or a
+**job** can file a claim on it:
 
 | Method and path | |
 | --- | --- |
-| `GET /api/claims-portal/:token` | What the link can claim on: `{ grant: { name, org, scope, expiresAt }, scope, types, lines, claims }`. `lines` are that shipment's (or job's) manifest lines only; `claims` are those filed through this same link. |
-| `POST /api/claims-portal/:token/claims` | `{ type, title?, description, occurredAt?, contactEmail?, lines: [{ jobItemId, damageDescription?, estimatedCents? }] }` → 201 `{ code, status, title, lines, currency, estimatedTotalCents, submittedAt }`. |
+| `GET /api/claims-portal` | What the link can claim on: `{ grant: { name, org, scope, expiresAt }, scope, types, lines, claims }`. `lines` are that shipment's (or job's) manifest lines only; `claims` are those filed through this same link. |
+| `POST /api/claims-portal/claims` | `{ type, title?, description, occurredAt?, contactEmail?, lines: [{ jobItemId, damageDescription?, estimatedCents? }] }` → 201 `{ code, status, title, lines, currency, estimatedTotalCents, submittedAt }`. |
 
-These are mounted before the session guard: the token is the credential. The
-claim arrives **submitted**, with its evidence fingerprinted and its clock
+The link is checked the way the portal checks its own requests. The token
+goes in the `X-Portal-Token` header (or `Authorization: Bearer`), never the
+URL, which ends up in logs; a link that needs an emailed code also needs the
+pass the browser was given for it, in `X-Portal-Pass`, checked against the
+portal's `portal_passes`. The router is mounted before the session middleware,
+next to the portal's, so a portal request never reads or creates a session.
+
+The claim arrives **submitted**, with its evidence fingerprinted and its clock
 running, reported by the grantee and attributed to the grant
-(`reporter_grant_id`; in the audit log as a `system` actor with id
-`portal-grant:<id>` and name "<grantee> (portal)", since the log's actor kinds
-are fixed).
+(`reporter_grant_id`). In the audit log it is the same actor the portal
+records for its own actions: kind `system`, id `portal:<grant id>`, name
+"Pat Lee, Acme (portal)".
 
-Answers: `404` for an unknown token, when no portal is installed, or when
-claims are switched off; `410` for an expired or revoked link; `403` for a
-project-wide link (a claim has to name a delivery); `400` when a line is not on
-the granted shipment or job, reported as if it did not exist; `429` past 60
-reads a minute or 5 claims per ten minutes from one address on one link.
-Nothing about reviewers, amounts decided, comments or other claims is
+Answers, with the portal's own codes: `404 portal_unavailable` when there is
+no portal or it is switched off (`404 feature_disabled` when claims are);
+`401 link_invalid`, `link_revoked`, `link_expired` or `code_required`; `403`
+for a project-wide link (a claim has to name a delivery); `400` when a line is
+not on the granted shipment or job, reported as if it did not exist; `429`
+past 60 reads a minute or 5 claims per ten minutes from one address on one
+link. Nothing about reviewers, amounts decided, comments or other claims is
 returned.
 
 **For the portal's page:** `client/src/features/claims` exports
-`PortalClaimPanel` (lazy): `<Suspense><PortalClaimPanel token={token} /></Suspense>`
-renders the form and the link's own claims, sends no cookie, and renders
-nothing when claims are unavailable for that link.
+`PortalClaimPanel` (lazy). The portal's link page renders it with the token
+and the same pass getter its own calls use:
+`<Suspense><PortalClaimPanel token={token} getPass={getPass} /></Suspense>`.
+It shows the form and the link's own claims, sends no cookie, shows the
+reason when the link has stopped working, and renders nothing when claims are
+not available for that link.
 
 ## Documents
 

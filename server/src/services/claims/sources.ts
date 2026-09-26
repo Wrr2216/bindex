@@ -33,6 +33,8 @@ const TABLES = [
   "custody_transfers",
   "custody_transfer_items",
   "portal_grants",
+  "portal_passes",
+  "portal_notes",
 ] as const;
 type OptionalTable = (typeof TABLES)[number];
 
@@ -64,6 +66,8 @@ export type SourceAvailability = {
   custody: boolean;
   /** Portal grants, through which an outside party can file a claim. */
   portal: boolean;
+  /** Condition notes an outside crew left on manifest lines through the portal. */
+  portalNotes: boolean;
 };
 
 export function availability(shapes: Shapes): SourceAvailability {
@@ -72,6 +76,7 @@ export function availability(shapes: Shapes): SourceAvailability {
     packLists: Boolean(shapes.get("container_captures")?.has("item_id")),
     custody: custodyPlan(shapes) !== null,
     portal: Boolean(shapes.get("portal_grants")?.has("token_hash")),
+    portalNotes: portalNotesReadable(shapes),
   };
 }
 
@@ -222,6 +227,66 @@ export async function custodyHopsFor(shapes: Shapes, refs: readonly ItemRef[]): 
   }
 }
 
+// --- Portal crew notes -------------------------------------------------------------
+
+export type PortalNote = {
+  id: string;
+  jobItemId: string | null;
+  itemId: string;
+  unitId: string | null;
+  author: string | null;
+  condition: string | null;
+  body: string;
+  createdAt: string;
+};
+
+const portalNotesReadable = (shapes: Shapes) =>
+  ["id", "item_id", "body", "created_at"].every((c) => shapes.get("portal_notes")?.has(c));
+
+/** Notes a third-party crew left on these items through a portal link. */
+export async function portalNotesFor(shapes: Shapes, itemIds: readonly string[]): Promise<SourceResult<PortalNote>> {
+  if (!portalNotesReadable(shapes)) return { available: false, rows: [] };
+  if (itemIds.length === 0) return { available: true, rows: [] };
+  const cols = shapes.get("portal_notes")!;
+  const col = (name: string) => (cols.has(name) ? `n.${name}` : "NULL");
+  try {
+    const { rows } = await pool.query<{
+      id: string;
+      job_item_id: string | null;
+      item_id: string;
+      unit_id: string | null;
+      author: string | null;
+      condition: string | null;
+      body: string;
+      created_at: Date;
+    }>(
+      `SELECT n.id, ${col("job_item_id")} AS job_item_id, n.item_id, ${col("unit_id")} AS unit_id,
+              ${col("author")} AS author, ${col("condition")} AS condition, n.body, n.created_at
+         FROM portal_notes n
+        WHERE n.item_id = ANY($1::uuid[])
+        ORDER BY n.created_at, n.id
+        LIMIT 2000`,
+      [itemIds],
+    );
+    return {
+      available: true,
+      rows: rows.map((r) => ({
+        id: r.id,
+        jobItemId: r.job_item_id,
+        itemId: r.item_id,
+        unitId: r.unit_id,
+        author: r.author,
+        condition: r.condition,
+        body: r.body,
+        createdAt: new Date(r.created_at).toISOString(),
+      })),
+    };
+  } catch (err) {
+    warnOnce("claims.evidence.source_failed", { table: "portal_notes", err: describeError(err) });
+    return { available: false, rows: [] };
+  }
+}
+
 // --- Portal grants ----------------------------------------------------------------
 
 /** Portal tokens are stored as the sha256 of the token, like API keys and device tokens. */
@@ -249,6 +314,28 @@ export async function findPortalGrant(token: string): Promise<PortalGrant | null
   } catch (err) {
     warnOnce("claims.portal.grant_unreadable", { err: describeError(err) });
     return null;
+  }
+}
+
+/**
+ * Whether a browser has entered the emailed code for this grant: the portal
+ * hands it a pass, stored hashed like the token. Without a passes table there
+ * is no way to know, so the answer is no.
+ */
+export async function portalPassValid(grantId: string, pass: string | null | undefined): Promise<boolean> {
+  if (!pass) return false;
+  const cols = (await detectShapes()).get("portal_passes");
+  if (!cols || !["grant_id", "pass_hash", "expires_at"].every((c) => cols.has(c))) return false;
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE portal_passes SET ${cols.has("last_used_at") ? "last_used_at = now()" : "grant_id = grant_id"}
+        WHERE pass_hash = $1 AND grant_id = $2 AND expires_at > now()`,
+      [hashPortalToken(pass), grantId],
+    );
+    return (rowCount ?? 0) > 0;
+  } catch (err) {
+    warnOnce("claims.portal.pass_unreadable", { err: describeError(err) });
+    return false;
   }
 }
 

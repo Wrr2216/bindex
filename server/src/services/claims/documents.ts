@@ -73,6 +73,7 @@ const NOTE_SOURCE = {
   line: "manifest note",
   condition_report: "condition report",
   pack_list: "pack list",
+  portal: "crew note (portal)",
   photo: "photo caption",
   custody: "custody",
 } as const;

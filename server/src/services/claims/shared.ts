@@ -13,6 +13,8 @@ export type ClaimActor = {
   role?: "admin" | "member";
   email?: string | null;
   grantId?: string | null;
+  /** How the portal names the grant's holder in the audit log. */
+  grantLabel?: string | null;
 };
 
 // Crockford base32, as for asset and job codes: no I, L, O or U.

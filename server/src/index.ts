@@ -79,6 +79,8 @@ app.use((req, res, next) => {
 // Portal links are for people without an account. Mounted before the session
 // so a portal request never reads or creates one (see routes/portal.ts).
 app.use("/api/portal", portalRouter);
+// Filing a claim through a portal link: the link is the credential, as above.
+app.use("/api/claims-portal", claimsPortalRouter);
 app.use(sessionMiddleware);
 app.use(attachTrustedUser);
 
@@ -92,8 +94,6 @@ app.use("/api/device", deviceRouter);
 // GPS trackers post here with their device tokens; bodies are parsed by deviceRouter above.
 app.use("/api/device/gps", gpsDeviceRouter);
 app.use("/api/device/ble", bleDeviceRouter);
-// Filing a claim through an external portal link: the link is the credential.
-app.use("/api/claims-portal", claimsPortalRouter);
 // Built from the configuration, so it has to come before the static handler.
 app.use(manifestRouter);
 // The service worker is stamped with the build, so it too comes before them.

@@ -23,7 +23,7 @@ export type ClaimsMeta = {
   incidentCategories: { name: string; label: string }[];
   transitions: Transition[];
   sla: { claimHours: number; incidentHours: number };
-  sources: { conditionReports: boolean; packLists: boolean; custody: boolean; portal: boolean };
+  sources: { conditionReports: boolean; packLists: boolean; custody: boolean; portal: boolean; portalNotes: boolean };
   jobs: boolean;
   currency: string;
 };
@@ -185,7 +185,7 @@ export type EvidenceAttachment = {
 };
 
 export type ConditionNote = {
-  source: "stage" | "line" | "condition_report" | "pack_list" | "photo" | "custody";
+  source: "stage" | "line" | "condition_report" | "pack_list" | "photo" | "custody" | "portal";
   at: string | null;
   stage: string | null;
   text: string;
@@ -290,7 +290,7 @@ export type EvidencePack = {
   hash: string;
   frozen: { hash: string; at: string } | null;
   unchangedSinceSubmission: boolean | null;
-  sources: { conditionReports: boolean; packLists: boolean; custody: boolean; portal: boolean };
+  sources: { conditionReports: boolean; packLists: boolean; custody: boolean; portal: boolean; portalNotes: boolean };
   lines: LineEvidence[];
   claim: {
     attachments: EvidenceAttachment[];

@@ -1,17 +1,19 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ApiError } from "../../api/client";
-import { portalClaimsApi } from "./api";
+import { portalClaimsClient } from "./api";
 import type { ClaimType, PortalView } from "./types";
 import { BTN, CARD, FIELD, LABEL, MoneyInput, Notice, SELECT, errorText, fmtDateTime, statusText, useCents } from "./ui";
 
 /**
  * Filing a claim from a portal link, for someone outside the organisation:
  * the customer who received a delivery, a site's facilities manager. It is
- * rendered by the portal's own page, which holds the token; it never uses the
- * session. It shows only the delivery the link was given for, and the claims
+ * rendered by the portal's own page, which holds the token (and, for a link
+ * that needs an emailed code, the pass: hand it the same getter the page's
+ * own calls use); it never uses the session. It shows only the delivery the link was given for, and the claims
  * filed through the same link.
  */
-export function PortalClaimPanel({ token }: { token: string }) {
+export function PortalClaimPanel({ token, getPass }: { token: string; getPass?: () => string | null }) {
+  const api = useMemo(() => portalClaimsClient(token, getPass), [token, getPass]);
   const [view, setView] = useState<PortalView | null>(null);
   const [unavailable, setUnavailable] = useState<string | null>(null);
   const [type, setType] = useState<ClaimType>("damage");
@@ -24,19 +26,19 @@ export function PortalClaimPanel({ token }: { token: string }) {
   const money = useCents(view?.claims[0]?.currency);
 
   const load = () =>
-    portalClaimsApi
-      .view(token)
+    api
+      .view()
       .then(setView)
       .catch((err) => {
         // No portal, claims switched off, or a link that no longer works: the
         // panel is simply not offered, with the reason when there is one.
-        setUnavailable(err instanceof ApiError && err.status === 410 ? err.message : "");
+        setUnavailable(err instanceof ApiError && err.status === 401 ? err.message : "");
       });
 
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [api]);
 
   if (unavailable !== null) return unavailable ? <Notice tone="warn">{unavailable}</Notice> : null;
   if (!view) return null;
@@ -46,7 +48,7 @@ export function PortalClaimPanel({ token }: { token: string }) {
     setSaving(true);
     setError(null);
     try {
-      const r = await portalClaimsApi.file(token, {
+      const r = await api.file({
         type,
         description: description.trim(),
         contactEmail: contact.trim() || null,

@@ -342,6 +342,8 @@ export type PortalGrant = {
   org: string | null;
   expiresAt: string | null;
   revokedAt: string | null;
+  /** The link only opens after an emailed code has been entered in the browser. */
+  requireCode: boolean;
 };
 
 const SCOPES = ["project", "job", "shipment"] as const;
@@ -374,7 +376,14 @@ export function normalizePortalGrant(row: Row): PortalGrant | null {
     org: str(pick(row, "grantee_org", "granteeOrg", "org", "organization")),
     expiresAt: iso(pick(row, "expires_at", "expiresAt")),
     revokedAt: iso(pick(row, "revoked_at", "revokedAt")),
+    requireCode: pick(row, "require_code", "requireCode") === true,
   };
+}
+
+/** How the portal names a grant's holder in the audit log: "Pat Lee, Acme (portal)". */
+export function portalActorName(grant: Pick<PortalGrant, "name" | "org">): string {
+  const who = grant.name && grant.org ? `${grant.name}, ${grant.org}` : grant.name ?? grant.org ?? "Portal user";
+  return `${who} (portal)`.slice(0, 200);
 }
 
 export type GrantCheck = { ok: true } | { ok: false; reason: "revoked" | "expired" | "scope" };

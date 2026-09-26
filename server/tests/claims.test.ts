@@ -516,6 +516,25 @@ describe("reading other features' rows", () => {
     assert.deepEqual([narrow.scope, narrow.scopeId], ["shipment", UNIT]);
   });
 
+  it("reads a grant stored as the portal stores it, and names its holder the same way", () => {
+    const g = norm.normalizePortalGrant({
+      id: ID,
+      scope: "shipment",
+      project_id: null,
+      job_id: null,
+      shipment_id: OTHER,
+      role: "contributor",
+      grantee_name: "Pat Lee",
+      grantee_org: "Acme",
+      require_code: true,
+      expires_at: "2026-10-01T00:00:00Z",
+    })!;
+    assert.deepEqual([g.scope, g.scopeId, g.role, g.requireCode], ["shipment", OTHER, "contributor", true]);
+    assert.equal(norm.portalActorName(g), "Pat Lee, Acme (portal)");
+    assert.equal(norm.portalActorName({ name: "Pat Lee", org: null }), "Pat Lee (portal)");
+    assert.equal(norm.normalizePortalGrant({ id: ID, scope: "job", job_id: ITEM })!.requireCode, false);
+  });
+
   it("refuses revoked, expired and project-wide grants", () => {
     const now = new Date("2026-09-26T12:00:00Z");
     const base = norm.normalizePortalGrant({ id: ID, scope: "shipment", scope_id: OTHER })!;

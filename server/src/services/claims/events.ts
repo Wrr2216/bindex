@@ -34,11 +34,14 @@ registerEventTypes([
 
 /**
  * Someone acting through a portal grant has no account. The audit log's
- * actor kinds are fixed, so the grant is recorded as a system actor whose id
- * names it and whose name says who holds it.
+ * actor kinds are fixed, so the grant is recorded as a system actor, exactly
+ * as the portal records its own actions: id `portal:<grant id>`, and a name
+ * saying who holds it.
  */
 export function eventActor(actor: ClaimActor): EventActor {
-  if (actor.grantId) return { kind: "system", id: `portal-grant:${actor.grantId}`, name: `${actor.name ?? "Portal"} (portal)` };
+  if (actor.grantId) {
+    return { kind: "system", id: `portal:${actor.grantId}`, name: actor.grantLabel ?? `${actor.name ?? "Portal user"} (portal)` };
+  }
   return actorFromOid(actor.userOid, actor.name);
 }
 

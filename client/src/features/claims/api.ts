@@ -107,35 +107,34 @@ export const claimsApi = {
 };
 
 /**
- * The portal's calls. A portal visitor has no session, so these send no
- * cookie: the token in the path is the only credential.
+ * The portal's calls, made the way the portal page makes its own: the link
+ * token in a header (never the URL, which ends up in logs), the pass for an
+ * emailed code when the browser has one, and no cookie.
  */
-async function portalReq<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(path, {
-    credentials: "omit",
-    headers: init.body ? { "Content-Type": "application/json" } : undefined,
-    ...init,
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(res.status, body.code ?? "error", body.error ?? res.statusText, body.details);
-  return body as T;
-}
-
-export const portalClaimsApi = {
-  view: (token: string) => portalReq<PortalView>(`/api/claims-portal/${encodeURIComponent(token)}`),
-  file: (
-    token: string,
-    input: {
+export function portalClaimsClient(token: string, getPass: () => string | null = () => null) {
+  async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
+    const headers: Record<string, string> = { "x-portal-token": token };
+    const pass = getPass();
+    if (pass) headers["x-portal-pass"] = pass;
+    if (init.body) headers["Content-Type"] = "application/json";
+    const res = await fetch(`/api/claims-portal${path}`, { ...init, credentials: "omit", headers });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(res.status, body.code ?? "error", body.error ?? res.statusText, body.details);
+    return body as T;
+  }
+  return {
+    view: () => call<PortalView>(""),
+    file: (input: {
       type: ClaimType;
       title?: string | null;
       description: string;
       occurredAt?: string | null;
       contactEmail?: string | null;
       lines: { jobItemId: string; damageDescription?: string | null; estimatedCents?: number | null }[];
-    },
-  ) =>
-    portalReq<{ code: string; status: ClaimStatus; title: string; lines: number; estimatedTotalCents: number | null }>(
-      `/api/claims-portal/${encodeURIComponent(token)}/claims`,
-      json("POST", input),
-    ),
-};
+    }) =>
+      call<{ code: string; status: ClaimStatus; title: string; lines: number; estimatedTotalCents: number | null }>(
+        "/claims",
+        json("POST", input),
+      ),
+  };
+}
