@@ -62,6 +62,7 @@ const configPatch = z.object({
       spotCheck: z.boolean().optional(),
       tracking: z.boolean().optional(),
       aiCapture: z.boolean().optional(),
+      aiCondition: z.boolean().optional(),
     })
     .optional(),
 });

@@ -13,6 +13,12 @@ import {
   trackingDevices,
 } from "../db/schema";
 import { badRequest } from "../lib/errors";
+import {
+  AI_CONDITION_DATE_FIELDS,
+  aiConditionBackupRows,
+  parkAiConditionRows,
+  restoreAiConditionRows,
+} from "./ai-condition/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -44,6 +50,9 @@ const TABLES = [
   "item_events",
   "item_assignments",
   "tracking_devices",
+  "condition_sweeps",
+  "condition_reports",
+  "container_captures",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -59,6 +68,7 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   item_events: ["createdAt"],
   item_assignments: ["checkedOutAt", "checkedInAt"],
   tracking_devices: ["lastSeenAt", "createdAt", "updatedAt"],
+  ...AI_CONDITION_DATE_FIELDS,
 };
 
 export type Backup = {
@@ -94,6 +104,7 @@ export async function buildBackup(): Promise<Backup> {
     item_events: evts,
     item_assignments: asg,
     tracking_devices: devs,
+    ...(await aiConditionBackupRows()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -166,6 +177,8 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     // Device tokens are not in the file, so keep the current devices aside to
     // carry their tokens over (and the devices themselves, for an older file).
     await tx.execute(sql`CREATE TEMP TABLE backup_kept_devices ON COMMIT DROP AS SELECT * FROM tracking_devices`);
+    // Condition records point at items, units and locations; set them aside too.
+    await parkAiConditionRows(tx);
 
     // Children before parents. The foreign keys would cascade anyway; doing it
     // explicitly keeps the order visible.
@@ -241,6 +254,8 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
         WHERE unit_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM item_units u WHERE u.id = k.unit_id)`);
       await tx.execute(sql`INSERT INTO tracking_devices SELECT * FROM backup_kept_devices`);
     }
+
+    await restoreAiConditionRows(tx, d);
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,
