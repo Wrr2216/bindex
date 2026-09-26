@@ -9,6 +9,7 @@ import {
 } from "../../db/schema";
 import { badRequest, conflict, isUniqueViolation, notFound } from "../../lib/errors";
 import { logger } from "../../lib/logger";
+import { emitDocumentEvent } from "./events";
 import { bodySchema, checkBody, type Block, type BodyProblem } from "./model";
 import type { Executor } from "./shared";
 
@@ -241,7 +242,14 @@ export async function publishTemplate(id: string, userOid: string | null) {
     return row!;
   });
   logger.info("documents.template.published", { templateId: id, version: published.version });
-  return { template: await getTemplate(id), version: version(published) };
+  const template = await getTemplate(id);
+  await emitDocumentEvent(
+    "document_template.published",
+    { type: "document_template", id },
+    { name: template.name, version: published.version, blocks: readBody(published.body, published.id).length },
+    { userOid },
+  );
+  return { template, version: version(published) };
 }
 
 /** Throw away unpublished changes. A template that was never published has nothing to fall back to. */
