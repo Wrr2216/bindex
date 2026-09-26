@@ -291,9 +291,9 @@ what to do.
 | `capture_session.committed` | `capture_session` | Reviewed entries were created as items | `{ sessionId, mode, title, locationId, itemIds, entries }` |
 
 Every created item also emits `item.created` with
-`{ name, source: "bulk-capture", sessionId }`. Link this table from the event
-catalog in [event-backbone.md](event-backbone.md#event-catalog) when the
-branches are integrated.
+`{ name, source: "bulk-capture", sessionId }`. The event backbone lists this
+type under
+[events from other features](event-backbone.md#events-from-other-features).
 
 ## Data and backups
 
@@ -349,13 +349,14 @@ replies per request).
 
 ## Limits and follow-ups
 
-- **Jobs.** Converting a manifest straight into a job's item list needs the
-  jobs feature (T03), which this branch does not have. When it lands, the
-  commit step can take a `jobId` and add the created items to the job.
+- **Jobs.** Jobs (T03) are now in the build, but converting a manifest
+  straight into a job's item list is still a follow-up: the commit step should
+  take a `jobId` and add the created items to the job's manifest.
 - **Legacy stickers.** Sticker colour, lot and number are kept in
-  `metadata.sticker`. When tag commissioning (T07) adds legacy-sticker
-  identifiers, a one-off pass can turn these into identifiers so a sticker
-  scan finds the item.
+  `metadata.sticker`. Tag commissioning (T07), now in the build, stores legacy
+  stickers as `legacy` identifiers; writing one at commit, and a one-off pass
+  for items already created, so that a sticker scan finds the item, are still
+  follow-ups.
 - **Bounding boxes** vary by provider; they only drive crops, and a box that
   does not make sense is dropped rather than trusted.
 - **HEIC photos** cannot be redrawn for the model and are refused with a

@@ -16,7 +16,9 @@ other systems in two ways: **webhooks** pushed to URLs you register, and a
   configured, nothing leaves the server.
 
 Contents: [Publishing events](#publishing-events-for-feature-developers) ·
-[Event catalog](#event-catalog) · [The event envelope](#the-event-envelope) ·
+[Event catalog](#event-catalog) ·
+[Events from other features](#events-from-other-features) ·
+[The event envelope](#the-event-envelope) ·
 [Webhooks](#webhooks) · [Verifying signatures](#verifying-a-signature) ·
 [Polling feed](#polling-feed) · [The audit log](#the-audit-log) ·
 [Archiving](#archiving-old-entries) · [API](#api-reference) ·
@@ -94,16 +96,25 @@ The contract:
   Registration is descriptive only. An unregistered type is still logged and
   delivered to endpoints whose patterns match it.
 
-- **Add your types to the catalog below** in your feature's own document, and
-  link it from here when the branches are integrated.
+- **Document your types** in your feature's own document, and add a row for
+  their prefix to [Events from other features](#events-from-other-features).
 
-Item history needs nothing extra: `recordEvent()` in `services/items.ts`
-publishes every item event as `item.<action>`.
+Item history needs nothing extra: every row written to an item's history is
+published as `item.<action>`. `recordEvent()` in `services/items.ts` does it
+for single changes. Code that writes history in bulk (the tracking core,
+register reconciliation, offline field notes) publishes each row itself after
+its transaction commits, so a new bulk writer must do the same. Reader-driven
+moves (fixed readers, Bluetooth presence, GPS geofences) arrive as `item.moved`
+with a `device` actor naming the reader, gateway or tracker. Two things are
+published differently: the jobs core's per-line history rows go out together as
+one `job.stage_changed` per batch, and restoring a backup does not republish
+the history it brings back.
 
 ## Event catalog
 
-Every type the application emits today. `subject` is the subject type; ids are
-UUIDs unless stated.
+Every type the core application and the event backbone emit. Features add
+their own, listed in [Events from other features](#events-from-other-features).
+`subject` is the subject type; ids are UUIDs unless stated.
 
 | Type | Subject | When | `data` |
 | --- | --- | --- | --- |
@@ -111,7 +122,7 @@ UUIDs unless stated.
 | `item.updated` | `item` | An item changed | One of: `{ fields: string[] }` (edited fields, names only); `{ action: "checked_out" \| "checked_in", entity }`; `{ action: "unit_checked_out", unit, entity }`; `{ action: "unit_checked_in", entity }`; `{ spotCheck: "seen" \| "missing", by }`; `{ source: "registrar", flaggedMissing: true, reason }` |
 | `item.updated` | none | Bulk edit, or an audit applied | `{ bulk: true, ids: string[], set: { locationId?, utilizedByEntityId?, companyId?, status? } }`; `{ audit: true, seen: number, flaggedMissing: number }` |
 | `item.scanned` | `item` | A scanned code resolved to the item | `{ value }` (the code) |
-| `item.moved` | `item` | The item changed location (tracking hardware and later features) | `{ source, from, to, … }` as the emitting feature documents |
+| `item.moved` | `item` | The item changed zone. Fixed readers, Bluetooth presence and GPS geofences publish it with a `device` actor | `{ source: "tracking", tech, deviceId, deviceName, from, to, applied, unitId?, direction? }` from the [tracking core](tracking-core.md#building-on-the-tracking-core); other emitters document their own `source` |
 | `item.deleted` | `item` | An item was deleted | `{ itemId }` |
 | `item.deleted` | none | Bulk delete | `{ bulk: true, ids: string[] }` |
 | `audit.checkpoint` | `audit_log` (id: the head id) | Daily, and on demand | `{ headId, headHash, count, keyId, signature }`, see [Checkpoints](#checkpoints) |
@@ -125,6 +136,62 @@ UUIDs unless stated.
 
 Webhook events record the endpoint's host, not its full URL: for many
 receivers the path is itself a credential.
+
+## Events from other features
+
+Every feature that publishes events documents them in its own page. The prefix
+is what to put in a webhook's patterns or the feed's `types` (`custody.*`,
+`claim.*`). Every type below is registered in the code, so it appears in the
+webhook picker under its group.
+
+| Prefix | Feature | Types | Documented in |
+| --- | --- | --- | --- |
+| `item.*` | Items, every feature that changes one through `recordEvent`, and reader-driven moves from the tracking core | `created`, `updated`, `scanned`, `moved`, `deleted` | [Event catalog](#event-catalog) |
+| `job.*` | Projects, jobs and shipments | `created`, `updated`, `stage_changed`, `task_status_changed` | [Jobs and shipments](#jobs-and-shipments) |
+| `shipment.*` | Jobs (status) and GPS (milestones) | `status_changed`; `departed`, `waypoint_reached`, `arrived` | [Jobs and shipments](#jobs-and-shipments), [GPS](gps.md#events) |
+| `ble.*` | Bluetooth beacons | `tag_zone_changed`, `tag_moved_after_hours`, `tag_missing`, `tag_found`, `battery_low` | [Bluetooth](ble.md#alerts-and-events) |
+| `geofence.*` | GPS | `entered`, `exited`, `created`, `updated`, `deleted` | [GPS](gps.md#events) |
+| `tracker.*` | GPS | `assigned`, `unassigned`, `status_changed`, `battery_low` | [GPS](gps.md#events) |
+| `condition_report.*` | Condition records | `created`, `updated`, `deleted` | [Condition records](ai-condition.md#events) |
+| `container.*` | Container capture | `captured` | [Condition records](ai-condition.md#events) |
+| `condition_sweep.*` | Condition sweeps | `started`, `closed` | [Condition records](ai-condition.md#events) |
+| `inspection.*` | Site inspections | `created`, `finding_added`, `finding_updated`, `finding_removed`, `completed`, `reopened`, `signoff_added`, `signed`, `deleted`, `share_created`, `share_revoked` | [Inspections](inspections.md#events) |
+| `custody.*` | Chain of custody | `transferred`, `control_changed`, `link_issued`, `voided` | [Custody](custody.md#events) |
+| `portal.*` | External portal | `grant_created`, `grant_updated`, `grant_revoked`, `grant_reissued`, `accessed`, `access_denied`, `code_sent`, `code_verified`, `code_failed`, `scanned`, `note_added`, `photo_added`, `handoff_signed`, `notify_changed`, `notification_sent` | [Portal](portal.md#events) |
+| `claim.*` | Claims and incidents | `created`, `updated`, `status_changed`, `assigned`, `commented`, `lines_changed`, `exported`, `sla_breached` | [Claims](claims.md#events) |
+| `document.*` | Documents | `created`, `completed`, `reopened`, `signed`, `exported`, `deleted` | [Documents](documents.md#events) |
+| `document_packet.*` | Documents | `attached`, `withdrawn` | [Documents](documents.md#events) |
+| `document_template.*` | Documents | `published` | [Documents](documents.md#events) |
+| `crew.*` | Crew check-in | `checked_in`, `check_in_refused`, `check_in_overridden`, `checked_out`, `checkin_updated`, `checkin_deleted`, `worker_created`, `worker_updated`, `worker_deleted`, `credential_changed`, `credentials_expiring`, `policy_changed` | [Crew](crew.md#events) |
+| `valuation.*` | Valuation | `recorded`, `high_value_marked` | [Valuation](valuation.md#events) |
+| `declaration.*` | High-value declarations | `created`, `signed`, `deleted` | [Valuation](valuation.md#events) |
+| `receipt.*` | Receipts | `confirmed` | [Valuation](valuation.md#events) |
+| `warranty.*` | Warranty reminders | `expiring` | [Valuation](valuation.md#events) |
+| `service.*` | Service reminders | `due`, `logged` | [Valuation](valuation.md#events) |
+| `teardown.*` | Teardown guides | `guide_created`, `guide_processed`, `reassembly_completed`, `guide_deleted` | [Teardown](teardown.md#events) |
+| `capture_session.*` | AI bulk capture | `committed` | [Bulk capture](bulk-capture.md#events) |
+| `ops.*` | Operations insights | `anomaly_detected`, `anomaly_resolved`, `run_completed` | [Operations insights](ops-intel.md#events) |
+
+Attachments, register reconciliation, consumables, tag commissioning, offline
+field mode and placement publish no types of their own. Placement's and
+custody's stage changes arrive as `job.stage_changed`; tag binding, data
+plates and offline field notes as `item.updated`; and register reconciliation's
+actions and imports as `item.<action>` with `source: "register"`.
+
+### Jobs and shipments
+
+The jobs core has no event list of its own: its hooks are published by
+`services/integration/jobEvents.ts`. The actor is the person or API key that
+made the change; with no person behind it, the device that reported it; or
+else the system, under the name its source gave (a portal link, for example).
+
+| Type | Subject | When | `data` |
+| --- | --- | --- | --- |
+| `job.created` | `job` | A job was created | `{ code, name, status, previousStatus: null }` |
+| `job.updated` | `job` | A job's details or status changed | `{ code, name, status, previousStatus }` |
+| `job.stage_changed` | `job` | Manifest lines moved to a stage, by any route: scans, readers, placement, custody, portal crews | `{ via, deviceId, note, count, byStage, truncated, lines: [{ jobItemId, itemId, unitId, shipmentId, from, to }] }`, lines capped at 500 |
+| `job.task_status_changed` | `job` | A task changed status, by hand or following the manifest | `{ jobId, taskId, kind, title, from, to }` |
+| `shipment.status_changed` | `shipment` | A shipment moved between planned, staged, loaded, in transit, delivered and closed | `{ code, jobId, name, from, to, forced, reason }` |
 
 ## The event envelope
 

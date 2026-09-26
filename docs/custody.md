@@ -78,7 +78,8 @@ weakens the policy.
 
 **Custody** lists shipments on the road or at the door with no signed delivery
 yet (by the shipment's status, or by its lines being loaded). **Review and
-sign** opens the sign-off:
+sign** there, or **Delivery sign-off** on the shipment's own page, opens the
+sign-off:
 
 1. Say who is receiving. A delivery transfer is created holding every line on
    the shipment, each preset from its stage (a line already flagged damaged
@@ -372,21 +373,25 @@ CUSTODY_TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/bindex_cus
 ```
 
 The Postgres test switches the custody and jobs features on in the database it
-is given. It has its own variable because the event backbone's test drops and
-recreates whatever database `TEST_DATABASE_URL` names, and test files run in
-parallel.
+is given. It has its own variable so it runs against a database of its own:
+the event backbone's test drops and recreates whatever database
+`TEST_DATABASE_URL` names. Server test files now run one at a time
+(`--test-concurrency=1`), so the suites no longer race each other, but a
+separate database still keeps this one's feature switches and rows apart from
+the others'.
 
 ## Follow-ups
+
+Done at integration: the shipment page has a **Delivery sign-off** button
+linking to `/custody/shipments/:id/sign-off`, and [claims](claims.md) start
+from delivery lines marked damaged, missing or refused, with the transfer, its
+photos and its audit entry in the evidence. Still open:
 
 - Block moving and checking out a controlled item outside custody's own flows
   (the item page's move and check-out, bulk edits, the tracking core's zone
   moves) with a small hook in `services/items.ts` and `services/assignments.ts`,
   the way the stage guard works for jobs.
-- A **Delivery sign-off** button on the shipment page (T03's screen) linking to
-  `/custody/shipments/:id/sign-off`, and the item's current custodian on the
-  job manifest.
-- Claims (T16): start a claim from a delivery line marked damaged or missing;
-  the transfer, its photos and its audit entry are the evidence.
+- Show the item's current custodian on the job manifest.
 - Portal (T15): offer the receiver's signing link inside the stakeholder
   portal instead of a bare URL, and let a third-party crew be a party.
 - Send the signing link by email or SMS when a notification channel exists.

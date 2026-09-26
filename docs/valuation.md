@@ -166,9 +166,9 @@ snapshot: changing or deleting the item later does not change what was
 declared. The PDF shows current item photos next to the declared facts.
 
 Declaration scopes are a location (including the locations inside it), a group
-(`company`), or a job. Jobs are not a record in this build, so a job-scoped
-declaration carries the job reference as text; see
-[Limits](#limits-and-follow-ups).
+(`company`), or a job. A job-scoped declaration carries the job reference as
+text: it was built before jobs were merged and does not yet link to the job
+record; see [Limits](#limits-and-follow-ups).
 
 ## Reminders
 
@@ -337,9 +337,9 @@ and signature registries, so their files and signatures are swept with them.
 
 ## Limits and follow-ups
 
-- **Jobs.** The jobs feature (T03) is not in this build, so a job-scoped
-  declaration stores the job's reference as text. Once jobs exist, the scope
-  should link to the job and fill the declaration from the job's items.
+- **Jobs.** Jobs (T03) are now in the build, but a job-scoped declaration
+  still stores the job's reference as text. Linking the scope to the job and
+  filling the declaration from the job's manifest is a follow-up.
 - **Currencies.** Values are in the instance currency; an estimate or receipt
   in another currency is flagged, not converted.
 - **Estimates.** The model sees the photos only. A cross-check against more

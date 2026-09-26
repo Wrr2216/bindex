@@ -362,14 +362,16 @@ server/tests/crew-verifier.test.ts      the verifier call
 server/tests/crew-db.test.ts            the whole flow on Postgres (opt-in)
 ```
 
+## Integration
+
+- A badge QR scanned **outside** a check-in screen opens the worker's page:
+  the global scan handler (`client/src/scan/ScanProvider.tsx`) routes
+  `/crew/badge/` links there while the feature is on (78ba7f2).
+- The job page links to its check-in board (`/crew/jobs/:id`) while the
+  feature is on (1ca09fe).
+
 ## Follow-ups
 
-- A badge QR scanned **outside** a check-in screen goes through the global
-  scan overlay, which only knows item links, and offers to create an item.
-  Routing `/crew/badge/` links in `client/src/scan/ScanProvider.tsx` to the
-  worker page is a one-line change in a file this feature does not own.
-- A link from the job page to its check-in board (`/crew/jobs/:id`) belongs in
-  the jobs screens; for now the board is reached from Crew → Check-in.
 - Fixed badge readers at a gate (a tracking-core device posting badge reads
   to a job) would let a turnstile check people in without a tablet.
 - Shifts left open are flagged after 14 hours on the board but never closed

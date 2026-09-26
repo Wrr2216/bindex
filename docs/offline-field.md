@@ -180,9 +180,13 @@ file unstamped; it then keeps files as it sees them instead of all at once.
 
 ### Idempotency-Key
 
-Every state-changing request under `/api` (`POST`, `PUT`, `PATCH`, `DELETE`)
-accepts an `Idempotency-Key` header, from any client, following the IETF
-httpapi Idempotency-Key draft:
+Every state-changing request (`POST`, `PUT`, `PATCH`, `DELETE`) made with a
+session or an API key accepts an `Idempotency-Key` header, from any client,
+following the IETF httpapi Idempotency-Key draft. The middleware is mounted on
+the session and API-key router (`server/src/routes/api.ts`), so it does not
+cover the routes mounted outside it, which authenticate with their own tokens:
+`/api/device/*`, `/api/portal/*`, `/api/claims-portal/*`, `/api/share/*` and
+`/api/custody-public/*`. Those ignore the header.
 
 - The key is 1 to 255 visible characters, bare or quoted. A UUID is ideal.
 - The first request with a key runs normally. If it succeeds (2xx), its answer
