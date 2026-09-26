@@ -229,3 +229,4 @@ export * from "./tables/valuation";
 export * from "./tables/crew";
 export * from "./tables/custody";
 export * from "./tables/teardown";
+export * from "./tables/gps";

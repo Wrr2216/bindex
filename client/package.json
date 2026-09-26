@@ -11,12 +11,14 @@
   },
   "dependencies": {
     "@zxing/browser": "^0.2.0",
+    "leaflet": "^1.9.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.16.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.0",
+    "@types/leaflet": "^1.9.22",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.0.2",

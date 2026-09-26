@@ -38,6 +38,7 @@ export function Layout() {
     ...(features.crew ? [{ to: "/crew", label: "Crew" }] : []),
     ...(features.custody ? [{ to: "/custody", label: "Custody" }] : []),
     ...(features.teardown ? [{ to: "/teardown", label: "Teardowns" }] : []),
+    ...(features.gps && features.tracking ? [{ to: "/gps", label: "Map" }] : []),
     { to: "/settings", label: "Settings" },
   ];
 

@@ -42,6 +42,7 @@ import { DeclarationPage, ReceiptPage, ValuationPage } from "./features/valuatio
 import { CrewBadgePage, CrewCheckInPage, CrewPage, CrewSettingsPage, CrewWorkerPage } from "./features/crew";
 import { CustodyPage, NewTransferPage, SignOffPage, TransferPage } from "./features/custody";
 import { GuidePage, TeardownList } from "./features/teardown";
+import { GeofencesPage, GpsMapPage, ShipmentMapPage, TrackersPage, TrailPage } from "./features/gps";
 
 function Loading() {
   return (
@@ -120,6 +121,14 @@ function AppShell() {
           {features.custody && <Route path="custody/shipments/:id/sign-off" element={<SignOffPage />} />}
           {features.teardown && <Route path="teardown" element={<TeardownList />} />}
           {features.teardown && <Route path="teardown/:id" element={<GuidePage />} />}
+          {features.gps && features.tracking && <Route path="gps" element={<GpsMapPage />} />}
+          {features.gps && features.tracking && <Route path="gps/trackers" element={<TrackersPage />} />}
+          {features.gps && features.tracking && <Route path="gps/trackers/:id" element={<TrailPage />} />}
+          {features.gps && features.tracking && <Route path="gps/items/:id" element={<TrailPage />} />}
+          {features.gps && features.tracking && <Route path="gps/geofences" element={<GeofencesPage />} />}
+          {features.gps && features.tracking && features.jobs && (
+            <Route path="gps/shipments/:id" element={<ShipmentMapPage />} />
+          )}
         </Route>
       </Routes>
       <NfcTapLayer />

@@ -38,6 +38,7 @@ import {
 } from "./valuation/backup";
 import { clearCrewTables, exportCrewTables, predatesCrew, restoreCrewTables } from "./crew/backup";
 import { clearCustodyTables, exportCustodyTables, restoreCustodyTables } from "./custody/backup";
+import { clearGpsTables, exportGpsTables, restoreGpsTables } from "./gps/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -108,6 +109,9 @@ const TABLES = [
   "teardown_guides",
   "teardown_steps",
   "teardown_parts",
+  "geofences",
+  "gps_trackers",
+  "gps_tracker_links",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -158,6 +162,9 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   teardown_guides: ["refinedAt", "jobQueuedAt", "jobStartedAt", "jobHeartbeatAt", "jobFinishedAt", "createdAt", "updatedAt"],
   teardown_steps: ["createdAt", "updatedAt"],
   teardown_parts: ["reassembledAt", "createdAt", "updatedAt"],
+  geofences: ["geometryAt", "createdAt", "updatedAt"],
+  gps_trackers: ["statusAt"],
+  gps_tracker_links: ["assignedAt", "endedAt"],
 };
 
 export type Backup = {
@@ -212,6 +219,7 @@ export async function buildBackup(): Promise<Backup> {
     teardown_guides: tdGuides,
     teardown_steps: tdSteps,
     teardown_parts: tdParts,
+    ...(await exportGpsTables()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -294,6 +302,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     // explicitly keeps the order visible.
     await clearCrewTables(tx, { keep: predatesCrew(d) });
     await clearCustodyTables(tx);
+    await clearGpsTables(tx);
     await clearJobsCoreTables(tx, { keepJobTypes: d.job_types.length === 0 });
     await tx.delete(itemAssignments);
     await tx.delete(trackingDevices);
@@ -403,6 +412,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
       for (const part of chunk(d.teardown_steps, 500)) await tx.insert(teardownSteps).values(part as never);
       for (const part of chunk(d.teardown_parts, 500)) await tx.insert(teardownParts).values(part as never);
     }
+    await restoreGpsTables(tx, d);
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,

@@ -296,6 +296,7 @@ export interface Features {
   crew: boolean;
   custody: boolean;
   teardown: boolean;
+  gps: boolean;
 }
 
 /**

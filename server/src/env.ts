@@ -190,6 +190,20 @@ const schema = z.object({
   // step. Optional: without it on PATH (or at this path) those steps are
   // skipped and the guide is written by hand.
   FFMPEG_PATH: z.string().default("ffmpeg"),
+  // ---- T10: GPS trackers, maps and geofences -----------------------------
+  // Map tiles. OpenStreetMap's own servers are for light use only; point these
+  // at a self-hosted or commercial tile service for a fleet. {s}, {z}, {x}, {y}
+  // are Leaflet placeholders.
+  MAP_TILE_URL: z.string().default("https://tile.openstreetmap.org/{z}/{x}/{y}.png"),
+  MAP_ATTRIBUTION: z
+    .string()
+    .default('&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'),
+  MAP_MAX_ZOOM: z.coerce.number().int().min(1).max(24).default(19),
+  // A fix that would need more than this speed (metres per second) to reach
+  // from the last one is a jump and is not believed. 70 m/s is 250 km/h.
+  GPS_MAX_SPEED_MPS: z.coerce.number().positive().default(70),
+  // Warn when a tracker's battery is at or below this percentage.
+  GPS_BATTERY_LOW_PCT: z.coerce.number().int().min(0).max(100).default(20),
 });
 
 const parsed = schema.safeParse(process.env);

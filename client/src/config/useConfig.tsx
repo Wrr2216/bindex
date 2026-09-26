@@ -50,6 +50,7 @@ const FALLBACK: AppConfig = {
     crew: false,
     custody: false,
     teardown: false,
+    gps: false,
   },
   label: { widthMm: 62, heightMm: 25.4 },
   integrations: {

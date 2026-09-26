@@ -161,6 +161,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Film a teardown while narrating it, and get numbered steps tied to the video, a parts list to tick off at reassembly, a printable report and hardware bag labels. Reading the narration needs speech to text and a language model; without them steps are written by hand.",
   },
+  {
+    key: "gps",
+    title: "GPS tracking",
+    description:
+      "Follow GPS trackers on a map, draw geofences around sites, and let shipments go in transit and arrive on their own. Needs Readers, beacons and trackers.",
+  },
 ];
 
 export function InstanceSettings() {

@@ -13,6 +13,7 @@ import { BulkCaptureSettingsSection } from "../features/bulk-capture/SettingsSec
 import { ConditionSettingsSection } from "../features/ai-condition";
 import { ValuationSettingsSection } from "../features/valuation/ValuationSettingsSection";
 import { CrewSettingsSection } from "../features/crew";
+import { GpsSettingsSection } from "../features/gps/GpsSettingsSection";
 import type { NinjaStatus, RegistrarStatus, SyncRun } from "../types";
 
 /** The NinjaOne connect flow returns here with a query parameter to report on. */
@@ -295,6 +296,7 @@ export function Settings() {
           <ConditionSettingsSection />
           <ValuationSettingsSection />
           {config.features.crew && <CrewSettingsSection />}
+          {config.features.gps && config.features.tracking && <GpsSettingsSection />}
         </>
       )}
     </div>
