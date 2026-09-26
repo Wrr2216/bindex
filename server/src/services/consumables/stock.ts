@@ -213,7 +213,10 @@ async function applyPlan(tx: Tx, plan: MovementPlan, ctx: Context) {
   }
 
   const levels: { locationId: string; qty: number }[] = [];
-  for (const change of plan.levelChanges) {
+  // Rows are locked in location order, so a transfer from A to B and one from
+  // B to A at the same moment wait for each other instead of deadlocking.
+  const changes = [...plan.levelChanges].sort((a, b) => a.locationId.localeCompare(b.locationId));
+  for (const change of changes) {
     const delta = String(change.delta);
     if (change.delta > 0 || plan.mayGoNegative) {
       const res = await tx.execute<{ qty: string }>(sql`

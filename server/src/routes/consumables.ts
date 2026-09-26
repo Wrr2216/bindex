@@ -1,7 +1,7 @@
 import { Router, type Request } from "express";
 import { z } from "zod";
 import { asyncHandler, parse, param } from "../lib/http";
-import { badRequest } from "../lib/errors";
+import { badRequest, notFound } from "../lib/errors";
 import { currentUser, requireAdmin } from "../auth/middleware";
 import { getConfig } from "../services/config";
 import { STOCK_REASONS } from "../services/consumables/ledger";
@@ -99,6 +99,13 @@ function dateParam(v: unknown, name: string): Date | undefined {
   return d;
 }
 
+/** A path id. Anything that is not a UUID cannot name a record, so it is a 404 rather than a database error. */
+function pathId(req: Request, name: string, what: string): string {
+  const id = param(req, name);
+  if (!uuid.safeParse(id).success) throw notFound(`${what} not found`);
+  return id;
+}
+
 function idParam(v: unknown, name: string): string | undefined {
   const s = str(v);
   if (s && !uuid.safeParse(s).success) throw badRequest(`${name} has to be an id.`);
@@ -136,22 +143,23 @@ consumablesRouter.get(
 consumablesRouter.get(
   "/items/:itemId",
   asyncHandler(async (req, res) => {
-    res.json(await getConsumableDetail(param(req, "itemId")));
+    res.json(await getConsumableDetail(pathId(req, "itemId", "Item")));
   }),
 );
 
 consumablesRouter.put(
   "/items/:itemId",
   asyncHandler(async (req, res) => {
-    await setConsumable(param(req, "itemId"), parse(settingsSchema, req.body));
-    res.json(await getConsumableDetail(param(req, "itemId")));
+    const itemId = pathId(req, "itemId", "Item");
+    await setConsumable(itemId, parse(settingsSchema, req.body));
+    res.json(await getConsumableDetail(itemId));
   }),
 );
 
 consumablesRouter.delete(
   "/items/:itemId",
   asyncHandler(async (req, res) => {
-    await removeConsumable(param(req, "itemId"));
+    await removeConsumable(pathId(req, "itemId", "Item"));
     res.status(204).end();
   }),
 );
@@ -225,7 +233,7 @@ consumablesRouter.post(
 consumablesRouter.get(
   "/locations/:id",
   asyncHandler(async (req, res) => {
-    res.json(await locationStock(param(req, "id")));
+    res.json(await locationStock(pathId(req, "id", "Location")));
   }),
 );
 
@@ -259,7 +267,7 @@ consumablesRouter.get(
   "/holders/:id",
   asyncHandler(async (req, res) => {
     const since = dateParam(req.query.since, "since") ?? startOfToday();
-    res.json(await holderDetail(param(req, "id"), since));
+    res.json(await holderDetail(pathId(req, "id", "Holder"), since));
   }),
 );
 
@@ -300,7 +308,7 @@ consumablesRouter.get(
 consumablesRouter.get(
   "/kits/:id",
   asyncHandler(async (req, res) => {
-    res.json(await getKit(param(req, "id")));
+    res.json(await getKit(pathId(req, "id", "Kit")));
   }),
 );
 
