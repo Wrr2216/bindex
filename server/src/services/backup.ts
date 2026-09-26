@@ -12,6 +12,7 @@ import {
   entities,
 } from "../db/schema";
 import { badRequest } from "../lib/errors";
+import { clearRegisterTables, registerBackupData, restoreRegisterTables } from "./register-reconcile/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -42,6 +43,11 @@ const TABLES = [
   "item_images",
   "item_events",
   "item_assignments",
+  "register_imports",
+  "register_rows",
+  "register_location_map",
+  "reconciliation_runs",
+  "reconciliation_results",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -56,6 +62,11 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   item_images: [],
   item_events: ["createdAt"],
   item_assignments: ["checkedOutAt", "checkedInAt"],
+  register_imports: ["createdAt", "updatedAt"],
+  register_rows: [],
+  register_location_map: ["createdAt", "updatedAt"],
+  reconciliation_runs: ["createdAt"],
+  reconciliation_results: ["resolvedAt"],
 };
 
 export type Backup = {
@@ -88,6 +99,7 @@ export async function buildBackup(): Promise<Backup> {
     item_images: imgs,
     item_events: evts,
     item_assignments: asg,
+    ...(await registerBackupData()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -154,6 +166,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     // Park them for the length of the transaction and put back those whose
     // item is in the snapshot, so /api/photos/:id links keep resolving.
     await tx.execute(sql`CREATE TEMP TABLE backup_kept_photos ON COMMIT DROP AS SELECT * FROM item_photos`);
+    await clearRegisterTables(tx);
     if (keepUnits) {
       await tx.execute(sql`CREATE TEMP TABLE backup_kept_units ON COMMIT DROP AS SELECT * FROM item_units`);
     }
@@ -209,6 +222,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     const present = new Set((await tx.select({ id: itemUnits.id }).from(itemUnits)).map((u) => u.id));
     d.item_assignments = d.item_assignments.filter((a) => !a.unitId || present.has(a.unitId as string));
     for (const part of chunk(d.item_assignments, 500)) await tx.insert(itemAssignments).values(part as never);
+    await restoreRegisterTables(tx, d);
     unitCount = present.size;
   });
 
