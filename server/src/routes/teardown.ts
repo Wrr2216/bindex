@@ -312,9 +312,12 @@ teardownRouter.get(
     if (!(await getConfig()).features.printing) {
       throw new HttpError(404, "feature_disabled", "Label printing is switched off. An administrator can turn it on in Settings.");
     }
+    // Step numbers to print; 0 is hardware not tied to a step. None means all.
     const steps = String(req.query.steps ?? "")
       .split(",")
-      .map((s) => Number(s.trim()))
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map(Number)
       .filter((n) => Number.isInteger(n) && n >= 0);
     const labels = await guideBagLabels(param(req, "id"), steps);
     if (!labels.length) {
