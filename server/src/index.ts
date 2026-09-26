@@ -24,6 +24,8 @@ import { startAttachmentSweeper } from "./services/media-ai-core";
 import { wireJobEvents } from "./services/integration/jobEvents";
 import { HttpError, describeError } from "./lib/errors";
 import { startEventBackbone } from "./services/event-backbone";
+import { portalRouter } from "./routes/portal";
+import { startPortalNotifier } from "./services/portal";
 
 const app = express();
 // One proxy hop, which is what a container behind a reverse proxy sees. Needed
@@ -58,6 +60,9 @@ app.use((req, res, next) => {
   if (req.path === "/api/backup/import" || req.path.startsWith("/api/device/")) return next();
   jsonParser(req, res, next);
 });
+// Portal links are for people without an account. Mounted before the session
+// so a portal request never reads or creates one (see routes/portal.ts).
+app.use("/api/portal", portalRouter);
 app.use(sessionMiddleware);
 app.use(attachTrustedUser);
 
@@ -141,6 +146,7 @@ async function main(): Promise<void> {
     startEventBackbone();
     startSightingsPrune();
     startAttachmentSweeper();
+    startPortalNotifier();
   });
 }
 

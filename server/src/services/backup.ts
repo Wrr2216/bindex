@@ -14,6 +14,7 @@ import {
 } from "../db/schema";
 import { badRequest } from "../lib/errors";
 import { clearJobsCoreTables, exportJobsCoreTables, restoreJobsCoreTables } from "./jobs-core/backup";
+import { exportPortalTables, keepPortalSecrets, restorePortalTables } from "./portal/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -54,6 +55,8 @@ const TABLES = [
   "shipment_status_history",
   "job_items",
   "job_item_stage_history",
+  "portal_grants",
+  "portal_notes",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -78,6 +81,8 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   shipment_status_history: ["createdAt"],
   job_items: ["stageAt", "createdAt", "updatedAt"],
   job_item_stage_history: ["createdAt"],
+  portal_grants: ["expiresAt", "revokedAt", "lastUsedAt", "createdAt", "updatedAt"],
+  portal_notes: ["createdAt"],
 };
 
 export type Backup = {
@@ -114,6 +119,7 @@ export async function buildBackup(): Promise<Backup> {
     item_assignments: asg,
     tracking_devices: devs,
     ...(await exportJobsCoreTables()),
+    ...(await exportPortalTables()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -186,6 +192,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     // Device tokens are not in the file, so keep the current devices aside to
     // carry their tokens over (and the devices themselves, for an older file).
     await tx.execute(sql`CREATE TEMP TABLE backup_kept_devices ON COMMIT DROP AS SELECT * FROM tracking_devices`);
+    await keepPortalSecrets(tx);
 
     // Children before parents. The foreign keys would cascade anyway; doing it
     // explicitly keeps the order visible.
@@ -263,6 +270,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
       await tx.execute(sql`INSERT INTO tracking_devices SELECT * FROM backup_kept_devices`);
     }
     await restoreJobsCoreTables(tx, d);
+    await restorePortalTables(tx, d);
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,
