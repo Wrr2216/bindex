@@ -16,6 +16,7 @@ import {
   endLink,
   firstDeviceKey,
   getGeofence,
+  ingestPayload,
   getTracker,
   itemTrail,
   listGeofenceEvents,
@@ -35,7 +36,6 @@ import {
   type Actor,
   type GpsPayload,
 } from "../services/gps";
-import { ingestPayload } from "../services/gps/ingest";
 
 /**
  * GPS tracking. Two routers:

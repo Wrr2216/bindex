@@ -148,6 +148,10 @@ export function TrailPage() {
               <Link to={`/items/${title.itemId}`} className="text-sky-400 hover:underline">
                 {title.itemName ?? terms.item.singular}
               </Link>
+              {" · "}
+              <Link to={`/gps/items/${title.itemId}`} className="text-sky-400 hover:underline">
+                everywhere it has been
+              </Link>
             </p>
           )}
           {isItem && (

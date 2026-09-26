@@ -53,7 +53,14 @@ export {
   type GeofenceInput,
   type GeofenceView,
 } from "./geofences";
-export { ingestTrackerReports, planBatch, trackerForKey, type GpsIngestResult } from "./ingest";
+export {
+  ingestPayload,
+  ingestTrackerReports,
+  planBatch,
+  trackerForKey,
+  type GpsIngestResult,
+  type PayloadResult,
+} from "./ingest";
 export {
   createLink,
   endLink,
