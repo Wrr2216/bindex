@@ -89,6 +89,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Photos, video and files on every record, and reading serial numbers and data plates from a photo of the label. Reading labels needs a vision model to be configured.",
   },
+  {
+    key: "aiCondition",
+    title: "AI condition and container capture",
+    description:
+      "Condition reports with before and after comparison, handling notes, condition sweeps, and container pack lists that add a box's contents in one step. The AI drafts need a vision model to be configured.",
+  },
 ];
 
 export function InstanceSettings() {

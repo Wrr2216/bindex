@@ -3,6 +3,7 @@ import type { Enrichment, ItemDetail, Location, OverlayState } from "../types";
 import { ItemForm } from "./ItemForm";
 import { ProductImage } from "./ProductImage";
 import { CloseIcon } from "./icons";
+import { HandlingNoteBanner } from "../features/ai-condition/HandlingNote";
 
 function IdentifierPills({ item }: { item: ItemDetail }) {
   return (
@@ -47,6 +48,7 @@ function FoundView({
         </div>
       </div>
       {item.description && <p className="text-sm text-slate-300">{item.description}</p>}
+      <HandlingNoteBanner itemId={item.id} compact />
       <IdentifierPills item={item} />
       {item.children.length > 0 && (
         <p className="text-sm text-slate-400">Contains {item.children.length} item(s).</p>

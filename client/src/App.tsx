@@ -20,6 +20,7 @@ import { AuditLogPage } from "./features/event-backbone/AuditLogPage";
 import { WebhooksPage } from "./features/event-backbone/WebhooksPage";
 import { LiveReads } from "./features/tracking-core/LiveReads";
 import { DevicesPage } from "./features/tracking-core/DevicesPage";
+import { ConditionPage, SweepPage } from "./features/ai-condition";
 
 function Loading() {
   return (
@@ -68,6 +69,8 @@ function AppShell() {
           <Route path="settings/webhooks" element={<WebhooksPage />} />
           {features.tracking && <Route path="tracking" element={<LiveReads />} />}
           {features.tracking && <Route path="settings/devices" element={<DevicesPage />} />}
+          {features.aiCondition && <Route path="condition" element={<ConditionPage />} />}
+          {features.aiCondition && <Route path="condition/sweeps/:id" element={<SweepPage />} />}
         </Route>
       </Routes>
     </ScanProvider>

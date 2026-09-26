@@ -25,6 +25,7 @@ export function Layout() {
     ...(features.holders ? [{ to: "/entities", label: terms.holder.plural }] : []),
     ...(features.audit ? [{ to: "/audit", label: "Audit" }] : []),
     ...(features.tracking ? [{ to: "/tracking", label: "Tracking" }] : []),
+    ...(features.aiCondition ? [{ to: "/condition", label: "Condition" }] : []),
     { to: "/settings", label: "Settings" },
   ];
 
