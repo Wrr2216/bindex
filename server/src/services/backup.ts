@@ -10,6 +10,7 @@ import {
   locations,
   companies,
   entities,
+  trackingDevices,
 } from "../db/schema";
 import { badRequest } from "../lib/errors";
 
@@ -42,6 +43,7 @@ const TABLES = [
   "item_images",
   "item_events",
   "item_assignments",
+  "tracking_devices",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -56,6 +58,7 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   item_images: [],
   item_events: ["createdAt"],
   item_assignments: ["checkedOutAt", "checkedInAt"],
+  tracking_devices: ["lastSeenAt", "createdAt", "updatedAt"],
 };
 
 export type Backup = {
@@ -67,7 +70,7 @@ export type Backup = {
 };
 
 export async function buildBackup(): Promise<Backup> {
-  const [co, loc, ent, it, units, ids, imgs, evts, asg] = await Promise.all([
+  const [co, loc, ent, it, units, ids, imgs, evts, asg, devs] = await Promise.all([
     db.select().from(companies),
     db.select().from(locations),
     db.select().from(entities),
@@ -77,6 +80,8 @@ export async function buildBackup(): Promise<Backup> {
     db.select().from(itemImages),
     db.select().from(itemEvents),
     db.select().from(itemAssignments),
+    // Device tokens are secrets and stay out of the file; see restoreBackup.
+    db.select().from(trackingDevices).then((rows) => rows.map(({ tokenHash: _t, tokenLast4: _l, ...d }) => d)),
   ]);
   const data: Backup["data"] = {
     companies: co,
@@ -88,6 +93,7 @@ export async function buildBackup(): Promise<Backup> {
     item_images: imgs,
     item_events: evts,
     item_assignments: asg,
+    tracking_devices: devs,
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -157,10 +163,14 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     if (keepUnits) {
       await tx.execute(sql`CREATE TEMP TABLE backup_kept_units ON COMMIT DROP AS SELECT * FROM item_units`);
     }
+    // Device tokens are not in the file, so keep the current devices aside to
+    // carry their tokens over (and the devices themselves, for an older file).
+    await tx.execute(sql`CREATE TEMP TABLE backup_kept_devices ON COMMIT DROP AS SELECT * FROM tracking_devices`);
 
     // Children before parents. The foreign keys would cascade anyway; doing it
     // explicitly keeps the order visible.
     await tx.delete(itemAssignments);
+    await tx.delete(trackingDevices);
     await tx.delete(itemEvents);
     await tx.delete(itemImages);
     await tx.delete(itemIdentifiers);
@@ -210,6 +220,27 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     d.item_assignments = d.item_assignments.filter((a) => !a.unitId || present.has(a.unitId as string));
     for (const part of chunk(d.item_assignments, 500)) await tx.insert(itemAssignments).values(part as never);
     unitCount = present.size;
+
+    // Devices come after the zones, items and units they point at.
+    if (d.tracking_devices.length) {
+      for (const part of chunk(d.tracking_devices, 500)) await tx.insert(trackingDevices).values(part as never);
+      await tx.execute(sql`
+        UPDATE tracking_devices t SET token_hash = k.token_hash, token_last4 = k.token_last4
+          FROM backup_kept_devices k WHERE k.id = t.id`);
+    } else {
+      // A file from before devices existed: keep the registry, minus links to
+      // records the snapshot no longer has.
+      await tx.execute(sql`
+        UPDATE backup_kept_devices k SET location_id = NULL
+        WHERE location_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM locations l WHERE l.id = k.location_id)`);
+      await tx.execute(sql`
+        UPDATE backup_kept_devices k SET item_id = NULL, unit_id = NULL
+        WHERE item_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM items i WHERE i.id = k.item_id)`);
+      await tx.execute(sql`
+        UPDATE backup_kept_devices k SET unit_id = NULL
+        WHERE unit_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM item_units u WHERE u.id = k.unit_id)`);
+      await tx.execute(sql`INSERT INTO tracking_devices SELECT * FROM backup_kept_devices`);
+    }
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,
