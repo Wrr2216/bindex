@@ -21,6 +21,7 @@ import { runRegistrarSync } from "./services/registrars/sync";
 import { sendExpiryDigest } from "./services/registrars/alerts";
 import { startSightingsPrune } from "./services/tracking/prune";
 import { startAttachmentSweeper } from "./services/media-ai-core";
+import { wireJobEvents } from "./services/integration/jobEvents";
 import { HttpError, describeError } from "./lib/errors";
 import { startEventBackbone } from "./services/event-backbone";
 
@@ -115,6 +116,7 @@ async function main(): Promise<void> {
   // synchronously and would otherwise use the defaults on the first requests.
   await seedConfig();
   await ensureBootstrapAdmin();
+  wireJobEvents();
 
   // Warm the identity provider client. A provider that is slow or briefly down
   // should not stop the server from starting.
