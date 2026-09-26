@@ -137,6 +137,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Survey a building's walls, doors, floors, docks and elevators before and after a move, compare the two, collect sign-off and share the report. Reading damage from a photo needs a vision model.",
   },
+  {
+    key: "valuation",
+    title: "Valuation and warranty",
+    description:
+      "Values with their history, AI estimates from photos, signed high-value declarations, receipts matched to items, warranty and service reminders, and an insurance valuation report.",
+  },
 ];
 
 export function InstanceSettings() {

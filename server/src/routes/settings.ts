@@ -70,6 +70,7 @@ const configPatch = z.object({
       bulkCapture: z.boolean().optional(),
       aiCondition: z.boolean().optional(),
       inspections: z.boolean().optional(),
+      valuation: z.boolean().optional(),
     })
     .optional(),
 });

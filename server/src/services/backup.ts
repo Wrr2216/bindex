@@ -25,6 +25,14 @@ import {
   restoreAiConditionRows,
 } from "./ai-condition/backup";
 import { exportInspectionTables, restoreInspectionTables } from "./inspections/backup";
+import {
+  VALUATION_DATE_FIELDS,
+  VALUATION_TABLES,
+  afterValuationRestore,
+  beforeValuationRestore,
+  valuationBackupData,
+  valuationTablesPresent,
+} from "./valuation/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -84,6 +92,7 @@ const TABLES = [
   "container_captures",
   "inspections",
   "inspection_findings",
+  ...VALUATION_TABLES,
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -123,6 +132,7 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   ...AI_CONDITION_DATE_FIELDS,
   inspections: ["startedAt", "completedAt", "signedAt", "createdAt", "updatedAt"],
   inspection_findings: ["createdAt", "updatedAt"],
+  ...VALUATION_DATE_FIELDS,
 };
 
 export type Backup = {
@@ -167,6 +177,7 @@ export async function buildBackup(): Promise<Backup> {
     tag_epcs: epcs,
     ...(await aiConditionBackupRows()),
     ...(await exportInspectionTables()),
+    ...(await valuationBackupData()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -210,6 +221,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
  * rather than half-restored.
  */
 export async function restoreBackup(input: unknown): Promise<{ restored: Record<TableName, number> }> {
+  const valuationPresent = valuationTablesPresent(input);
   const backup = parseBackup(input);
   const d = backup.data;
 
@@ -242,6 +254,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     await tx.execute(sql`CREATE TEMP TABLE backup_kept_devices ON COMMIT DROP AS SELECT * FROM tracking_devices`);
     // Condition records point at items, units and locations; set them aside too.
     await parkAiConditionRows(tx);
+    await beforeValuationRestore(tx, valuationPresent);
 
     // Children before parents. The foreign keys would cascade anyway; doing it
     // explicitly keeps the order visible.
@@ -338,6 +351,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
 
     await restoreAiConditionRows(tx, d);
     await restoreInspectionTables(tx, d);
+    await afterValuationRestore(tx, d, valuationPresent);
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,

@@ -34,6 +34,7 @@ export function Layout() {
     ...(bulkCapture ? [{ to: "/capture", label: "Capture" }] : []),
     ...(features.aiCondition ? [{ to: "/condition", label: "Condition" }] : []),
     ...(features.inspections ? [{ to: "/inspections", label: "Inspections" }] : []),
+    ...(features.valuation ? [{ to: "/valuation", label: "Valuation" }] : []),
     { to: "/settings", label: "Settings" },
   ];
 

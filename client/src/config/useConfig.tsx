@@ -46,6 +46,7 @@ const FALLBACK: AppConfig = {
     bulkCapture: false,
     aiCondition: true,
     inspections: false,
+    valuation: false,
   },
   label: { widthMm: 62, heightMm: 25.4 },
   integrations: {

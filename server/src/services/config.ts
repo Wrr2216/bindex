@@ -60,6 +60,8 @@ export type Features = {
   aiCondition: boolean;
   /** Pre- and post-move facility inspections with comparison, sign-off and share links. */
   inspections: boolean;
+  /** Values and their history, high-value declarations, receipts, warranty and service. */
+  valuation: boolean;
 };
 
 export type AppConfig = {
@@ -120,6 +122,7 @@ const KEYS = {
   featureBulkCapture: "features.bulk_capture",
   featureAiCondition: "features.ai_condition",
   featureInspections: "features.inspections",
+  featureValuation: "features.valuation",
 } as const;
 
 function defaults(): AppConfig {
@@ -160,6 +163,7 @@ function defaults(): AppConfig {
       bulkCapture: true,
       aiCondition: true,
       inspections: false,
+      valuation: true,
     },
   };
 }
@@ -229,6 +233,7 @@ function build(stored: Map<string, string>): AppConfig {
       bulkCapture: flag(KEYS.featureBulkCapture, base.features.bulkCapture),
       aiCondition: flag(KEYS.featureAiCondition, base.features.aiCondition),
       inspections: flag(KEYS.featureInspections, base.features.inspections),
+      valuation: flag(KEYS.featureValuation, base.features.valuation),
     },
   };
 }
@@ -325,6 +330,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   bulkCapture: KEYS.featureBulkCapture,
   aiCondition: KEYS.featureAiCondition,
   inspections: KEYS.featureInspections,
+  valuation: KEYS.featureValuation,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {

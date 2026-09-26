@@ -292,6 +292,7 @@ export interface Features {
   bulkCapture: boolean;
   aiCondition: boolean;
   inspections: boolean;
+  valuation: boolean;
 }
 
 /**

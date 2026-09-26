@@ -29,6 +29,7 @@ import { idempotency, offlineFieldRouter } from "./offline-field";
 import { bulkCaptureRouter } from "./bulk-capture";
 import { aiConditionRouter } from "./ai-condition";
 import { inspectionsRouter } from "./inspections";
+import { valuationRouter } from "./valuation";
 
 export const apiRouter = Router();
 
@@ -68,6 +69,7 @@ apiRouter.use("/offline", offlineFieldRouter);
 apiRouter.use("/bulk-capture", bulkCaptureRouter);
 apiRouter.use("/condition", aiConditionRouter);
 apiRouter.use("/inspections", inspectionsRouter);
+apiRouter.use("/valuation", valuationRouter);
 
 apiRouter.delete(
   "/identifiers/:id",

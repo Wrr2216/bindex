@@ -38,6 +38,7 @@ import { CaptureListPage } from "./features/bulk-capture/CaptureListPage";
 import { CaptureSessionPage } from "./features/bulk-capture/CaptureSessionPage";
 import { ConditionPage, SweepPage } from "./features/ai-condition";
 import { InspectionDetailPage, InspectionsListPage } from "./features/inspections";
+import { DeclarationPage, ReceiptPage, ValuationPage } from "./features/valuation";
 
 function Loading() {
   return (
@@ -102,6 +103,9 @@ function AppShell() {
           {features.aiCondition && <Route path="condition/sweeps/:id" element={<SweepPage />} />}
           {features.inspections && <Route path="inspections" element={<InspectionsListPage />} />}
           {features.inspections && <Route path="inspections/:id" element={<InspectionDetailPage />} />}
+          {features.valuation && <Route path="valuation" element={<ValuationPage />} />}
+          {features.valuation && <Route path="valuation/declarations/:id" element={<DeclarationPage />} />}
+          {features.valuation && <Route path="valuation/receipts/:id" element={<ReceiptPage />} />}
         </Route>
       </Routes>
       <NfcTapLayer />
