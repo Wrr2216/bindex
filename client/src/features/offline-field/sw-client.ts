@@ -19,15 +19,19 @@ function offer(worker: ServiceWorker): void {
 
 function track(reg: ServiceWorkerRegistration): void {
   const sw = navigator.serviceWorker;
-  // A worker waiting while another controls the page is an update; the very
-  // first install has nothing to replace and takes over by itself.
-  if (reg.waiting && sw.controller) offer(reg.waiting);
-  reg.addEventListener("updatefound", () => {
-    const next = reg.installing;
+  const follow = (next: ServiceWorker | null) => {
     next?.addEventListener("statechange", () => {
       if (next.state === "installed" && sw.controller) offer(next);
     });
-  });
+  };
+  // A worker waiting while another controls the page is an update; the very
+  // first install has nothing to replace and takes over by itself.
+  if (reg.waiting && sw.controller) offer(reg.waiting);
+  // The browser checks for a new worker on every navigation, so one may
+  // already be installing by the time the app gets here, its updatefound
+  // long gone.
+  follow(reg.installing);
+  reg.addEventListener("updatefound", () => follow(reg.installing));
 }
 
 let started = false;
