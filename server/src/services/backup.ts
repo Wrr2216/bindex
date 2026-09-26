@@ -57,7 +57,12 @@ import { CLAIMS_DATE_FIELDS, clearClaimsTables, exportClaimsTables, restoreClaim
  */
 export const BACKUP_FORMAT = "bindex.backup";
 // 4 added item_units.
-export const BACKUP_VERSION = 4;
+// 5 added the warehouse and relocation features: tracking devices, jobs and
+// shipments, register reconciliation, consumables, tag commissioning,
+// condition records, inspections, valuation, crew, custody, GPS, placement,
+// documents, portal links, claims, teardown guides and operations profiles.
+// Each restores a version 4 file by leaving its own records as they are.
+export const BACKUP_VERSION = 5;
 
 // Files written before this project was renamed. Accepted on import so an
 // existing backup is not stranded; never written.
