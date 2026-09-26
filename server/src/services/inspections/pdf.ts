@@ -222,8 +222,12 @@ function photoRow(w: Writer, images: Map<string, PDFImage>, ids: string[], label
   }
 }
 
+/** Room for a heading, a line or two, and the first row of photos, so a photo never starts a page alone. */
+const blockHeight = (photoIds: string[], images: Map<string, PDFImage>, text = 46) =>
+  text + (photoIds.some((id) => images.has(id)) ? PHOTO_H + 10 : 0);
+
 function findingBlock(w: Writer, f: ReportFinding, images: Map<string, PDFImage>, prefix = "#") {
-  w.need(46);
+  w.need(blockHeight(f.photos.map((p) => p.id), images));
   const place = `${prefix}${f.number}  ${f.spotLabel}${f.spotDetail ? `, ${f.spotDetail}` : ""}`;
   w.text(place, MARGIN, 10, { font: w.bold });
   let x = MARGIN + w.width(place, 10, w.bold) + 8;
@@ -267,7 +271,8 @@ function comparisonSummary(w: Writer, counts: Record<string, number>) {
 
 function comparisonEntry(w: Writer, e: ReportComparisonEntry, images: Map<string, PDFImage>) {
   const f = (e.post ?? e.pre)!;
-  w.need(52);
+  const shown = e.change === "new" || e.change === "worsened" ? (e.post?.photos ?? []).map((p) => p.id) : [];
+  w.need(blockHeight(shown, images, 60));
   const tag = e.change === "new" ? "NEW" : e.change === "worsened" ? "WORSENED" : e.change === "resolved" ? "GONE" : "SAME";
   const color = CHANGE_COLOR[e.change]!;
   w.text(tag, MARGIN, 8.5, { font: w.bold, color });
@@ -444,7 +449,9 @@ export async function renderInspectionPdf(report: InspectionReport, images: Imag
     w.para("No damage was recorded at this site.", MARGIN, 10, CONTENT_W, { color: muted });
   }
   for (const room of report.rooms) {
-    w.need(60);
+    w.y -= 6;
+    const first = room.findings[0];
+    w.need(24 + (first ? blockHeight(first.photos.map((p) => p.id), embedded) : 0));
     w.page.drawRectangle({ x: MARGIN, y: w.y - 5, width: CONTENT_W, height: 18, color: band });
     w.text(`${room.area === "inside" ? "Inside" : "Outside"} · ${room.room}`, MARGIN + 6, 10.5, { font: bold });
     const count = `${room.findings.length} finding${room.findings.length === 1 ? "" : "s"}`;
@@ -469,9 +476,13 @@ export async function renderInspectionPdf(report: InspectionReport, images: Imag
     const h = signatureBox(w, MARGIN, w.y, colW, s.signerRole ?? "Other signature", s, embedded, tz);
     w.y -= h + 10;
   }
-  const statement = sigs.find((s) => s.statement)?.statement;
-  if (statement) {
-    w.para(`Statement signed: "${statement}"`, MARGIN, 8.5, CONTENT_W, { color: muted });
+  // Each role agrees to its own words; print each once.
+  const statements = new Map<string, string>();
+  for (const s of report.signoffs) if (s.signature) statements.set(s.signature.statement, s.label);
+  for (const s of report.otherSignatures) if (!statements.has(s.statement)) statements.set(s.statement, s.signerRole ?? "Other");
+  for (const [statement, who] of statements) {
+    w.para(`${who} signed: "${statement}"`, MARGIN, 8.5, CONTENT_W, { color: muted });
+    w.y -= 2;
   }
   w.y -= 4;
   w.para(

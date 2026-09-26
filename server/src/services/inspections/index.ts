@@ -1,11 +1,11 @@
 import { env } from "../../env";
+import { badRequest } from "../../lib/errors";
 import { logger } from "../../lib/logger";
 import { getAttachment, readAttachmentBytes, thumbnail } from "../media-ai-core";
 import { matchWithAi, readDamage, type DamageSuggestion } from "./ai";
 import { knownRooms, loadInspection, storeAiPairs } from "./inspections";
 import { renderInspectionPdf, type ReportImage } from "./pdf";
 import { buildReport } from "./report";
-import { badRequest } from "../../lib/errors";
 
 /**
  * Pre- and post-move facility inspections: the public surface. Other features

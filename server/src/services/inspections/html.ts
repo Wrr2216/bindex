@@ -33,7 +33,7 @@ dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px;margin:0}dt{c
 .photos{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.photos img{width:200px;max-width:100%;height:150px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;background:#e2e8f0}
 .label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:8px}
 .sigs{display:grid;grid-template-columns:1fr 1fr;gap:12px}.sig img{max-width:100%;height:70px;object-fit:contain;background:#fff}
-.ok{color:#047857;font-weight:600}.bad{color:#b91c1c;font-weight:600}
+.ok{color:#047857;font-weight:600}.bad{color:#b91c1c;font-weight:600}.hash{overflow-wrap:anywhere}
 @media (max-width:600px){.counts{grid-template-columns:repeat(2,1fr)}.sigs{grid-template-columns:1fr}}
 @media print{.bar a{display:none}body{background:#fff}}
 `;
@@ -140,7 +140,7 @@ ${section("New damage", by("new"))}${section("Worse than before", by("worsened")
 <div class="kicker">${esc(opts.appName)} · Site inspection report</div>
 <h1>${esc(report.kindLabel)}</h1><p class="site">${esc(report.siteName)} · ${esc(report.code)}</p>
 <div class="bar"><span class="small muted">Read-only link, valid until ${esc(formatWhen(opts.expiresAt, tz))}.</span>
-<a class="btn" href="${base}/report.pdf">Download the PDF</a></div>
+<a class="btn" href="${base}/report.pdf${opts.tz ? `?tz=${esc(encodeURIComponent(opts.tz))}` : ""}">Download the PDF</a></div>
 <dl>${details.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
 <p><b>${n ? `${n} finding${n === 1 ? "" : "s"} in ${report.rooms.length} room${report.rooms.length === 1 ? "" : "s"} or areas.` : "No damage was recorded."}</b></p>
 ${report.notes ? `<p class="small">Notes: ${esc(report.notes)}</p>` : ""}
@@ -148,7 +148,7 @@ ${comparison}
 <h2>Findings by room</h2>${rooms || `<p class="muted">No damage was recorded at this site.</p>`}
 <h2>Sign-off</h2><div class="sigs">${report.signoffs.map((s) => signature(base, s.label, s.signature, tz)).join("")}</div>
 ${report.otherSignatures.map((s) => signature(base, s.signerRole ?? "Other signature", s, tz)).join("")}
-<p class="small muted">Content fingerprint: ${esc(report.contentHash)}</p>
+<p class="small muted hash">Content fingerprint: ${esc(report.contentHash)}</p>
 </main></body></html>`;
 }
 
