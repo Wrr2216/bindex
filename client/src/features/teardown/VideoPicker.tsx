@@ -45,9 +45,11 @@ export function VideoPicker({
     });
     return () => {
       live = false;
-      abort.current?.abort();
     };
   }, [ownersKey]);
+
+  // Closing the dialog cancels an upload still going.
+  useEffect(() => () => abort.current?.abort(), []);
 
   const upload = async (file: File | undefined) => {
     if (!file || !target) return;
