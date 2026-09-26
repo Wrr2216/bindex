@@ -95,6 +95,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Plan moves and deliveries as jobs, print floor and department manifests, and scan everything through pack, load, deliver and place.",
   },
+  {
+    key: "portal",
+    title: "External portal",
+    description:
+      "Share a project, job or shipment with someone outside through a link: customers follow progress, and subcontracted crews scan, add photos and sign. Needs projects, jobs and shipments.",
+  },
 ];
 
 export function InstanceSettings() {

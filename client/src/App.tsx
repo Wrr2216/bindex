@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/useAuth";
 import { SignIn } from "./auth/SignIn";
 import { ConfigProvider, useConfig, useFeatures } from "./config/useConfig";
@@ -28,6 +28,7 @@ import {
   ProjectsPage,
   ShipmentDetailPage,
 } from "./features/jobs-core";
+import { PortalAdminPage, PortalLinkPage } from "./features/portal";
 
 function Loading() {
   return (
@@ -38,6 +39,11 @@ function Loading() {
 function Gate() {
   const { user, loading } = useAuth();
   const { loading: configLoading } = useConfig();
+  const { pathname } = useLocation();
+
+  // A portal link is for someone without an account: it never asks them to
+  // sign in, and the link itself is all it authenticates with.
+  if (pathname.startsWith("/p/")) return <PortalLinkPage />;
 
   // Both have to land before anything renders. The sign-in screen shows the
   // instance name, and every screen behind it reads the vocabulary and the
@@ -82,6 +88,7 @@ function AppShell() {
           {features.jobs && <Route path="projects/:id" element={<ProjectDetailPage />} />}
           {features.jobs && <Route path="shipments/:id" element={<ShipmentDetailPage />} />}
           {features.jobs && <Route path="settings/job-types" element={<JobTypesPage />} />}
+          {features.portal && <Route path="portal" element={<PortalAdminPage />} />}
         </Route>
       </Routes>
     </ScanProvider>

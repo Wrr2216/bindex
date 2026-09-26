@@ -25,6 +25,7 @@ import {
   type Progress,
 } from "../jobs-core";
 import { getAttachmentStream, thumbnail } from "../media-ai-core";
+import { HANDOFF_STATEMENT } from "./handoff";
 import { mailAvailable } from "./mailer";
 import { buildMilestones, noticeFromEvent, type Milestone } from "./milestones";
 import {
@@ -86,6 +87,7 @@ export async function sessionInfo(grant: PortalGrant, scope: PortalScopeView | n
             }),
             photoStages,
             conditions: [...NOTE_CONDITIONS],
+            handoffStatement: HANDOFF_STATEMENT,
             shipments:
               scope.kind === "job"
                 ? scope.shipments.map((s) => ({ id: s.id, code: s.code, name: s.name, status: s.status }))
