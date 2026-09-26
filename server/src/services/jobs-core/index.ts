@@ -36,6 +36,11 @@ export {
   type TaskEvent,
 } from "./hooks";
 export type { Actor } from "./shared";
+export {
+  registerManifestNotes,
+  type ManifestNoteProvider,
+  type ManifestNoteRef,
+} from "./manifestNotes";
 
 export {
   listJobTypes,

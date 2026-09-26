@@ -5,6 +5,7 @@ import { env } from "../../env";
 import { getConfig } from "../config";
 import { getJob } from "./jobs";
 import { loadPlaceIndex, selectLines, type ManifestLine } from "./manifest";
+import { manifestNotesFor } from "./manifestNotes";
 import { isExceptionStage, stageLabel } from "./model";
 import { pathOf, type PlaceIndex } from "./places";
 import {
@@ -139,11 +140,16 @@ async function manifestContext(jobId: string, f: DocumentFilters) {
     shipment ? `Shipment ${shipment.code}  ${shipment.name}` : "",
     filterSummary(f) ?? "",
   ].filter(Boolean);
-  return { job, lines, index, details };
+  const notes = await manifestNotesFor(lines.map((l) => ({ itemId: l.itemId, unitId: l.unitId })));
+  return { job, lines, index, details, notes };
 }
 
+/** The line's own sub-line with any note other features print under it. */
+const withNote = (sub: string | null, note: string | null | undefined) =>
+  note ? (sub ? `${sub}  ·  ${note}` : note) : sub;
+
 export async function jobManifestPdf(jobId: string, f: DocumentFilters, tz: string): Promise<Buffer> {
-  const { job, lines, index, details } = await manifestContext(jobId, f);
+  const { job, lines, index, details, notes } = await manifestContext(jobId, f);
   const by = f.groupBy ?? "floor";
   const groups: ManifestDocGroup[] = [];
   let n = 0;
@@ -158,7 +164,7 @@ export async function jobManifestPdf(jobId: string, f: DocumentFilters, tz: stri
     const line: ManifestDocLine = {
       index: ++n,
       itemName: l.itemName,
-      sub: d.sub,
+      sub: withNote(d.sub, notes[n - 1]),
       code: d.code,
       crate: l.crateNo,
       from: d.from,
@@ -243,6 +249,7 @@ export async function shipmentLoadSheetPdf(shipmentId: string, tz: string): Prom
     ["Departed", when(shipment.departedAt)],
     ["Arrived", when(shipment.arrivedAt)],
   ];
+  const notes = await manifestNotesFor(lines.map((l) => ({ itemId: l.itemId, unitId: l.unitId })));
   const sheetLines: LoadSheetLine[] = lines.map((l, i) => {
     const d = describeLine(l, index);
     const c = checks(l.stage);
@@ -250,7 +257,7 @@ export async function shipmentLoadSheetPdf(shipmentId: string, tz: string): Prom
       index: i + 1,
       crate: l.crateNo,
       itemName: l.itemName,
-      sub: d.sub,
+      sub: withNote(d.sub, notes[i]),
       code: d.code,
       to: d.to,
       exception: d.exception,
