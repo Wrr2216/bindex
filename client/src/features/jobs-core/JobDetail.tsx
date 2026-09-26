@@ -4,6 +4,8 @@ import { api } from "../../api/client";
 import { useFeatures, useTerms } from "../../config/useConfig";
 import type { Entity } from "../../types";
 import { jobsApi } from "./api";
+import { JobLinks } from "../integration/JobLinks";
+import { JobDocumentsPanel } from "../documents";
 import { Manifest } from "./Manifest";
 import { ScanToStage } from "./ScanToStage";
 import type { GroupBy, HistoryEntry, JobDetail as Job, JobType, JobsMeta, LabelledGroup, ProjectDetail } from "./types";
@@ -74,6 +76,7 @@ export function JobDetail() {
   return (
     <div className="space-y-5">
       <JobHeader job={job} meta={meta} locationOptions={locationOptions} onSaved={load} />
+      <JobLinks jobId={job.id} />
       <ProgressPanel job={job} />
       <TasksPanel job={job} meta={meta} onChanged={load} />
       <ShipmentsPanel job={job} locationOptions={locationOptions} editable={editable} onChanged={load} />
@@ -103,6 +106,7 @@ export function JobDetail() {
         onChanged={changed}
       />
       <DocumentsPanel job={job} />
+      <JobDocumentsPanel jobId={job.id} />
       <HistoryPanel jobId={job.id} meta={meta} refreshKey={refreshKey} />
     </div>
   );

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../../api/client";
 import { useTerms } from "../../config/useConfig";
 import { jobsApi } from "./api";
+import { ShipmentLinks } from "../integration/ShipmentLinks";
 import { ScanToStage } from "./ScanToStage";
 import type { ManifestLine, ShipmentDetail as Detail, ShipmentStatus } from "./types";
 import {
@@ -117,6 +118,7 @@ export function ShipmentDetail() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <ShipmentLinks shipmentId={shipment.id} />
           <button onClick={() => openDocument(jobsApi.loadSheetUrl(shipment.id))} className={BTN}>
             Print load sheet
           </button>
