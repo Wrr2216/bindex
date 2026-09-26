@@ -396,6 +396,10 @@ export async function reissueGrant(
 ): Promise<IssuedLink> {
   const current = await loadGrantRow(id);
   if (current.revokedAt) throw badRequest("This link is revoked. Make a new one instead.");
+  // A fresh token on an expired grant would be a link that never works.
+  if (current.expiresAt.getTime() <= Date.now()) {
+    throw badRequest("This link has expired. Set a later expiry and save, then issue a new link.");
+  }
   const token = generateToken();
   const [row] = await db
     .update(portalGrants)

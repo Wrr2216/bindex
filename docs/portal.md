@@ -83,14 +83,15 @@ carrier, vehicle, seal numbers, weight, volume, distance, ETA, departure and
 arrival; the last known position; each line's item name, make and model, asset
 and unit code, stage, room (destination location or label), floor,
 department, crate, handling note (`job_items.notes`), flags, photos, crew
-notes and stage history (stage, when, and whether a reader or a crew link
-recorded it).
+notes and stage history (stage, when, and how it was recorded: scan, reader,
+crew link and so on).
 
 **What is never shown:** other jobs, shipments or lines; user names or ids
 (histories say "by crew link" or "by reader", never who); job, shipment and
 item notes other than a line's handling note; serial numbers, identifiers and
-label photos; internal locations other than a line's destination and a job's
-origin and destination; values, unless the link shows values; costs; a
+label photos; locations other than a line's destination, a job's origin and
+destination, a shipment's vehicle and the place of its last known position;
+values, unless the link shows values; costs; a
 signer's email, IP address or browser; the reasons given for forced status
 changes.
 

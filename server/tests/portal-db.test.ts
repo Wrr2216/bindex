@@ -469,6 +469,8 @@ describe("portal against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
       "local:portal-test-admin",
     );
     await pool.query("UPDATE portal_grants SET expires_at = now() - interval '1 second' WHERE id = $1", [expired.grant.id]);
+    // A new token for an expired link would be a link that never works.
+    await assert.rejects(portal.reissueGrant(expired.grant.id, "local:portal-test-admin"), /expired/);
     const revoked = await portal.createGrant(
       { scope: "shipment", targetId: w.shipA.id, role: "contributor", granteeName: "Gone", expiresAt: new Date(Date.now() + 60_000) },
       "local:portal-test-admin",
@@ -717,6 +719,31 @@ describe("portal against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
     );
     // The revoked viewer link fails closed.
     assert.equal((await call("GET", "/api/portal/session", { token: w.viewerA })).json!.code, "link_revoked");
+  });
+
+  it("a project link covers its jobs' lines and shipments, and no other job's", async () => {
+    const project = await core.createProject({ name: `Portal project ${tag}` }, actor);
+    // Cleanup runs last-in first: take the job out, then delete the project.
+    cleanup.push(() => core.deleteProject(project.id));
+    await core.updateJob(w.job1.id, { projectId: project.id }, actor);
+    cleanup.push(() => core.updateJob(w.job1.id, { projectId: null }, actor));
+    const link = await portal.createGrant(
+      { scope: "project", targetId: project.id, role: "viewer", granteeName: "Programme office", expiresAt: new Date(Date.now() + 86_400_000) },
+      "local:portal-test-admin",
+    );
+    const items = await call("GET", "/api/portal/items?limit=200", { token: link.token });
+    assert.equal(items.status, 200, items.text);
+    const ids = (items.json!.lines as Json[]).map((l) => l.id).sort();
+    assert.deepEqual(ids, [w.line.a1, w.line.a2, w.line.hv, w.line.b1, w.line.u1].sort());
+    const overview = await call("GET", "/api/portal/overview", { token: link.token });
+    assert.deepEqual(((overview.json!.shipments as Json[]).map((s) => s.code)).sort(), [w.shipA.code, w.shipB.code].sort());
+    for (const r of [items, overview]) {
+      for (const s of [w.job2.id, w.job2.code, w.shipC.code, w.o1.assetCode, w.line.o1]) assert.ok(!r.text.includes(s), `leaked ${s}`);
+    }
+    assert.equal((await call("GET", `/api/portal/items/${w.line.o1}`, { token: link.token })).status, 404);
+    assert.equal((await call("GET", `/api/portal/items/${w.line.b1}`, { token: link.token })).status, 200);
+    // The job's own documents are shared with a project link; the other job's are not.
+    assert.equal((await call("GET", `/api/portal/files/${w.docJob1}`, { token: link.token })).status, 200);
   });
 
   it("answers 404 for everything while the portal is switched off", async () => {
