@@ -1,20 +1,29 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { after, before, beforeEach, describe, it } from "node:test";
+import { Client as PgClient } from "pg";
 
 /**
  * BLE presence against a real Postgres: gateway reports through the presence
  * engine into the tracking core's sightings, positions and moves, then the
  * missing, battery and phone paths. Skipped unless TEST_DATABASE_URL points at
- * a database this test may write to, for example:
+ * a Postgres this test may write to, for example:
  *
- *   createdb bindex_ble_test
- *   TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/bindex_ble_test pnpm test
+ *   TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/bindex_test pnpm test
  *
- * Migrations are applied first. Every record has a random suffix, so the test
- * can run repeatedly against the same database.
+ * It uses its own database beside that one (bindex_test_ble here), created if
+ * missing, because other suites drop and recreate TEST_DATABASE_URL's database
+ * while the test files run in parallel. Migrations are applied first. Every
+ * record has a random suffix, so the test can run repeatedly.
  */
-const url = process.env.TEST_DATABASE_URL;
+const base = process.env.TEST_DATABASE_URL;
+const url = base
+  ? (() => {
+      const u = new URL(base);
+      u.pathname = `/${u.pathname.slice(1) || "bindex"}_ble`;
+      return u.toString();
+    })()
+  : undefined;
 process.env.DATABASE_URL = url ?? process.env.DATABASE_URL ?? "postgres://test/test";
 process.env.SESSION_SECRET ??= "test-secret-at-least-16-chars";
 process.env.LOG_LEVEL ??= "warn";
@@ -87,6 +96,15 @@ describe("BLE presence with Postgres", { skip: url ? false : "set TEST_DATABASE_
   const t0 = new Date("2026-03-07T10:00:00Z").getTime();
 
   before(async () => {
+    const admin = new URL(url!);
+    const name = admin.pathname.slice(1);
+    admin.pathname = "/postgres";
+    const pg = new PgClient({ connectionString: admin.toString() });
+    await pg.connect();
+    const { rows } = await pg.query("SELECT 1 FROM pg_database WHERE datname = $1", [name]);
+    if (!rows.length) await pg.query(`CREATE DATABASE "${name.replace(/"/g, '""')}"`);
+    await pg.end();
+
     client = await import("../src/db/client");
     const { runMigrations } = await import("../src/db/migrate");
     await runMigrations();
