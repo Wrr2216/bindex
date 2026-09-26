@@ -36,14 +36,12 @@ import {
   emptyDraft,
   explainDraft,
   mergeByHand,
-  mergeManifestRows,
-  mergePhotoDetections,
+  moveSource,
   recountAll,
   splitByQty,
   splitBySource,
   withoutSource,
   type MergeDraft,
-  type MergeResult,
   type SourceRef,
 } from "./merge";
 import {
@@ -632,23 +630,14 @@ function draftFields(d: MergeDraft) {
 
 type StoredReading = ({ kind: "photo" } & PhotoReading) | ({ kind: "manifest" } & ManifestReading);
 
-/** Fold a stored reading into the drafts, replacing whatever that image said before. */
-function remerge(session: CaptureSessionRow, drafts: MergeDraft[], source: CaptureSourceRow, reading: StoredReading | null) {
-  const out = withoutSource(drafts, source.id, session.countRule);
-  const removedIds = new Set(out.removed.map((d) => d.id));
-  const updatedById = new Map(out.updated.map((d) => [d.id, d]));
-  const current = drafts.filter((d) => !removedIds.has(d.id)).map((d) => updatedById.get(d.id) ?? d);
-  let merged: MergeResult = { updated: [], created: [] };
-  if (reading) {
-    const ref: SourceRef = { sourceId: source.id, attachmentId: source.attachmentId, area: source.area };
-    merged =
-      reading.kind === "manifest"
-        ? mergeManifestRows(current, reading.rows, ref)
-        : mergePhotoDetections(current, reading.items, ref, session.countRule);
-  }
-  const updated = new Map<string | null, MergeDraft>(out.updated.map((d) => [d.id, d]));
-  for (const d of merged.updated) updated.set(d.id, d);
-  return { updated: [...updated.values()], created: merged.created, removed: out.removed };
+/**
+ * Fold an image's reading into the drafts in the image's area. For an image
+ * read before (its area changed) this replaces what it said, keeping any
+ * entry a person edited or deleted; see moveSource.
+ */
+function remerge(session: CaptureSessionRow, drafts: MergeDraft[], source: CaptureSourceRow, reading: StoredReading) {
+  const ref: SourceRef = { sourceId: source.id, attachmentId: source.attachmentId, area: source.area };
+  return moveSource(drafts, ref, reading, session.countRule);
 }
 
 export async function updateSource(sessionId: string, sourceId: string, patch: { area?: string | null }): Promise<SessionView> {

@@ -321,6 +321,41 @@ export function withoutSource(
   return { updated, removed };
 }
 
+/**
+ * An image moved to another area (room or desk). Entries only it supported
+ * that a person edited or deleted move with it as they are, so no edit is lost
+ * and nothing deleted comes back; everything else it saw is taken out and
+ * merged again in the new area, where it may join what other images saw.
+ */
+export function moveSource(
+  drafts: MergeDraft[],
+  source: SourceRef,
+  reading: { kind: "photo"; items: Detection[] } | { kind: "manifest"; rows: ManifestRow[] },
+  rule: CaptureCountRule,
+): { updated: MergeDraft[]; created: MergeDraft[]; removed: MergeDraft[] } {
+  const own = (d: MergeDraft) =>
+    d.status !== "created" && d.sources.length > 0 && d.sources.every((s) => s.sourceId === source.sourceId);
+  const moving = drafts.filter((d) => own(d) && (d.edited || d.status === "discarded")).map((d) => ({ ...d, area: source.area }));
+  const movingIds = new Set(moving.map((d) => d.id));
+  // What the moved entries already stand for is not merged a second time.
+  const kept = new Set(moving.flatMap((d) => d.sources.map((s) => s.name)));
+
+  const rest = drafts.filter((d) => !movingIds.has(d.id));
+  const out = withoutSource(rest, source.sourceId, rule);
+  const removedIds = new Set(out.removed.map((d) => d.id));
+  const updatedById = new Map(out.updated.map((d) => [d.id, d]));
+  const current = [...rest.filter((d) => !removedIds.has(d.id)).map((d) => updatedById.get(d.id) ?? d), ...moving];
+
+  const merged =
+    reading.kind === "manifest"
+      ? mergeManifestRows(current, reading.rows.filter((r) => !kept.has(r.description)), source)
+      : mergePhotoDetections(current, reading.items.filter((i) => !kept.has(i.name)), source, rule);
+
+  const updated = new Map<string | null, MergeDraft>([...out.updated, ...moving].map((d) => [d.id, d]));
+  for (const d of merged.updated) updated.set(d.id, d);
+  return { updated: [...updated.values()], created: merged.created, removed: out.removed };
+}
+
 /** Recompute every unlocked quantity, after the count rule changes. */
 export function recountAll(drafts: MergeDraft[], rule: CaptureCountRule): MergeDraft[] {
   const changed: MergeDraft[] = [];

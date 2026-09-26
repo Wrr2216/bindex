@@ -281,6 +281,40 @@ describe("taking a photo back out", () => {
     assert.ok(!out.removed.some((d) => d.name === "whiteboard"));
   });
 
+  it("moves a photo to another room, keeping what a person edited or deleted", () => {
+    const drafts = simulate([ROOM_PHOTO_1, ROOM_PHOTO_2], { areas: ["Room 1", "Room 1"] });
+    const monitor = find(drafts, "monitor");
+    monitor.edited = true;
+    monitor.name = "Dell P2422H";
+    find(drafts, "whiteboard").status = "discarded";
+    const reading = det.normalizePhotoReading(ROOM_PHOTO_1)!;
+    const out = merge.moveSource(drafts, { sourceId: "s1", attachmentId: "a1", area: "Room 2" }, { kind: "photo", items: reading.items }, "max");
+
+    // Edited and deleted entries only photo 1 supported move as they are.
+    const moved = out.updated.find((d) => d.id === monitor.id)!;
+    assert.deepEqual([moved.name, moved.area, moved.edited], ["Dell P2422H", "Room 2", true]);
+    const board = out.updated.find((d) => d.name === "whiteboard")!;
+    assert.deepEqual([board.status, board.area], ["discarded", "Room 2"]);
+    // Shared entries lose photo 1; its chairs and table start again in Room 2.
+    const chairs = out.updated.find((d) => d.name === "black office chair")!;
+    assert.deepEqual([chairs.qty, chairs.sources.map((s) => s.sourceId)], [6, ["s2"]]);
+    assert.deepEqual(
+      out.created.map((d) => [d.name, d.qty, d.area]),
+      [
+        ["office chair", 4, "Room 2"],
+        ["conference table", 1, "Room 2"],
+      ],
+    );
+    assert.deepEqual(out.removed, []);
+  });
+
+  it("is a plain merge for an image read for the first time", () => {
+    const reading = det.normalizePhotoReading(ROOM_PHOTO_1)!;
+    const out = merge.moveSource([], { sourceId: "s1", attachmentId: "a1", area: null }, { kind: "photo", items: reading.items }, "max");
+    assert.equal(out.created.length, 4);
+    assert.deepEqual([out.updated, out.removed], [[], []]);
+  });
+
   it("recounts every unlocked entry when the rule changes", () => {
     const drafts = simulate(ROOM_PHOTOS);
     const changed = merge.recountAll(drafts, "sum");
