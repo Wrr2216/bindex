@@ -11,6 +11,8 @@ import {
   companies,
   entities,
   trackingDevices,
+  tagIdentifierUnits,
+  tagEpcs,
 } from "../db/schema";
 import { badRequest } from "../lib/errors";
 import { clearJobsCoreTables, exportJobsCoreTables, restoreJobsCoreTables } from "./jobs-core/backup";
@@ -66,6 +68,10 @@ const TABLES = [
   "stock_movements",
   "equipment_kits",
   "equipment_kit_lines",
+  // Tag commissioning. tag_legacy_stickers is rebuilt from the identifiers by
+  // a trigger, and binding sessions are work in progress, so neither is here.
+  "tag_identifier_units",
+  "tag_epcs",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -100,6 +106,8 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   stock_movements: ["createdAt"],
   equipment_kits: ["expectedReturnAt", "createdAt", "closedAt"],
   equipment_kit_lines: ["createdAt"],
+  tag_identifier_units: ["createdAt"],
+  tag_epcs: ["encodedAt", "createdAt", "updatedAt"],
 };
 
 export type Backup = {
@@ -111,7 +119,7 @@ export type Backup = {
 };
 
 export async function buildBackup(): Promise<Backup> {
-  const [co, loc, ent, it, units, ids, imgs, evts, asg, devs] = await Promise.all([
+  const [co, loc, ent, it, units, ids, imgs, evts, asg, devs, tagUnits, epcs] = await Promise.all([
     db.select().from(companies),
     db.select().from(locations),
     db.select().from(entities),
@@ -123,6 +131,8 @@ export async function buildBackup(): Promise<Backup> {
     db.select().from(itemAssignments),
     // Device tokens are secrets and stay out of the file; see restoreBackup.
     db.select().from(trackingDevices).then((rows) => rows.map(({ tokenHash: _t, tokenLast4: _l, ...d }) => d)),
+    db.select().from(tagIdentifierUnits),
+    db.select().from(tagEpcs),
   ]);
   const data: Backup["data"] = {
     companies: co,
@@ -138,6 +148,8 @@ export async function buildBackup(): Promise<Backup> {
     ...(await exportJobsCoreTables()),
     ...(await registerBackupData()),
     ...(await consumablesBackupData()),
+    tag_identifier_units: tagUnits,
+    tag_epcs: epcs,
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -266,6 +278,20 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     d.item_assignments = d.item_assignments.filter((a) => !a.unitId || present.has(a.unitId as string));
     for (const part of chunk(d.item_assignments, 500)) await tx.insert(itemAssignments).values(part as never);
     await restoreRegisterTables(tx, d);
+    // Deleting items and identifiers above cascaded to these. Rows whose unit
+    // did not come back are dropped, as unit assignments are.
+    const identifierIds = new Set(d.item_identifiers.map((r) => r.id as string));
+    d.tag_identifier_units = d.tag_identifier_units.filter(
+      (r) => identifierIds.has(r.identifierId as string) && present.has(r.unitId as string),
+    );
+    for (const part of chunk(d.tag_identifier_units, 500)) {
+      await tx.insert(tagIdentifierUnits).values(part as never);
+    }
+    const itemIds = new Set(d.items.map((r) => r.id as string));
+    d.tag_epcs = d.tag_epcs.filter(
+      (r) => itemIds.has(r.itemId as string) && (!r.unitId || present.has(r.unitId as string)),
+    );
+    for (const part of chunk(d.tag_epcs, 500)) await tx.insert(tagEpcs).values(part as never);
     unitCount = present.size;
 
     // Devices come after the zones, items and units they point at.

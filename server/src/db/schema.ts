@@ -18,7 +18,9 @@ export type IdentifierType =
   | "sku"
   | "other"
   | "rfid"
-  | "domain";
+  | "domain"
+  | "nfc"
+  | "legacy";
 
 export type ItemEventAction = "created" | "updated" | "scanned" | "moved" | "deleted";
 
@@ -218,3 +220,4 @@ export * from "./tables/media-ai-core";
 export * from "./tables/jobs-core";
 export * from "./tables/register-reconcile";
 export * from "./tables/consumables";
+export * from "./tables/tag-commissioning";

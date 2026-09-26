@@ -30,6 +30,8 @@ import {
 } from "./features/jobs-core";
 import { RegisterReconcile } from "./features/register-reconcile/RegisterReconcile";
 import { SuppliesSection } from "./features/consumables";
+import { TagsPage } from "./features/tag-commissioning/TagsPage";
+import { NfcTapLayer } from "./features/tag-commissioning/NfcTapLayer";
 
 function Loading() {
   return (
@@ -86,8 +88,10 @@ function AppShell() {
           {features.jobs && <Route path="shipments/:id" element={<ShipmentDetailPage />} />}
           {features.jobs && <Route path="settings/job-types" element={<JobTypesPage />} />}
           {features.registerReconcile && <Route path="audit/register/*" element={<RegisterReconcile />} />}
+          <Route path="tags" element={<TagsPage />} />
         </Route>
       </Routes>
+      <NfcTapLayer />
     </ScanProvider>
   );
 }

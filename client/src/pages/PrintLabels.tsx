@@ -2,6 +2,7 @@ import { useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useConfig } from "../config/useConfig";
+import { EncodeDownloads } from "../features/tag-commissioning/EncodeDownloads";
 
 /**
  * The print view: a bare page with no app chrome that loads a print-ready PDF
@@ -182,6 +183,7 @@ export function PrintLabels() {
           breaks the barcode. If pages come out rotated, set{" "}
           <code>LABEL_ROTATE_DEG</code> on the server.
         </p>
+        <EncodeDownloads params={params} />
       </div>
 
       <iframe

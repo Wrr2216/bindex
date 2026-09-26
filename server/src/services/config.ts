@@ -50,6 +50,8 @@ export type Features = {
   registerReconcile: boolean;
   /** Stock levels for supplies, and equipment kits checked out to crews. */
   consumables: boolean;
+  /** Colour, lot and number stickers from an older labelling system. */
+  legacyTags: boolean;
 };
 
 export type AppConfig = {
@@ -105,6 +107,7 @@ const KEYS = {
   featureJobs: "features.jobs",
   featureRegisterReconcile: "features.register_reconcile",
   featureConsumables: "features.consumables",
+  featureLegacyTags: "features.legacy_tags",
 } as const;
 
 function defaults(): AppConfig {
@@ -140,6 +143,7 @@ function defaults(): AppConfig {
       jobs: false,
       registerReconcile: true,
       consumables: false,
+      legacyTags: false,
     },
   };
 }
@@ -204,6 +208,7 @@ function build(stored: Map<string, string>): AppConfig {
       jobs: flag(KEYS.featureJobs, base.features.jobs),
       registerReconcile: flag(KEYS.featureRegisterReconcile, base.features.registerReconcile),
       consumables: flag(KEYS.featureConsumables, base.features.consumables),
+      legacyTags: flag(KEYS.featureLegacyTags, base.features.legacyTags),
     },
   };
 }
@@ -295,6 +300,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   jobs: KEYS.featureJobs,
   registerReconcile: KEYS.featureRegisterReconcile,
   consumables: KEYS.featureConsumables,
+  legacyTags: KEYS.featureLegacyTags,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {

@@ -24,6 +24,7 @@ import { mediaAiCoreRouter } from "./media-ai-core";
 import { jobsCoreRouter } from "./jobs-core";
 import { registerReconcileRouter } from "./register-reconcile";
 import { consumablesRouter } from "./consumables";
+import { tagCommissioningRouter } from "./tag-commissioning";
 
 export const apiRouter = Router();
 
@@ -56,6 +57,7 @@ apiRouter.use(mediaAiCoreRouter);
 apiRouter.use(jobsCoreRouter);
 apiRouter.use("/register-reconcile", registerReconcileRouter);
 apiRouter.use("/consumables", consumablesRouter);
+apiRouter.use("/tag-commissioning", tagCommissioningRouter);
 
 apiRouter.delete(
   "/identifiers/:id",

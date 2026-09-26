@@ -13,6 +13,8 @@ import { NfcTagUrl } from "../components/NfcTagUrl";
 import { useScan } from "../scan/ScanProvider";
 import { LastSeenCard } from "../features/tracking-core/LastSeenCard";
 import { ItemMediaSection } from "../features/media-ai-core";
+import { ItemTagPanel } from "../features/tag-commissioning/ItemTagPanel";
+import { ItemTagChip } from "../features/tag-commissioning/badges";
 import {
   AlertIcon,
   ArrowLeftIcon,
@@ -23,7 +25,7 @@ import {
   TagIcon,
 } from "../components/icons";
 
-const ID_TYPES: IdentifierType[] = ["upc", "serial", "asset_tag", "mac", "sku", "other", "rfid", "domain"];
+const ID_TYPES: IdentifierType[] = ["upc", "serial", "asset_tag", "mac", "sku", "other", "rfid", "domain", "nfc", "legacy"];
 
 const daysUntil = (iso: string) => Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
 
@@ -488,6 +490,8 @@ export function ItemDetail() {
             {error && <p className="mt-1 text-sm text-red-400">{error}</p>}
           </section>
 
+          {!isDomain && <ItemTagPanel item={item} onChange={setItem} />}
+
           {!isDomain && <NfcTagUrl path={`/items/${item.id}`} kind="item" />}
 
           {item.children.length > 0 && (
@@ -523,7 +527,8 @@ export function ItemDetail() {
                     >
                       {c.name}
                     </Link>{" "}
-                    <span className="text-sm text-slate-500">×{c.quantity}</span>
+                    <span className="text-sm text-slate-500">×{c.quantity}</span>{" "}
+                    <ItemTagChip itemId={c.id} />
                     {c.flaggedMissing && <span className="ml-1 text-xs text-red-400">possibly missing</span>}
                   </li>
                 ))}

@@ -107,6 +107,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Stock levels for supplies such as boxes and tape, issued to crews, trucks and branches, and equipment kits checked out and back in by scan.",
   },
+  {
+    key: "legacyTags",
+    title: "Legacy sticker numbers",
+    description:
+      "Colour, lot and number stickers from an older labelling system: entry, lookup and a coloured dot in lists.",
+  },
 ];
 
 export function InstanceSettings() {

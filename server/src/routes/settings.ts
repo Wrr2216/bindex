@@ -65,6 +65,7 @@ const configPatch = z.object({
       jobs: z.boolean().optional(),
       registerReconcile: z.boolean().optional(),
       consumables: z.boolean().optional(),
+      legacyTags: z.boolean().optional(),
     })
     .optional(),
 });

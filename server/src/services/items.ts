@@ -20,6 +20,7 @@ import { logger } from "../lib/logger";
 import { lookupItemFields } from "./enrichment";
 import { savePhotoFromUrl } from "./photos";
 import { publishItemEvent } from "./event-backbone/bus";
+import { legacyTagKey, normalizeIdentifierValue, resolveTagCode } from "./tag-commissioning/hooks";
 
 export type IdentifierInput = { type: IdentifierType; value: string };
 export type CreateItemInput = {
@@ -133,8 +134,11 @@ export async function getByIdentifier(value: string, userOid: string | null) {
     .orderBy(desc(items.updatedAt))
     .limit(1);
 
-  let itemId = idRow?.itemId;
-  let matchedUnitId: string | null = null;
+  // Tag UIDs typed another way, legacy stickers as typed, assigned EPCs, and
+  // which unit a tag is stuck on.
+  const tag = await resolveTagCode(code);
+  let itemId = idRow?.itemId ?? tag?.itemId;
+  let matchedUnitId: string | null = tag && tag.itemId === itemId ? tag.unitId : null;
   if (!itemId) {
     const [byCode] = await db
       .select({ id: items.id })
@@ -220,6 +224,9 @@ export async function listOrSearch(opts: {
     params.push(opts.companyId);
     companyFilter = `AND i.company_id = $${params.length}`;
   }
+  // A sticker typed as "RED 1234 056" finds the stored RED-1234-56.
+  params.push(legacyTagKey(q) ?? "");
+  const legacyParam = `$${params.length}`;
   let kindFilter = "";
   if (kind === "physical") {
     kindFilter = "AND i.category IS DISTINCT FROM 'Domain'";
@@ -246,7 +253,8 @@ export async function listOrSearch(opts: {
          OR i.ninjaone_asset_id ILIKE '%' || $1 || '%'
          OR EXISTS (
               SELECT 1 FROM item_identifiers ii
-               WHERE ii.item_id = i.id AND ii.value ILIKE '%' || $1 || '%'
+               WHERE ii.item_id = i.id
+                 AND (ii.value ILIKE '%' || $1 || '%' OR ii.value = ${legacyParam})
             )
          OR EXISTS (
               SELECT 1 FROM item_units iu
@@ -322,7 +330,13 @@ export async function createItem(input: CreateItemInput, userOid: string | null)
     if (input.identifiers?.length) {
       await tx
         .insert(itemIdentifiers)
-        .values(input.identifiers.map((id) => ({ itemId: item!.id, type: id.type, value: id.value.trim() })));
+        .values(
+          input.identifiers.map((id) => ({
+            itemId: item!.id,
+            type: id.type,
+            value: normalizeIdentifierValue(id.type, id.value),
+          })),
+        );
     }
     if (input.images?.length) {
       await tx.insert(itemImages).values(
@@ -437,7 +451,7 @@ export async function addIdentifier(itemId: string, input: IdentifierInput) {
   try {
     const [row] = await db
       .insert(itemIdentifiers)
-      .values({ itemId, type: input.type, value: input.value.trim() })
+      .values({ itemId, type: input.type, value: normalizeIdentifierValue(input.type, input.value) })
       .returning();
     return row!;
   } catch (err) {

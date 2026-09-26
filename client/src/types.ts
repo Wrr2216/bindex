@@ -6,7 +6,9 @@ export type IdentifierType =
   | "sku"
   | "other"
   | "rfid"
-  | "domain";
+  | "domain"
+  | "nfc"
+  | "legacy";
 
 export interface Identifier {
   id: string;
@@ -285,6 +287,7 @@ export interface Features {
   jobs: boolean;
   registerReconcile: boolean;
   consumables: boolean;
+  legacyTags: boolean;
 }
 
 /**
