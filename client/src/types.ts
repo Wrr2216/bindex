@@ -280,6 +280,7 @@ export interface Features {
   lookup: boolean;
   askSearch: boolean;
   spotCheck: boolean;
+  tracking: boolean;
 }
 
 /**

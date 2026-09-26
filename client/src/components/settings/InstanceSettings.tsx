@@ -77,6 +77,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Type what you are looking for instead of setting filters. Needs a language model to be configured.",
   },
+  {
+    key: "tracking",
+    title: "Readers, beacons and trackers",
+    description:
+      "Register fixed RFID readers, dock portals and other devices, and see where things were last detected.",
+  },
 ];
 
 export function InstanceSettings() {

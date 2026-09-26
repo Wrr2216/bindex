@@ -19,6 +19,7 @@ import { ensureBootstrapAdmin } from "./services/users";
 import { runNinjaSync } from "./services/ninjaone/sync";
 import { runRegistrarSync } from "./services/registrars/sync";
 import { sendExpiryDigest } from "./services/registrars/alerts";
+import { startSightingsPrune } from "./services/tracking/prune";
 import { HttpError, describeError } from "./lib/errors";
 
 const app = express();
@@ -47,10 +48,11 @@ app.use(
 app.use(compression());
 
 // 1mb of JSON is plenty for every route except the backup import, which parses
-// its own larger body inside the handler.
+// its own larger body inside the handler, and hardware ingest under
+// /api/device, which parses its own (see routes/device.ts).
 const jsonParser = express.json({ limit: "1mb" });
 app.use((req, res, next) => {
-  if (req.path === "/api/backup/import") return next();
+  if (req.path === "/api/backup/import" || req.path.startsWith("/api/device/")) return next();
   jsonParser(req, res, next);
 });
 app.use(sessionMiddleware);
@@ -132,6 +134,7 @@ async function main(): Promise<void> {
     }
     startNinjaSync();
     startRegistrarSync();
+    startSightingsPrune();
   });
 }
 

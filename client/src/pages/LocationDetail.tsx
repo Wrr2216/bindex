@@ -3,11 +3,14 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { NfcTagUrl } from "../components/NfcTagUrl";
 import { VerifyContents } from "../components/VerifyContents";
+import { useFeatures } from "../config/useConfig";
+import { DetectedHere } from "../features/tracking-core/DetectedHere";
 import { ArrowLeftIcon, CloseIcon, PencilIcon } from "../components/icons";
 import type { Item, LocationDetail as Detail } from "../types";
 
 export function LocationDetail() {
   const { id } = useParams<{ id: string }>();
+  const features = useFeatures();
   const [loc, setLoc] = useState<Detail | null>(null);
   const [adding, setAdding] = useState(false);
   const [q, setQ] = useState("");
@@ -415,6 +418,8 @@ export function LocationDetail() {
           )}
         </ul>
       </section>
+
+      {features.tracking && <DetectedHere locationId={loc.id} />}
 
       <NfcTagUrl path={`/locations/${loc.id}`} kind="location" />
     </div>

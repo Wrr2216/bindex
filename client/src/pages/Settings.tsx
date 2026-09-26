@@ -6,6 +6,7 @@ import { ApiKeysSection } from "../components/ApiKeysSection";
 import { AccountsSection } from "../components/settings/AccountsSection";
 import { InstanceSettings } from "../components/settings/InstanceSettings";
 import { PasswordSection } from "../components/settings/PasswordSection";
+import { DevicesSettingsSection } from "../features/tracking-core/DevicesSettingsSection";
 import { BUTTON, BUTTON_QUIET, Pill, Section } from "../components/ui";
 import type { NinjaStatus, RegistrarStatus, SyncRun } from "../types";
 
@@ -281,6 +282,7 @@ export function Settings() {
           {config.integrations.ninjaone && <NinjaOneSection />}
           {config.features.domains && <RegistrarSection />}
           <ApiKeysSection />
+          {config.features.tracking && <DevicesSettingsSection />}
           {config.features.printing && <PrinterSection />}
           <BackupSection />
         </>
