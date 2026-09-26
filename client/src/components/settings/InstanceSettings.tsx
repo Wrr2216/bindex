@@ -89,6 +89,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Photos, video and files on every record, and reading serial numbers and data plates from a photo of the label. Reading labels needs a vision model to be configured.",
   },
+  {
+    key: "bulkCapture",
+    title: "AI bulk capture",
+    description:
+      "Catalogue a room from photos or a walkthrough video, survey desks against a standard kit, and convert paper inventories, reviewing the AI's draft before anything is created. Needs a vision model to be configured.",
+  },
 ];
 
 export function InstanceSettings() {

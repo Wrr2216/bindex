@@ -20,6 +20,8 @@ import { AuditLogPage } from "./features/event-backbone/AuditLogPage";
 import { WebhooksPage } from "./features/event-backbone/WebhooksPage";
 import { LiveReads } from "./features/tracking-core/LiveReads";
 import { DevicesPage } from "./features/tracking-core/DevicesPage";
+import { CaptureListPage } from "./features/bulk-capture/CaptureListPage";
+import { CaptureSessionPage } from "./features/bulk-capture/CaptureSessionPage";
 
 function Loading() {
   return (
@@ -68,6 +70,8 @@ function AppShell() {
           <Route path="settings/webhooks" element={<WebhooksPage />} />
           {features.tracking && <Route path="tracking" element={<LiveReads />} />}
           {features.tracking && <Route path="settings/devices" element={<DevicesPage />} />}
+          {features.bulkCapture && <Route path="capture" element={<CaptureListPage />} />}
+          {features.bulkCapture && <Route path="capture/:id" element={<CaptureSessionPage />} />}
         </Route>
       </Routes>
     </ScanProvider>
