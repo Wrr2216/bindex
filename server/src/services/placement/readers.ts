@@ -180,18 +180,19 @@ export async function processNewSightings(
     const from = Number(cursorRows[0]!.last_id);
     const limit = opts.limit ?? BATCH;
     // Ids are handed out when a batch is inserted, not when it commits, so a
-    // slow batch can land behind a quicker one. Reading only what arrived a
-    // moment ago lets it commit first. Should one still slip past, the tag is
-    // read again within the reader's duplicate window.
-    const { rows: range } = await client.query<{ id: string | null; n: number }>(
-      `SELECT max(id) AS id, count(*)::int AS n
-         FROM (SELECT id FROM sightings
-                WHERE id > $1 AND received_at <= now() - make_interval(secs => $3)
-                ORDER BY id LIMIT $2) t`,
+    // slow batch can land behind a quicker one. The run stops at the first
+    // sighting that arrived less than a moment ago, which gives the batches
+    // around it time to commit. Should one still slip past, the tag is read
+    // again within the reader's duplicate window.
+    const { rows: range } = await client.query<{ id: string; settled: boolean }>(
+      `SELECT id, received_at <= now() - make_interval(secs => $3) AS settled
+         FROM sightings WHERE id > $1 ORDER BY id LIMIT $2`,
       [from, limit, opts.settleSeconds ?? SETTLE_SECONDS],
     );
-    const to = range[0]?.id == null ? from : Number(range[0].id);
-    const more = (range[0]?.n ?? 0) >= limit;
+    const fresh = range.findIndex((r) => !r.settled);
+    const settled = fresh < 0 ? range : range.slice(0, fresh);
+    const to = settled.length ? Number(settled[settled.length - 1]!.id) : from;
+    const more = fresh < 0 && range.length >= limit;
     if (to === from) return { reads: 0, placed: 0, misplaced: 0, cursor: from, more: false };
 
     // A read from long ago (a backlog posted after the switch was off for a

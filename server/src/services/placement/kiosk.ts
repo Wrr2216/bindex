@@ -1,7 +1,7 @@
 import { candidatesFor, type ScanRef } from "../jobs-core";
 import { getDeviceRow, getFeed, readSettings, type SightingDirection } from "../tracking";
 import { floorColor } from "./colors";
-import { jobLines, jobSettings, loadJob, loadTree, otherOpenJobs, place, type LineView, type Place } from "./data";
+import { jobLines, jobSettings, loadJob, loadTreeWith, otherOpenJobs, place, type LineView, type Place } from "./data";
 import { handlingKey, handlingNotesFor } from "./handling";
 import { lookup, type Who } from "./scan";
 import { relation, type Tree } from "./tree";
@@ -74,10 +74,10 @@ export async function kioskFeed(
   opts: { deviceId?: string; locationId?: string; since?: number },
 ): Promise<KioskPage> {
   const job = await loadJob(jobId);
-  const tree = await loadTree();
   const { floorColors } = jobSettings(job);
   const device = opts.deviceId ? await getDeviceRow(opts.deviceId) : null;
   const zoneId = opts.locationId ?? (device ? deviceZone(device) : null);
+  const tree = await loadTreeWith([zoneId]);
 
   const page = await getFeed({
     since: opts.since,
@@ -134,9 +134,9 @@ export async function kioskScan(
 ): Promise<KioskEntry | null> {
   const card = await lookup(jobId, code, { record: false, who: opts.who });
   if (!card.item) return null;
-  const tree = await loadTree();
   const device = opts.deviceId ? await getDeviceRow(opts.deviceId) : null;
   const zoneId = opts.locationId ?? (device ? deviceZone(device) : null);
+  const tree = await loadTreeWith([zoneId]);
   return {
     id: 0,
     at: new Date().toISOString(),

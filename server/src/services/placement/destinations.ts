@@ -4,7 +4,7 @@ import { placementRoomMap } from "../../db/schema";
 import { badRequest, notFound } from "../../lib/errors";
 import { logger } from "../../lib/logger";
 import { updateJobItems } from "../jobs-core";
-import { jobLines, jobSettings, loadJob, loadTree, place, type LineView, type Place } from "./data";
+import { jobLines, jobSettings, loadJob, loadTree, loadTreeWith, place, type LineView, type Place } from "./data";
 import { proposeDestinations, type ProposalReason } from "./propose";
 import type { Tree } from "./tree";
 
@@ -32,7 +32,7 @@ export async function setRoomMap(
   rows: { originLocationId: string; destinationLocationId: string }[],
 ): Promise<RoomMapRow[]> {
   await loadJob(jobId);
-  const tree = await loadTree();
+  const tree = await loadTreeWith(rows.flatMap((r) => [r.originLocationId, r.destinationLocationId]));
   const seen = new Set<string>();
   for (const r of rows) {
     if (!tree.byId.has(r.originLocationId) || !tree.byId.has(r.destinationLocationId)) {
@@ -87,9 +87,9 @@ export type ProposalsResult = {
 
 async function compute(jobId: string, opts: ProposalOptions) {
   const job = await loadJob(jobId);
-  const tree = await loadTree();
   const originRootId = opts.originRootId === undefined ? job.originLocationId : opts.originRootId;
   const destinationRootId = opts.destinationRootId === undefined ? job.destinationLocationId : opts.destinationRootId;
+  const tree = await loadTreeWith([originRootId, destinationRootId]);
   for (const id of [originRootId, destinationRootId]) {
     if (id && !tree.byId.has(id)) throw notFound("Location not found");
   }

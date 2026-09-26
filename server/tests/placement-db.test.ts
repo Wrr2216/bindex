@@ -170,6 +170,9 @@ describe("placement against Postgres", { skip: url ? false : "set TEST_DATABASE_
     await tracking.recordSightings(await row(reader514.id), [{ code: lamp.assetCode }]);
     await tracking.recordSightings(await row(reader512.id), [{ code: bin.assetCode }]);
     await tracking.recordSightings(await row(dockReader.id), [{ code: bin.assetCode }]);
+    // Reads a moment old wait, so a batch still committing is not skipped.
+    const early = await placement.processNewSightings({ settleSeconds: 60 });
+    assert.equal(early!.reads, 0);
     const run = await placement.processNewSightings({ settleSeconds: 0 });
     assert.ok(run);
     assert.equal(run.placed, 1);

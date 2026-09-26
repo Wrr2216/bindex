@@ -38,6 +38,17 @@ export function forgetTree(): void {
   treeCache = null;
 }
 
+/**
+ * The tree, read afresh when the cached one lacks any of these places: a room
+ * made a moment ago is not "not found".
+ */
+export async function loadTreeWith(ids: (string | null | undefined)[]): Promise<Tree> {
+  const tree = await loadTree();
+  if (ids.every((id) => !id || tree.byId.has(id))) return tree;
+  forgetTree();
+  return loadTree();
+}
+
 export async function loadJob(id: string): Promise<Job> {
   const [job] = await db.select().from(jobs).where(eq(jobs.id, id)).limit(1);
   if (!job) throw notFound("Job not found");

@@ -12,6 +12,7 @@ import {
   jobSettings,
   loadJob,
   loadTree,
+  loadTreeWith,
   otherOpenJobs,
   place,
   type LineView,
@@ -315,7 +316,7 @@ export function roomStatusOf(
 
 export async function roomStatus(jobId: string, roomId: string, opts: { nested?: boolean } = {}): Promise<RoomStatus> {
   const job = await loadJob(jobId);
-  const tree = await loadTree();
+  const tree = await loadTreeWith([roomId]);
   const { floorColors } = jobSettings(job);
   if (!tree.byId.has(roomId)) throw notFound("Location not found");
   const lines = await jobLines(jobId, tree, floorColors);
@@ -352,7 +353,7 @@ export async function sweep(
   const codes = uniqueCodes(opts.codes);
   if (codes.length > MAX_BATCH) throw badRequest(`Send at most ${MAX_BATCH} codes at a time.`);
   const job = await loadJob(jobId);
-  const [tree, resolved] = await Promise.all([loadTree(), resolveScanCodes(codes)]);
+  const [tree, resolved] = await Promise.all([loadTreeWith([opts.locationId]), resolveScanCodes(codes)]);
   const room = place(opts.locationId, tree);
   if (!room) throw notFound("Location not found");
   const { floorColors } = jobSettings(job);
