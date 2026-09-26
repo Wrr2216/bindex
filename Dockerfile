@@ -29,6 +29,9 @@ RUN pnpm install --prod --no-frozen-lockfile && pnpm store prune
 COPY --from=builder /app/server/dist ./dist
 COPY --from=builder /app/server/migrations ./migrations
 COPY --from=builder /app/client/dist ./client-dist
+# Large attachments are written here. Creating it owned by the app user means a
+# fresh named volume mounted on top inherits that ownership.
+RUN mkdir -p /app/data && chown node:node /app/data
 
 USER node
 EXPOSE 3000
