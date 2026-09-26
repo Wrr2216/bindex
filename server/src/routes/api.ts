@@ -22,6 +22,7 @@ import { eventBackboneRouter } from "./event-backbone";
 import { trackingRouter } from "./tracking-core";
 import { mediaAiCoreRouter } from "./media-ai-core";
 import { jobsCoreRouter } from "./jobs-core";
+import { custodyRouter } from "./custody";
 
 export const apiRouter = Router();
 
@@ -52,6 +53,7 @@ apiRouter.use(eventBackboneRouter);
 apiRouter.use("/tracking", trackingRouter);
 apiRouter.use(mediaAiCoreRouter);
 apiRouter.use(jobsCoreRouter);
+apiRouter.use(custodyRouter);
 
 apiRouter.delete(
   "/identifiers/:id",
