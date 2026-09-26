@@ -297,6 +297,7 @@ export interface Features {
   custody: boolean;
   teardown: boolean;
   gps: boolean;
+  documents: boolean;
 }
 
 /**

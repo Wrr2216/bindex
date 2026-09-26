@@ -39,6 +39,7 @@ import {
 import { clearCrewTables, exportCrewTables, predatesCrew, restoreCrewTables } from "./crew/backup";
 import { clearCustodyTables, exportCustodyTables, restoreCustodyTables } from "./custody/backup";
 import { clearGpsTables, exportGpsTables, restoreGpsTables } from "./gps/backup";
+import { DOCUMENTS_DATE_FIELDS, exportDocumentsTables, restoreDocumentsTables } from "./documents/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -112,6 +113,14 @@ const TABLES = [
   "geofences",
   "gps_trackers",
   "gps_tracker_links",
+  "document_custom_fields",
+  "document_templates",
+  "document_template_versions",
+  "document_packets",
+  "document_packet_templates",
+  "document_job_packets",
+  "documents",
+  "document_exports",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -165,6 +174,7 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   geofences: ["geometryAt", "createdAt", "updatedAt"],
   gps_trackers: ["statusAt"],
   gps_tracker_links: ["assignedAt", "endedAt"],
+  ...DOCUMENTS_DATE_FIELDS,
 };
 
 export type Backup = {
@@ -220,6 +230,7 @@ export async function buildBackup(): Promise<Backup> {
     teardown_steps: tdSteps,
     teardown_parts: tdParts,
     ...(await exportGpsTables()),
+    ...(await exportDocumentsTables()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -413,6 +424,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
       for (const part of chunk(d.teardown_parts, 500)) await tx.insert(teardownParts).values(part as never);
     }
     await restoreGpsTables(tx, d);
+    await restoreDocumentsTables(tx, d);
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,

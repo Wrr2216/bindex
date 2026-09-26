@@ -43,6 +43,16 @@ import { CrewBadgePage, CrewCheckInPage, CrewPage, CrewSettingsPage, CrewWorkerP
 import { CustodyPage, NewTransferPage, SignOffPage, TransferPage } from "./features/custody";
 import { GuidePage, TeardownList } from "./features/teardown";
 import { GeofencesPage, GpsMapPage, ShipmentMapPage, TrackersPage, TrailPage } from "./features/gps";
+import {
+  DocumentFieldsPage,
+  DocumentPacketsPage,
+  DocumentPage,
+  DocumentTemplateEditorPage,
+  DocumentTemplatesPage,
+  DocumentVerifyPage,
+  DocumentsPage,
+  JobDocumentsPage,
+} from "./features/documents";
 
 function Loading() {
   return (
@@ -129,6 +139,14 @@ function AppShell() {
           {features.gps && features.tracking && features.jobs && (
             <Route path="gps/shipments/:id" element={<ShipmentMapPage />} />
           )}
+          {features.documents && <Route path="documents" element={<DocumentsPage />} />}
+          {features.documents && <Route path="documents/verify" element={<DocumentVerifyPage />} />}
+          {features.documents && <Route path="documents/jobs/:jobId" element={<JobDocumentsPage />} />}
+          {features.documents && <Route path="documents/:id" element={<DocumentPage />} />}
+          {features.documents && <Route path="settings/document-templates" element={<DocumentTemplatesPage />} />}
+          {features.documents && <Route path="settings/document-templates/:id" element={<DocumentTemplateEditorPage />} />}
+          {features.documents && <Route path="settings/document-packets" element={<DocumentPacketsPage />} />}
+          {features.documents && <Route path="settings/document-fields" element={<DocumentFieldsPage />} />}
         </Route>
       </Routes>
       <NfcTapLayer />

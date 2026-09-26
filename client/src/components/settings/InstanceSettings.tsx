@@ -167,6 +167,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Follow GPS trackers on a map, draw geofences around sites, and let shipments go in transit and arrive on their own. Needs Readers, beacons and trackers.",
   },
+  {
+    key: "documents",
+    title: "Documents",
+    description:
+      "Templates people fill in and sign, with packets that attach themselves to jobs by type, project, phase or site, and PDFs whose hash is recorded.",
+  },
 ];
 
 export function InstanceSettings() {

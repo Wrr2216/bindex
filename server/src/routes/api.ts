@@ -34,6 +34,7 @@ import { crewRouter } from "./crew";
 import { custodyRouter } from "./custody";
 import { teardownRouter } from "./teardown";
 import { gpsRouter } from "./gps";
+import { documentsRouter } from "./documents";
 
 export const apiRouter = Router();
 
@@ -78,6 +79,7 @@ apiRouter.use("/crew", crewRouter);
 apiRouter.use(custodyRouter);
 apiRouter.use("/teardown", teardownRouter);
 apiRouter.use("/gps", gpsRouter);
+apiRouter.use(documentsRouter);
 
 apiRouter.delete(
   "/identifiers/:id",

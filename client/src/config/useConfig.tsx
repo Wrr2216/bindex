@@ -51,6 +51,7 @@ const FALLBACK: AppConfig = {
     custody: false,
     teardown: false,
     gps: false,
+    documents: false,
   },
   label: { widthMm: 62, heightMm: 25.4 },
   integrations: {

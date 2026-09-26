@@ -75,6 +75,7 @@ const configPatch = z.object({
       custody: z.boolean().optional(),
       teardown: z.boolean().optional(),
       gps: z.boolean().optional(),
+      documents: z.boolean().optional(),
     })
     .optional(),
 });

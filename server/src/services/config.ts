@@ -70,6 +70,8 @@ export type Features = {
   teardown: boolean;
   /** GPS trackers, maps and geofences. */
   gps: boolean;
+  /** Document templates, packets attached to jobs, filling and signing. */
+  documents: boolean;
 };
 
 export type AppConfig = {
@@ -135,6 +137,7 @@ const KEYS = {
   featureCustody: "features.custody",
   featureTeardown: "features.teardown",
   featureGps: "features.gps",
+  featureDocuments: "features.documents",
 } as const;
 
 function defaults(): AppConfig {
@@ -180,6 +183,7 @@ function defaults(): AppConfig {
       custody: false,
       teardown: true,
       gps: false,
+      documents: false,
     },
   };
 }
@@ -254,6 +258,7 @@ function build(stored: Map<string, string>): AppConfig {
       custody: flag(KEYS.featureCustody, base.features.custody),
       teardown: flag(KEYS.featureTeardown, base.features.teardown),
       gps: flag(KEYS.featureGps, base.features.gps),
+      documents: flag(KEYS.featureDocuments, base.features.documents),
     },
   };
 }
@@ -355,6 +360,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   custody: KEYS.featureCustody,
   teardown: KEYS.featureTeardown,
   gps: KEYS.featureGps,
+  documents: KEYS.featureDocuments,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {
