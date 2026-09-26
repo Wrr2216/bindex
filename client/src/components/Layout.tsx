@@ -44,6 +44,7 @@ export function Layout() {
     ...(features.opsIntel ? [{ to: "/insights", label: "Insights" }] : []),
     ...(features.ble ? [{ to: "/ble", label: "Bluetooth" }] : []),
     ...(features.jobs && features.placement ? [{ to: "/placement", label: "Placement" }] : []),
+    ...(features.claims ? [{ to: "/claims", label: "Claims" }] : []),
     { to: "/settings", label: "Settings" },
   ];
 

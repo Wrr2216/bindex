@@ -197,6 +197,12 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Tell delivery crews which room each thing goes to, confirm placement by scan, room sweep or room reader, and flag anything in the wrong room or off the wrong truck. Needs projects, jobs and shipments.",
   },
+  {
+    key: "claims",
+    title: "Claims and incidents",
+    description:
+      "File claims for lost or damaged things and report incidents. Each claim gathers its pack-day photos, condition notes and trip history on its own, and prints as an adjuster-ready PDF.",
+  },
 ];
 
 export function InstanceSettings() {
