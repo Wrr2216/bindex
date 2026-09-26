@@ -355,7 +355,13 @@ async function ingest(gateway: TrackingDevice, payload: GatewayPayload, now: Dat
   const due: Heard[] = [];
   for (const h of heard.values()) {
     const last = lastStored.get(h.ref.key) ?? -Infinity;
-    if (changedKeys.has(h.ref.key) || h.lastAt - last >= storeMs) due.push(h);
+    if (changedKeys.has(h.ref.key)) due.push(h);
+    else if (h.lastAt - last >= storeMs) {
+      // Wait for the gateway that hears the tag best, so "last seen via" names
+      // the right one; any gateway will do once it is twice as overdue.
+      const best = engine.snapshot(h.ref.key)?.heard[0]?.gatewayId;
+      if (!best || best === gateway.id || h.lastAt - last >= 2 * storeMs) due.push(h);
+    }
   }
   const stillHere: NormalizedRead[] = due.map((h) => ({
     code: h.ref.identity,
