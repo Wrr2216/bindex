@@ -80,6 +80,7 @@ const configPatch = z.object({
       opsIntel: z.boolean().optional(),
       ble: z.boolean().optional(),
       placement: z.boolean().optional(),
+      claims: z.boolean().optional(),
     })
     .optional(),
 });

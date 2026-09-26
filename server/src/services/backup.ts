@@ -43,6 +43,7 @@ import { DOCUMENTS_DATE_FIELDS, exportDocumentsTables, restoreDocumentsTables } 
 import { exportPortalTables, keepPortalSecrets, restorePortalTables } from "./portal/backup";
 import { exportOpsIntelTables, restoreOpsIntelTables } from "./ops-intel/backup";
 import { exportPlacementTables, restorePlacementTables } from "./placement/backup";
+import { CLAIMS_DATE_FIELDS, clearClaimsTables, exportClaimsTables, restoreClaimsTables } from "./claims/backup";
 
 /**
  * A JSON snapshot that round-trips: relationships, metadata, units,
@@ -129,6 +130,9 @@ const TABLES = [
   "ops_location_profiles",
   "placement_room_map",
   "placement_observations",
+  "claims",
+  "claim_lines",
+  "claim_activity",
 ] as const;
 type TableName = (typeof TABLES)[number];
 
@@ -188,6 +192,7 @@ const DATE_FIELDS: Record<TableName, string[]> = {
   ops_location_profiles: ["createdAt", "updatedAt"],
   placement_room_map: ["createdAt", "updatedAt"],
   placement_observations: ["createdAt"],
+  ...CLAIMS_DATE_FIELDS,
 };
 
 export type Backup = {
@@ -247,6 +252,7 @@ export async function buildBackup(): Promise<Backup> {
     ...(await exportPortalTables()),
     ...(await exportOpsIntelTables()),
     ...(await exportPlacementTables()),
+    ...(await exportClaimsTables()),
   };
   const counts = Object.fromEntries(
     TABLES.map((t) => [t, data[t].length]),
@@ -331,6 +337,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     await clearCrewTables(tx, { keep: predatesCrew(d) });
     await clearCustodyTables(tx);
     await clearGpsTables(tx);
+    await clearClaimsTables(tx);
     await clearJobsCoreTables(tx, { keepJobTypes: d.job_types.length === 0 });
     await tx.delete(itemAssignments);
     await tx.delete(trackingDevices);
@@ -446,6 +453,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     await restoreOpsIntelTables(tx, d);
     // Cleared with the jobs they hang off (ON DELETE CASCADE).
     await restorePlacementTables(tx, d);
+    await restoreClaimsTables(tx, d);
   });
 
   // Counted from what was inserted: an older file's counts lack newer tables,

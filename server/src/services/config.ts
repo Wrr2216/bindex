@@ -80,6 +80,8 @@ export type Features = {
   ble: boolean;
   /** Room-based placement guidance and delivery matching. Needs jobs. */
   placement: boolean;
+  /** Claims and incident reports, with their evidence packs. */
+  claims: boolean;
 };
 
 export type AppConfig = {
@@ -150,6 +152,7 @@ const KEYS = {
   featureOpsIntel: "features.ops_intel",
   featureBle: "features.ble",
   featurePlacement: "features.placement",
+  featureClaims: "features.claims",
 } as const;
 
 function defaults(): AppConfig {
@@ -200,6 +203,7 @@ function defaults(): AppConfig {
       opsIntel: false,
       ble: false,
       placement: false,
+      claims: false,
     },
   };
 }
@@ -280,6 +284,7 @@ function build(stored: Map<string, string>): AppConfig {
       // Beacons are tracking devices, so they go when tracking does.
       ble: flag(KEYS.featureBle, base.features.ble) && flag(KEYS.featureTracking, base.features.tracking),
       placement: flag(KEYS.featurePlacement, base.features.placement),
+      claims: flag(KEYS.featureClaims, base.features.claims),
     },
   };
 }
@@ -386,6 +391,7 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   opsIntel: KEYS.featureOpsIntel,
   ble: KEYS.featureBle,
   placement: KEYS.featurePlacement,
+  claims: KEYS.featureClaims,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {

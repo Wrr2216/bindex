@@ -40,6 +40,8 @@ import { startOpsIntel } from "./services/ops-intel";
 import { bleDeviceRouter } from "./routes/ble";
 import { startBle } from "./services/ble";
 import { startPlacementReaders } from "./services/placement";
+import { claimsPortalRouter } from "./routes/claims";
+import { startClaimsSlaWatch } from "./services/claims";
 
 const app = express();
 // One proxy hop, which is what a container behind a reverse proxy sees. Needed
@@ -90,6 +92,8 @@ app.use("/api/device", deviceRouter);
 // GPS trackers post here with their device tokens; bodies are parsed by deviceRouter above.
 app.use("/api/device/gps", gpsDeviceRouter);
 app.use("/api/device/ble", bleDeviceRouter);
+// Filing a claim through an external portal link: the link is the credential.
+app.use("/api/claims-portal", claimsPortalRouter);
 // Built from the configuration, so it has to come before the static handler.
 app.use(manifestRouter);
 // The service worker is stamped with the build, so it too comes before them.
@@ -179,6 +183,7 @@ async function main(): Promise<void> {
     startOpsIntel();
     startBle();
     startPlacementReaders();
+    startClaimsSlaWatch();
   });
 }
 
