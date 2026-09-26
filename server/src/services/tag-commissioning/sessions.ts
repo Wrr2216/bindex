@@ -267,6 +267,13 @@ async function saveState(tx: Tx, id: string, state: BindState, status?: "finishe
   return row!;
 }
 
+async function entryExists(tx: Tx, entry: BindEntry): Promise<boolean> {
+  const { rows } = entry.unitId
+    ? await tx.execute(sql`SELECT 1 FROM item_units WHERE id = ${entry.unitId} AND item_id = ${entry.itemId}`)
+    : await tx.execute(sql`SELECT 1 FROM items WHERE id = ${entry.itemId}`);
+  return rows.length > 0;
+}
+
 export type ReadOutcome =
   | { kind: "bound"; value: string; index: number; itemId: string; unitId: string | null }
   | { kind: "ignored"; reason: IgnoreReason; value: string; heldBy?: string };
@@ -293,10 +300,21 @@ export async function recordRead(id: string, raw: string, userOid: string | null
         ).rows[0]
       : undefined;
 
-    const decision = decideRead(state, value, Boolean(holder));
+    // A record deleted since the session started cannot take a tag; step past
+    // it rather than fail every read on the foreign key.
+    let current = state;
+    let decision = decideRead(current, value, Boolean(holder));
+    while (decision.kind === "bind" && !(await entryExists(tx, decision.entry))) {
+      current = applySkip(current, new Date().toISOString());
+      decision = decideRead(current, value, Boolean(holder));
+    }
+    const unchanged = async () => (current === state ? session : saveState(tx, id, current));
     if (decision.kind === "ignore") {
       const heldBy = holder ? `${holder.name} (${holder.asset_code})` : undefined;
-      return { outcome: { kind: "ignored", reason: decision.reason, value, heldBy } as ReadOutcome, row: session };
+      return {
+        outcome: { kind: "ignored", reason: decision.reason, value, heldBy } as ReadOutcome,
+        row: await unchanged(),
+      };
     }
 
     const inserted = await tx.execute<{ id: string }>(sql`
@@ -306,14 +324,14 @@ export async function recordRead(id: string, raw: string, userOid: string | null
       RETURNING id`);
     const identifierId = inserted.rows[0]?.id;
     if (!identifierId) {
-      return { outcome: { kind: "ignored", reason: "in_use", value } as ReadOutcome, row: session };
+      return { outcome: { kind: "ignored", reason: "in_use", value } as ReadOutcome, row: await unchanged() };
     }
     if (decision.entry.unitId) {
       await tx.execute(sql`
         INSERT INTO tag_identifier_units (identifier_id, unit_id)
         VALUES (${identifierId}, ${decision.entry.unitId})`);
     }
-    const next = applyBind(state, value, identifierId, new Date().toISOString());
+    const next = applyBind(current, value, identifierId, new Date().toISOString());
     const saved = await saveState(tx, id, next);
     return {
       outcome: {

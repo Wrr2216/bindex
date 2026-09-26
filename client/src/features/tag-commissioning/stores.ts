@@ -146,9 +146,9 @@ export function useItemTags(itemId: string, key: string) {
   );
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    fetchItemTags(itemId).catch((err) =>
-      setError(err instanceof Error ? err.message : "Could not load tags"),
-    );
+    fetchItemTags(itemId)
+      .then(() => setError(null))
+      .catch((err) => setError(err instanceof Error ? err.message : "Could not load tags"));
   }, [itemId, key]);
   const reload = useCallback(async () => {
     invalidateSummaries(itemId);

@@ -239,6 +239,10 @@ describe("bindex-96", () => {
     }
   });
 
+  it("matches the worked example in the docs", () => {
+    assert.equal(epc.encodeBindex96("INV-7F3K2A"), "4234D88084045432C0000000");
+  });
+
   it("is case-insensitive on the way in", () => {
     assert.equal(epc.encodeBindex96("inv-7f3k2a"), epc.encodeBindex96("INV-7F3K2A"));
   });
