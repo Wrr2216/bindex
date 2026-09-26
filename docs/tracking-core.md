@@ -88,8 +88,10 @@ The rule, precisely: reads from antennas with no side are ignored; a pass is a
 run of reads with no gap longer than the window; the first and last side of
 the pass decide the direction (outside then inside is in, inside then outside
 is out, the same side on both ends is none); when several antennas see a tag
-at the same instant, the strongest read decides the side. Portal reads get a
-zone only once the direction is known.
+at the same instant, the strongest read decides the side. A pass that runs
+longer than a minute, such as a pallet parked in the doorway, starts again
+from the tag's latest read, so carrying it out afterwards still reads as out.
+Portal reads get a zone only once the direction is known.
 
 ## The existing reader bridge
 
