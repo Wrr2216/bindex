@@ -122,6 +122,10 @@ export function buildDoc(
         at: fmt.at(h.at),
         text: [
           `${h.from ?? "?"} to ${h.to ?? "?"}`,
+          h.place && `at ${h.place}`,
+          h.outcome && h.outcome !== "accepted" ? `received ${h.outcome}${h.outcomeNote ? `: ${h.outcomeNote}` : ""}` : null,
+          h.status === "locked" ? "awaiting signatures" : null,
+          h.code,
           h.sealNumbers.length ? `seals ${h.sealNumbers.join(", ")}` : null,
           h.signatures.length ? `signed by ${h.signatures.map((s) => s.signerName).join(" and ")}` : null,
           h.contentHash ? `list hash ${h.contentHash.slice(0, 16)}` : null,

@@ -43,6 +43,7 @@ function Photos({ files }: { files: EvidenceAttachment[] }) {
                 {f.caption && <span className="block text-slate-300">{f.caption}</span>}
                 {f.owner === "condition_report" && <span className="block text-sky-300">From a condition report</span>}
                 {f.owner === "pack_list" && <span className="block text-sky-300">From the pack list</span>}
+                {f.owner === "custody" && <span className="block text-sky-300">From a hand-over</span>}
               </p>
             </li>
           ))}
@@ -193,7 +194,16 @@ export function LineEvidenceView({ line }: { line: LineEvidence }) {
               <li key={h.id} className="text-slate-200">
                 <span className="text-xs text-slate-500">{fmtDateTime(h.at)} · </span>
                 {h.from ?? "?"} → {h.to ?? "?"}
+                {h.place && <span className="text-xs text-slate-400"> · at {h.place}</span>}
+                {h.code && <span className="font-mono text-xs text-slate-500"> · {h.code}</span>}
+                {h.status === "locked" && <span className="text-xs text-amber-300"> · awaiting signatures</span>}
                 {h.sealNumbers.length > 0 && <span className="text-xs text-slate-400"> · seals {h.sealNumbers.join(", ")}</span>}
+                {h.outcome && h.outcome !== "accepted" && (
+                  <span className="block text-xs text-red-300">
+                    Received {h.outcome}
+                    {h.outcomeNote ? `: ${h.outcomeNote}` : ""}
+                  </span>
+                )}
                 {h.signatures.length > 0 && (
                   <span className="text-xs text-emerald-300"> · signed by {h.signatures.map((s) => s.signerName).join(" and ")}</span>
                 )}

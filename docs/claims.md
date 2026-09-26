@@ -171,8 +171,8 @@ edits from the claim, so it is read-only by construction. For each line:
 | **Condition notes** | The manifest line's note, every note written with a stage change, photo captions, condition report notes, the pack list and custody hand-off notes, oldest first. |
 | **Condition reports** | When that feature is installed; see below. |
 | **Pack list** | For a container, what was recorded going into it when it was packed: size, the writing on it, handling flags and its contents. When that feature is installed. |
-| **Chain of custody** | When that feature is installed; see below. |
-| **Audit log** | Ids and hashes of the entries about the item, the unit and their condition reports, and of the `job.stage_changed` entries that moved this line. |
+| **Chain of custody** | Every hand-over the item was on, with both parties, the place, seals, signatures and what the receiver found. When that feature is installed; see below. |
+| **Audit log** | Ids and hashes of the entries about the item, the unit, their condition reports and custody transfers, and of the `job.stage_changed` entries that moved this line. |
 
 Claim-wide: files attached to the claim, signatures recorded against its job or
 shipment, the shipment's status history, and the claim's own audit entries.
@@ -233,11 +233,13 @@ recognised is logged once (`claims.evidence.source_unreadable` or
 | --- | --- | --- |
 | `condition_reports` | `id`, `item_id` | `unit_id`, `stage` (and `stage_label` for a custom stage), `rating`, `notes`, `ai_notes`, `defects` (jsonb `[{ area, type, severity, description }]`), `handling_note`, `attachment_ids` (uuid[] or jsonb), `created_by`, `created_at` |
 | `container_captures` | `id`, `item_id` | `size_class`, `handwritten_text`, `room`, `contents_summary`, `contents` (jsonb `[{ name, qty, condition, fragile }]`), `flags`, `attachment_ids`, `created_by`, `created_at` |
-| `custody_transfers` | `id`, and the items it moved: either rows in `custody_transfer_items` (`transfer_id` or `custody_transfer_id`, `item_id`, `unit_id`) or a column `items` / `item_ids` / `item_refs` (jsonb of ids or `{ itemId, unitId }`, or uuid[]) | `at` / `transferred_at` / `created_at`, `from_party` and `to_party` (text, or jsonb with `name`, `org`), `place_location_id`, `lat`, `lng`, `seal_numbers`, `condition_note`, `from_signature_id`, `to_signature_id`, `content_hash`, `audit_log_id` |
+| `custody_transfers` | `id`, and the items it moved: either rows in `custody_transfer_items` (`transfer_id` or `custody_transfer_id`, `item_id`, `unit_id`, and `outcome` and `note` for what the receiver found) or a column `items` / `item_ids` / `item_refs` (jsonb of ids or `{ itemId, unitId }`, or uuid[]) | `code`, `purpose`, `status` (draft and void transfers are left out; locked ones show as awaiting signatures), `at` / `completed_at` / `created_at`, the parties as `from_party` / `to_party` (text, or jsonb with `name`, `org`) or `from_name` + `from_org` / `to_name` + `to_org`, `location_id`, `location_name`, `lat`, `lng`, `seal_numbers`, `condition_note`, `from_signature_id`, `to_signature_id`, `content_hash`, `audit_entry_id` / `audit_log_id`, `receipt_attachment_id`. Attachments owned by `custody_transfer` (hand-over photos, the signed receipt) join the line's files. |
 | `portal_grants` | `id`, `token_hash` (sha256 hex of the token, as for API keys) | `scope` and `scope_id`, or one of `shipment_id` / `job_id` / `project_id`; `role`, `grantee_name`, `grantee_email`, `grantee_org`, `expires_at`, `revoked_at`, `last_used_at` (touched on use) |
 
 A condition report on an item counts for every line of that item; one on a
-unit only for that unit's line. A pack list belongs to its container. A custody transfer of the whole item counts for
+unit only for that unit's line. A pack list belongs to its container. A
+hand-over at which the receiver marked the item missing, damaged or refused
+adds that finding, with its note, to the line's condition notes. A custody transfer of the whole item counts for
 each of its units, and a transfer of one unit counts for a claim on the item.
 
 Delivery exceptions recorded at sign-off become manifest line stages
@@ -370,12 +372,12 @@ TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/bindex_claims_test
 The database suite runs the acceptance flow (a delivered, damaged line whose
 claim shows its pack-day photo and notes with nothing attached by hand), the
 workflow and its permission rules, incidents, the deadline watcher, job
-deletion, the backup, and both the absent and present paths of the optional
-features. Condition reports and pack lists are written to the real tables when
-that feature's migration has run, and to stand-ins shaped like them when it
-has not; custody transfers and portal grants always to stand-ins, created in
-the test database and dropped afterwards (that part is skipped where real
-custody or portal tables exist).
+deletion, the backup, and the optional sources. Condition reports, pack lists
+and custody transfers are written to those features' own tables when their
+migrations have run, and to stand-ins with the same columns when they have
+not; portal grants to a stand-in created in the test database and dropped
+afterwards (skipped once the real portal is installed, whose grants are made
+through its own code).
 
 ## Code map
 

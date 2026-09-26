@@ -193,12 +193,20 @@ export function packListText(p: PackList): string {
 
 export type ItemRef = { itemId: string; unitId: string | null };
 
+/** An item on a transfer, with what the receiving party found when there is a record of it. */
+export type HopItem = ItemRef & { outcome: string | null; note: string | null };
+
 export type CustodyHop = {
   id: string;
+  code: string | null;
+  purpose: string | null;
+  /** draft, locked, completed or void where the feature records it. */
+  status: string | null;
   at: string | null;
   from: string | null;
   to: string | null;
   locationId: string | null;
+  place: string | null;
   lat: number | null;
   lng: number | null;
   sealNumbers: string[];
@@ -206,7 +214,8 @@ export type CustodyHop = {
   signatureIds: string[];
   contentHash: string | null;
   auditLogId: number | null;
-  items: ItemRef[];
+  receiptAttachmentId: string | null;
+  items: HopItem[];
 };
 
 /** A party as it might be stored: free text, or an object naming a person, a holder or an organisation. */
@@ -228,17 +237,24 @@ export function partyLabel(v: unknown): string | null {
   return name ?? org ?? str(pick(p, "email", "userOid", "user_oid", "entityId", "entity_id"));
 }
 
-function itemRefs(v: unknown): ItemRef[] {
-  const out: ItemRef[] = [];
+function itemRefs(v: unknown): HopItem[] {
+  const out: HopItem[] = [];
   for (const entry of list(v)) {
-    let ref: ItemRef | null = null;
+    let ref: HopItem | null = null;
     if (entry && typeof entry === "object") {
       const e = entry as Row;
       const itemId = uuid(pick(e, "itemId", "item_id", "id"));
-      if (itemId) ref = { itemId, unitId: uuid(pick(e, "unitId", "unit_id")) };
+      if (itemId) {
+        ref = {
+          itemId,
+          unitId: uuid(pick(e, "unitId", "unit_id")),
+          outcome: str(pick(e, "outcome", "status", "result"))?.toLowerCase() ?? null,
+          note: str(pick(e, "note", "notes")),
+        };
+      }
     } else {
       const itemId = uuid(entry);
-      if (itemId) ref = { itemId, unitId: null };
+      if (itemId) ref = { itemId, unitId: null, outcome: null, note: null };
     }
     if (ref && !out.some((r) => r.itemId === ref!.itemId && r.unitId === ref!.unitId)) out.push(ref);
   }
@@ -249,12 +265,19 @@ function itemRefs(v: unknown): ItemRef[] {
  * `extraItems` carries refs read from a separate item table, for a feature
  * that keeps the transferred items in rows of their own.
  */
-export function normalizeCustodyTransfer(row: Row, extraItems: ItemRef[] = []): CustodyHop | null {
+/** A party kept as separate name and organisation columns. */
+function partyColumns(row: Row, side: "from" | "to"): string | null {
+  const name = str(pick(row, `${side}_name`, `${side}Name`, `${side}_label`));
+  const org = str(pick(row, `${side}_org`, `${side}Org`));
+  if (name && org && name !== org) return `${name} (${org})`;
+  return name ?? org;
+}
+
+export function normalizeCustodyTransfer(row: Row, extraItems: HopItem[] = []): CustodyHop | null {
   const id = uuid(pick(row, "id"));
   if (!id) return null;
-  const from = partyLabel(pick(row, "from_party", "fromParty", "from")) ??
-    str(pick(row, "from_name", "fromName", "from_label", "from_org"));
-  const to = partyLabel(pick(row, "to_party", "toParty", "to")) ?? str(pick(row, "to_name", "toName", "to_label", "to_org"));
+  const from = partyLabel(pick(row, "from_party", "fromParty", "from")) ?? partyColumns(row, "from");
+  const to = partyLabel(pick(row, "to_party", "toParty", "to")) ?? partyColumns(row, "to");
   const signatureIds = [
     ...ids(pick(row, "signature_ids", "signatureIds")),
     ...[
@@ -270,20 +293,32 @@ export function normalizeCustodyTransfer(row: Row, extraItems: ItemRef[] = []): 
   }
   return {
     id,
-    at: iso(pick(row, "at", "transferred_at", "transferredAt", "created_at", "createdAt")),
+    code: str(pick(row, "code")),
+    purpose: str(pick(row, "purpose")),
+    status: str(pick(row, "status"))?.toLowerCase() ?? null,
+    // A transfer still being signed has no hand-over time yet.
+    at: iso(pick(row, "at", "transferred_at", "transferredAt", "completed_at", "created_at", "createdAt")),
     from,
     to,
     locationId: uuid(pick(row, "place_location_id", "location_id", "placeLocationId", "locationId")),
+    place: str(pick(row, "location_name", "place_name", "place")),
     lat: num(pick(row, "lat", "latitude")),
     lng: num(pick(row, "lng", "lon", "longitude")),
     sealNumbers: strings(pick(row, "seal_numbers", "sealNumbers", "seals")),
     conditionNote: str(pick(row, "condition_note", "conditionNote", "note", "notes")),
     signatureIds: [...new Set(signatureIds)],
     contentHash: str(pick(row, "content_hash", "contentHash")),
-    auditLogId: num(pick(row, "audit_log_id", "auditLogId")),
+    auditLogId: num(pick(row, "audit_log_id", "auditLogId", "audit_entry_id", "auditEntryId")),
+    receiptAttachmentId: uuid(pick(row, "receipt_attachment_id", "receiptAttachmentId")),
     items,
   };
 }
+
+/**
+ * Whether a transfer is a hand-over that happened. One still being scanned,
+ * or abandoned, is not evidence of anything.
+ */
+export const hopHappened = (hop: CustodyHop): boolean => hop.status !== "draft" && hop.status !== "void";
 
 /**
  * Whether a transfer moved this item. A transfer of the whole item covers each

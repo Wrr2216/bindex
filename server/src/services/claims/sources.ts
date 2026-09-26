@@ -4,6 +4,7 @@ import { describeError } from "../../lib/errors";
 import { logger } from "../../lib/logger";
 import {
   hopCovers,
+  hopHappened,
   normalizeConditionReport,
   normalizeContainerCapture,
   normalizeCustodyTransfer,
@@ -147,7 +148,7 @@ export async function packListsFor(shapes: Shapes, itemIds: readonly string[]): 
 // --- Custody transfers ------------------------------------------------------------
 
 type CustodyPlan =
-  | { kind: "child"; fk: string; hasUnit: boolean; order: string | null }
+  | { kind: "child"; fk: string; hasUnit: boolean; hasOutcome: boolean; hasNote: boolean; order: string | null }
   | { kind: "column"; column: string; order: string | null };
 
 /**
@@ -160,7 +161,9 @@ function custodyPlan(shapes: Shapes): CustodyPlan | null {
   const order = firstOf(cols, "at", "transferred_at", "created_at");
   const child = shapes.get("custody_transfer_items");
   const fk = firstOf(child, "transfer_id", "custody_transfer_id");
-  if (child && fk && child.has("item_id")) return { kind: "child", fk, hasUnit: child.has("unit_id"), order };
+  if (child && fk && child.has("item_id")) {
+    return { kind: "child", fk, hasUnit: child.has("unit_id"), hasOutcome: child.has("outcome"), hasNote: child.has("note"), order };
+  }
   const column = firstOf(cols, "items", "item_ids", "item_refs");
   if (column) return { kind: "column", column, order };
   warnOnce("claims.evidence.source_unreadable", { table: "custody_transfers", missing: "items" });
@@ -178,7 +181,9 @@ export async function custodyHopsFor(shapes: Shapes, refs: readonly ItemRef[]): 
     if (plan.kind === "child") {
       ({ rows } = await pool.query(
         `SELECT to_jsonb(t) AS row,
-                (SELECT jsonb_agg(jsonb_build_object('itemId', i.item_id, 'unitId', ${plan.hasUnit ? "i.unit_id" : "NULL"}))
+                (SELECT jsonb_agg(jsonb_build_object('itemId', i.item_id, 'unitId', ${plan.hasUnit ? "i.unit_id" : "NULL"},
+                                                     'outcome', ${plan.hasOutcome ? "i.outcome" : "NULL"},
+                                                     'note', ${plan.hasNote ? "i.note" : "NULL"}))
                    FROM custody_transfer_items i WHERE i.${plan.fk} = t.id) AS items
            FROM custody_transfers t
           WHERE EXISTS (SELECT 1 FROM custody_transfer_items i WHERE i.${plan.fk} = t.id AND i.item_id = ANY($1::uuid[]))
@@ -200,11 +205,16 @@ export async function custodyHopsFor(shapes: Shapes, refs: readonly ItemRef[]): 
     const hops = rows
       .map((r) => {
         const extra = Array.isArray(r.items)
-          ? (r.items as { itemId: string; unitId: string | null }[]).map((i) => ({ itemId: i.itemId, unitId: i.unitId ?? null }))
+          ? (r.items as { itemId: string; unitId: string | null; outcome?: string | null; note?: string | null }[]).map((i) => ({
+              itemId: i.itemId,
+              unitId: i.unitId ?? null,
+              outcome: i.outcome ?? null,
+              note: i.note ?? null,
+            }))
           : [];
         return normalizeCustodyTransfer(r.row, extra);
       })
-      .filter((h): h is CustodyHop => h !== null && refs.some((ref) => hopCovers(h, ref)));
+      .filter((h): h is CustodyHop => h !== null && hopHappened(h) && refs.some((ref) => hopCovers(h, ref)));
     return { available: true, rows: hops };
   } catch (err) {
     warnOnce("claims.evidence.source_failed", { table: "custody_transfers", err: describeError(err) });

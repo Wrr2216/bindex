@@ -39,7 +39,7 @@ import { attachmentPhase, sortNotes, tripFromHistory, type ConditionNote, type P
 
 export type EvidenceAttachment = {
   id: string;
-  owner: "item" | "unit" | "claim_line" | "claim" | "condition_report" | "pack_list";
+  owner: "item" | "unit" | "claim_line" | "claim" | "condition_report" | "pack_list" | "custody";
   kind: string;
   stage: string | null;
   phase: Phase;
@@ -81,7 +81,12 @@ export type EvidenceSignature = {
   ownerType: string;
 };
 
-export type CustodyEvidence = CustodyHop & { signatures: EvidenceSignature[] };
+export type CustodyEvidence = CustodyHop & {
+  signatures: EvidenceSignature[];
+  /** What the receiving party recorded for this line's item: accepted, missing, damaged, refused. */
+  outcome: string | null;
+  outcomeNote: string | null;
+};
 
 export type LineEvidence = {
   lineId: string;
@@ -244,6 +249,7 @@ async function auditFor(
   jobIds: string[],
   jobItemIds: string[],
   reportIds: string[],
+  transferIds: string[],
 ): Promise<AuditRow[]> {
   try {
     const { rows } = await pool.query<AuditRow>(
@@ -258,13 +264,14 @@ async function auditFor(
            OR (a.subject_type = 'item' AND a.subject_id = ANY($2::text[]))
            OR (a.subject_type = 'unit' AND a.subject_id = ANY($3::text[]))
            OR (a.subject_type = 'condition_report' AND a.subject_id = ANY($6::text[]))
+           OR (a.subject_type = 'custody_transfer' AND a.subject_id = ANY($7::text[]))
            OR (a.subject_type = 'job' AND a.subject_id = ANY($4::text[]) AND a.type = 'job.stage_changed'
                AND EXISTS (
                  SELECT 1 FROM jsonb_array_elements(CASE jsonb_typeof(a.data->'lines') WHEN 'array' THEN a.data->'lines' ELSE '[]'::jsonb END) l
                   WHERE l->>'jobItemId' = ANY($5::text[])))
         ORDER BY a.id DESC
         LIMIT 2000`,
-      [claimId, itemIds, unitIds, jobIds, jobItemIds, reportIds],
+      [claimId, itemIds, unitIds, jobIds, jobItemIds, reportIds, transferIds],
     );
     return rows;
   } catch (err) {
@@ -479,10 +486,20 @@ export async function buildEvidence(
         { type: "unit", ids: unitIds },
         { type: "claim_line", ids: lines.map((l) => l.id) },
         { type: "claim", ids: [claim.id] },
+        // A hand-over's own photos and its signed receipt.
+        { type: "custody_transfer", ids: hops.rows.map((h) => h.id) },
       ],
       reportAttachmentIds,
     ),
-    auditFor(claim.id, itemIds, unitIds, jobIds, jobItemIds, reports.rows.map((r) => r.id)),
+    auditFor(
+      claim.id,
+      itemIds,
+      unitIds,
+      jobIds,
+      jobItemIds,
+      reports.rows.map((r) => r.id),
+      hops.rows.map((h) => h.id),
+    ),
     Promise.all(
       [...new Set(hops.rows.flatMap((h) => h.signatureIds))].map(async (id) => [id, await getSignature(id)] as const),
     ).then((pairs) => new Map(pairs.filter(([, s]) => s !== null).map(([id, s]) => [id, signatureView(s!)]))),
@@ -505,7 +522,16 @@ export async function buildEvidence(
     const lineReports = reports.rows.filter((r) => covers(r, line));
     const lineHops = hops.rows
       .filter((h) => line.itemId !== null && h.items.some((i) => covers(i, line)))
-      .map((h) => ({ ...h, signatures: h.signatureIds.map((id) => hopSignatures.get(id)).filter((s) => s !== undefined) }));
+      .map((h) => {
+        const mine = h.items.find((i) => covers(i, line));
+        return {
+          ...h,
+          signatures: h.signatureIds.map((id) => hopSignatures.get(id)).filter((s) => s !== undefined),
+          outcome: mine?.outcome ?? null,
+          outcomeNote: mine?.note ?? null,
+        };
+      });
+    const lineHopIds = new Set(lineHops.map((h) => h.id));
 
     // A pack list belongs to the container as a whole, so it counts for every line of it.
     const linePacks = packs.rows.filter((p) => p.itemId !== null && p.itemId === line.itemId);
@@ -520,6 +546,7 @@ export async function buildEvidence(
       else if (f.ownerType === "item" && f.ownerId === line.itemId) owner = "item";
       else if (lineReportIds.has(f.id)) owner = "condition_report";
       else if (linePackIds.has(f.id)) owner = "pack_list";
+      else if (f.ownerType === "custody_transfer" && lineHopIds.has(f.ownerId)) owner = "custody";
       if (!owner || seen.has(f.id)) continue;
       seen.add(f.id);
       lineFiles.push(present(f, owner, trip, names));
@@ -551,6 +578,11 @@ export async function buildEvidence(
     }
     for (const h of lineHops) {
       if (h.conditionNote) notes.push({ source: "custody", at: h.at, stage: null, text: h.conditionNote, by: h.to, ref: h.id });
+      // What the receiver found for this item at the hand-over, when it was anything but fine.
+      if ((h.outcome && h.outcome !== "accepted") || h.outcomeNote) {
+        const text = [h.outcome && h.outcome !== "accepted" ? `Received ${h.outcome}` : null, h.outcomeNote].filter(Boolean).join(": ");
+        notes.push({ source: "custody", at: h.at, stage: h.outcome, text, by: h.to, ref: h.id });
+      }
     }
 
     const audit = auditRows
@@ -559,6 +591,7 @@ export async function buildEvidence(
           (a.subject_type === "item" && a.subject_id === line.itemId) ||
           (a.subject_type === "unit" && line.unitId !== null && a.subject_id === line.unitId) ||
           (a.subject_type === "condition_report" && lineReports.some((r) => r.id === a.subject_id)) ||
+          (a.subject_type === "custody_transfer" && a.subject_id !== null && lineHopIds.has(a.subject_id)) ||
           (line.jobItemId !== null && (a.stage_lines ?? []).some((l) => l.jobItemId === line.jobItemId)),
       )
       .map(auditView);

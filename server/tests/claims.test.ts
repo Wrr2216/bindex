@@ -441,21 +441,59 @@ describe("reading other features' rows", () => {
     assert.ok(a);
     assert.equal(a.from, "Dana (Acme Movers)");
     assert.equal(a.to, "Warehouse B");
-    assert.deepEqual(a.items, [
-      { itemId: ITEM, unitId: UNIT },
-      { itemId: OTHER, unitId: null },
-    ]);
+    assert.deepEqual(
+      a.items.map((i) => [i.itemId, i.unitId]),
+      [
+        [ITEM, UNIT],
+        [OTHER, null],
+      ],
+    );
     assert.deepEqual(a.sealNumbers, ["S-1", "S-2"]);
     assert.deepEqual(a.signatureIds, [ATT]);
     assert.equal(a.auditLogId, 42);
 
     const b = norm.normalizeCustodyTransfer({ id: ID, item_ids: [ITEM], from_name: "Dock", to_name: "Truck 4" }, [
-      { itemId: OTHER, unitId: null },
+      { itemId: OTHER, unitId: null, outcome: null, note: null },
     ]);
     assert.ok(b);
     assert.equal(b.from, "Dock");
     assert.deepEqual(b.items.map((i) => i.itemId), [ITEM, OTHER]);
     assert.equal(norm.partyLabel('{"name":"Sam"}'), "Sam");
+  });
+
+  it("reads a transfer stored as the chain-of-custody feature stores it", () => {
+    const row = {
+      id: ID,
+      code: "CUS-7K2M9Q",
+      purpose: "delivery",
+      status: "completed",
+      from_kind: "external",
+      from_name: "Sam Driver",
+      from_org: "Acme Movers",
+      to_kind: "user",
+      to_name: "Dana Ruiz",
+      to_org: null,
+      at: null,
+      completed_at: "2026-09-21T15:00:00Z",
+      location_name: "Dock 2",
+      seal_numbers: ["S-9"],
+      audit_entry_id: 1042,
+      receipt_attachment_id: ATT,
+    };
+    const hop = norm.normalizeCustodyTransfer(row, [
+      { itemId: ITEM, unitId: null, outcome: "damaged", note: "Corner crushed" },
+    ])!;
+    assert.equal(hop.from, "Sam Driver (Acme Movers)");
+    assert.equal(hop.to, "Dana Ruiz");
+    assert.equal(hop.at, "2026-09-21T15:00:00.000Z", "a completed transfer's time");
+    assert.equal(hop.place, "Dock 2");
+    assert.equal(hop.auditLogId, 1042);
+    assert.equal(hop.receiptAttachmentId, ATT);
+    assert.deepEqual(hop.items, [{ itemId: ITEM, unitId: null, outcome: "damaged", note: "Corner crushed" }]);
+    assert.equal(norm.hopHappened(hop), true);
+    assert.equal(norm.hopHappened({ ...hop, status: "draft" }), false);
+    assert.equal(norm.hopHappened({ ...hop, status: "void" }), false);
+    assert.equal(norm.hopHappened({ ...hop, status: "locked" }), true);
   });
 
   it("matches a transfer to a line by item, with units covering each other", () => {

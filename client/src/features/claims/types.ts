@@ -171,7 +171,7 @@ export type Phase = "before" | "during" | "after" | "unknown";
 
 export type EvidenceAttachment = {
   id: string;
-  owner: "item" | "unit" | "claim_line" | "claim" | "condition_report" | "pack_list";
+  owner: "item" | "unit" | "claim_line" | "claim" | "condition_report" | "pack_list" | "custody";
   kind: string;
   stage: string | null;
   phase: Phase;
@@ -218,6 +218,11 @@ export type PackList = {
 
 export type CustodyHop = {
   id: string;
+  code: string | null;
+  status: string | null;
+  place: string | null;
+  outcome: string | null;
+  outcomeNote: string | null;
   at: string | null;
   from: string | null;
   to: string | null;
