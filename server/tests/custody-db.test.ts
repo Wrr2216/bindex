@@ -228,6 +228,22 @@ describe("custody against Postgres", { skip: url ? false : "set CUSTODY_TEST_DAT
     assert.equal((await custody.verifyTransfer(t.id)).valid, true);
   });
 
+  it("spends a party's link when that party signs on the device instead", async () => {
+    const case_ = await createItem({ name: `Case ${tag}` }, null);
+    const t = await custody.createTransfer(
+      { purpose: "handoff", from: { kind: "external", name: "A" }, to: { kind: "external", name: "B" } },
+      actor,
+    );
+    await custody.scanIntoTransfer(t.id, [case_.assetCode]);
+    await custody.lockTransfer(t.id, { expectedCount: 1 });
+    const { token } = await custody.issueLink(t.id, "to", 1, actor);
+    await sign(t.id, "from", "A");
+    assert.equal((await custody.publicView(token)).party, "to");
+    await sign(t.id, "to", "B");
+    await assert.rejects(custody.publicView(token), (e: { status?: number }) => e.status === 410);
+    assert.equal((await custody.getTransfer(t.id)).link.state, "none");
+  });
+
   it("voids an unfinished transfer and keeps it out of the chain", async () => {
     const thing = await createItem({ name: `Thing ${tag}` }, null);
     const t = await custody.createTransfer(

@@ -563,7 +563,12 @@ async function signInTx(tx: Tx, t: CustodyTransfer, party: CustodyParty, signer:
     .set({
       ...(party === "from" ? { fromSignatureId: signature.id } : { toSignatureId: signature.id }),
       signing: { ...t.signing, [party]: { via: ctx.via, capturedBy: ctx.capturedBy } },
-      ...(ctx.via === "link" ? { linkUsedAt: now, linkTokenHash: null } : {}),
+      // A link is spent when used, and pointless once its party signed here or the transfer is done.
+      ...(ctx.via === "link"
+        ? { linkUsedAt: now, linkTokenHash: null }
+        : t.linkParty === party || completed
+          ? { linkTokenHash: null }
+          : {}),
       ...(completed ? { status: "completed" as const, at: now, completedAt: now } : {}),
       updatedAt: now,
     })
