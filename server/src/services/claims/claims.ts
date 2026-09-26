@@ -1007,14 +1007,14 @@ export async function addComment(id: string, body: string, actor: ClaimActor): P
   if (!text) throw badRequest("Write something first.");
   const claim = await loadClaim(id);
   const activity = await addActivity(db, id, "comment", actor, { body: text });
-  await announce(
+  const auditLogId = await announce(
     "claim.commented",
     claim,
     { commentId: activity.id, body: text.length > EVENT_BODY_MAX ? `${text.slice(0, EVENT_BODY_MAX)}…` : text },
     actor,
     activity.id,
   );
-  return activity;
+  return { ...activity, auditLogId };
 }
 
 export async function recordExport(id: string, format: "pdf" | "xlsx", actor: ClaimActor): Promise<void> {

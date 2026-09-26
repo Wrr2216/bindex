@@ -187,7 +187,7 @@ export function buildDoc(
       ? [
           ["Estimated", fmt.money(claim.totals.estimatedTotalCents)],
           ["Approved", fmt.money(claim.totals.approvedTotalCents)],
-          ["Paid", fmt.money(claim.paidTotalCents)],
+          ["Paid", claim.paidTotalCents === null ? "Not yet" : fmt.money(claim.paidTotalCents)],
         ]
       : null,
     description: claim.description,

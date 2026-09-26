@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, ne, or, type SQL } from "drizzle-orm";
 import { db, pool } from "../../db/client";
 import {
   attachments,
+  users,
   jobItems,
   jobs,
   shipments,
@@ -9,6 +10,7 @@ import {
   type ClaimActivity,
   type ClaimLine,
 } from "../../db/schema";
+import { env } from "../../env";
 import { describeError } from "../../lib/errors";
 import { logger } from "../../lib/logger";
 import { getShipment, lineHistory, stageLabel } from "../jobs-core";
@@ -47,6 +49,8 @@ export type EvidenceAttachment = {
   height: number | null;
   createdAt: string;
   createdBy: string | null;
+  /** Who took it, by name, as far as the accounts say. */
+  createdByName: string | null;
   url: string;
   thumbUrl: string | null;
 };
@@ -185,7 +189,12 @@ async function attachmentsFor(owners: { type: string; ids: string[] }[], extraId
     .orderBy(asc(attachments.createdAt), asc(attachments.id));
 }
 
-function present(a: AttachmentRow, owner: EvidenceAttachment["owner"], trip: Trip | null): EvidenceAttachment {
+function present(
+  a: AttachmentRow,
+  owner: EvidenceAttachment["owner"],
+  trip: Trip | null,
+  names: Map<string, string>,
+): EvidenceAttachment {
   return {
     id: a.id,
     owner,
@@ -199,6 +208,7 @@ function present(a: AttachmentRow, owner: EvidenceAttachment["owner"], trip: Tri
     height: a.height,
     createdAt: iso(a.createdAt),
     createdBy: a.createdBy,
+    createdByName: a.createdBy ? names.get(a.createdBy) ?? null : null,
     url: `/api/attachments/${a.id}`,
     thumbUrl: a.mime.startsWith("image/") ? `/api/attachments/${a.id}/thumb` : null,
   };
@@ -251,6 +261,25 @@ async function auditFor(
     logger.warn("claims.evidence.audit_failed", { claimId, err: describeError(err) });
     return [];
   }
+}
+
+/**
+ * Names for the account ids that uploaded photos and wrote reports, so the
+ * pack reads "Dana Ruiz" rather than an id. Unknown ids are left unnamed.
+ */
+async function accountNames(oids: (string | null)[]): Promise<Map<string, string>> {
+  const wanted = [...new Set(oids.filter((o): o is string => Boolean(o)))];
+  const out = new Map<string, string>();
+  for (const oid of wanted) {
+    if (oid === "trusted:owner") out.set(oid, env.TRUSTED_USER_NAME);
+    else if (oid.startsWith("api-key:")) out.set(oid, "API key");
+  }
+  const lookup = wanted.filter((o) => !out.has(o));
+  if (lookup.length) {
+    const rows = await db.select({ oid: users.oid, name: users.name, email: users.email }).from(users).where(inArray(users.oid, lookup));
+    for (const r of rows) out.set(r.oid, r.name || r.email);
+  }
+  return out;
 }
 
 const auditView = (r: AuditRow): EvidenceAudit => ({
@@ -328,6 +357,8 @@ export function evidenceFingerprint(pack: Pick<EvidencePack, "lines" | "claim">)
   return contentHash({
     lines: pack.lines.map(({ audit: _a, ...line }) => ({
       ...line,
+      // Names are looked up when the pack is built; a renamed account is not a changed record.
+      conditionNotes: line.conditionNotes.map(({ by: _b, ...n }) => n),
       attachments: line.attachments.map((a) => ({ id: a.id, sha256: a.sha256, stage: a.stage, caption: a.caption })),
     })),
     claim: {
@@ -397,8 +428,7 @@ export async function buildEvidence(
       [...new Set(hops.rows.flatMap((h) => h.signatureIds))].map(async (id) => [id, await getSignature(id)] as const),
     ).then((pairs) => new Map(pairs.filter(([, s]) => s !== null).map(([id, s]) => [id, signatureView(s!)]))),
   ]);
-  const reportOfAttachment = new Map<string, ConditionReport>();
-  for (const r of reports.rows) for (const id of r.attachmentIds) reportOfAttachment.set(id, r);
+  const names = await accountNames([...files.map((f) => f.createdBy), ...reports.rows.map((r) => r.createdBy)]);
 
   const lineEvidence: LineEvidence[] = lines.map((line) => {
     const jobLine = line.jobItemId ? jobLineById.get(line.jobItemId) ?? null : null;
@@ -421,7 +451,7 @@ export async function buildEvidence(
       else if (lineReportIds.has(f.id)) owner = "condition_report";
       if (!owner || seen.has(f.id)) continue;
       seen.add(f.id);
-      lineFiles.push(present(f, owner, trip));
+      lineFiles.push(present(f, owner, trip, names));
     }
 
     const notes: ConditionNote[] = [];
@@ -435,10 +465,13 @@ export async function buildEvidence(
     }
     for (const r of lineReports) {
       const text = reportNote(r);
-      if (text) notes.push({ source: "condition_report", at: r.createdAt, stage: r.stage, text, by: r.createdBy, ref: r.id });
+      if (text) {
+        const by = r.createdBy ? names.get(r.createdBy) ?? null : null;
+        notes.push({ source: "condition_report", at: r.createdAt, stage: r.stage, text, by, ref: r.id });
+      }
     }
     for (const f of lineFiles) {
-      if (f.caption) notes.push({ source: "photo", at: f.createdAt, stage: f.stage ?? f.phase, text: f.caption, by: f.createdBy, ref: f.id });
+      if (f.caption) notes.push({ source: "photo", at: f.createdAt, stage: f.stage ?? f.phase, text: f.caption, by: f.createdByName, ref: f.id });
     }
     for (const h of lineHops) {
       if (h.conditionNote) notes.push({ source: "custody", at: h.at, stage: null, text: h.conditionNote, by: h.to, ref: h.id });
@@ -486,7 +519,9 @@ export async function buildEvidence(
     };
   });
 
-  const claimFiles = files.filter((f) => f.ownerType === "claim" && f.ownerId === claim.id).map((f) => present(f, "claim", null));
+  const claimFiles = files
+    .filter((f) => f.ownerType === "claim" && f.ownerId === claim.id)
+    .map((f) => present(f, "claim", null, names));
   const claimAudit = auditRows.filter((a) => a.subject_type === "claim").map(auditView);
 
   const pack: Omit<EvidencePack, "hash" | "unchangedSinceSubmission"> = {
