@@ -441,6 +441,10 @@ export async function attachSignature(id: string, input: { fieldKey: string; sig
     const field = fields.find((f) => f.key === input.fieldKey);
     if (!field || !isSigningType(field.type)) throw badRequest("This document has no signature field with that key.");
     if (isSignatureValue(doc.values[field.key])) throw conflict(`"${field.label}" is already signed.`);
+    // The statement is not part of the signed content, so it is compared here.
+    if (signature.statement !== statementFor(field)) {
+      throw badRequest(`That signature agreed to different words from what "${field.label}" asks. Sign again from the document.`);
+    }
     const check = await verifySignature(input.signatureId, signingContent(doc.id, version.id, doc.contentHash, field.key));
     if (!check.valid) {
       throw badRequest("That signature does not match this document as it stands. Reload the document and sign again.");

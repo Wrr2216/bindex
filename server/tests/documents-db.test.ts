@@ -174,6 +174,15 @@ describe("documents against Postgres", { skip: url ? false : "set TEST_DATABASE_
       content: { ...expected.content, field: "other" },
     });
     await assert.rejects(docs.attachSignature(id, { fieldKey: "customer_sig", signatureId: wrong.id }, actor), /does not match/);
+    // The right content under other words is refused too: the statement is not in the content.
+    const reworded = await media.sign({
+      ownerType: "document",
+      ownerId: id,
+      signerName: "Mallory",
+      statement: "I have seen this document.",
+      content: expected.content,
+    });
+    await assert.rejects(docs.attachSignature(id, { fieldKey: "customer_sig", signatureId: reworded.id }, actor), /different words/);
     const signature = await media.sign({
       ownerType: "document",
       ownerId: id,
