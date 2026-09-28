@@ -79,6 +79,10 @@ way they are.
 - Job and shipment pages link to placement, crew check-in, inspections,
   documents, custody, insights and the shipment map when those features are on.
   A scanned crew badge opens its worker, and the portal offers claims.
+- `docker-compose.yml` no longer publishes port 3000 on the host, so under
+  Coolify the app is reached only through its proxy and cannot clash with
+  another service on that port. To run it elsewhere, publish the port in a
+  `docker-compose.override.yml`. `APP_PORT` is gone.
 
 ### Removed
 

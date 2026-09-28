@@ -209,12 +209,22 @@ cp .env.example .env
 
 # Set SESSION_SECRET to something random:
 #   openssl rand -hex 32
-
-docker compose up -d
 ```
 
-Open <http://localhost:3000>. The first screen asks you to create the owner
-account.
+The compose file publishes no port, because it is set up for Coolify, whose
+proxy reaches the app directly. To open Bindex on this machine, create
+`docker-compose.override.yml` beside it, which Docker Compose picks up on its
+own:
+
+```yaml
+services:
+  app:
+    ports:
+      - "3000:3000"
+```
+
+Then run `docker compose up -d` and open <http://localhost:3000>. The first
+screen asks you to create the owner account.
 
 ## Installation
 
@@ -232,7 +242,10 @@ $EDITOR .env          # set SESSION_SECRET and APP_BASE_URL
 docker compose up -d
 ```
 
-Point your reverse proxy at port 3000. Migrations run on boot, so upgrading is:
+Publish the port with an override file as in the quick start, bound to the
+loopback address (`"127.0.0.1:3000:3000"`) when the proxy runs on the same
+host, and point your reverse proxy at it. Migrations run on boot, so upgrading
+is:
 
 ```bash
 docker compose pull && docker compose up -d
@@ -246,8 +259,8 @@ repository with the **Docker Compose** build pack, or from the pre-built image
 below, then set the domain and environment variables in its interface.
 
 [docs/deployment.md](docs/deployment.md#coolify) covers the two settings that
-are easy to get wrong: removing the published port so the proxy handles
-routing, and matching `APP_BASE_URL` to the real public URL.
+are easy to get wrong: the domain with the container port, and matching
+`APP_BASE_URL` to the real public URL.
 
 ### Pre-built images
 
