@@ -190,4 +190,36 @@ describe("jobs core against Postgres", { skip: url ? false : "set JOBS_CORE_TEST
     assert.equal(history.length, 12);
     assert.ok(history.some((h) => h.via === "rfid" && h.deviceId === "dock-1"));
   });
+
+  /** An item with two units, and an RFID tag commissioned onto the second. */
+  async function radios(name: string) {
+    const { addUnit } = await import("../src/services/units");
+    const store = await createLocation({ name: `${name} ${tag}`, parentId: null });
+    const item = await createItem({ name: "Radio", locationId: store.id }, null);
+    const u1 = await addUnit(item.id, { label: "Radio 1" });
+    const u2 = await addUnit(item.id, { label: "Radio 2" });
+    const epc = `E2${Date.now().toString(16).toUpperCase()}${Math.floor(Math.random() * 1e6)}`;
+    const { rows } = await pool.query<{ id: string }>(
+      "INSERT INTO item_identifiers (item_id, type, value) VALUES ($1, 'rfid', $2) RETURNING id",
+      [item.id, epc],
+    );
+    await pool.query("INSERT INTO tag_identifier_units (identifier_id, unit_id) VALUES ($1, $2)", [rows[0]!.id, u2.id]);
+    return { store: store.id, item, u1, u2, epc };
+  }
+
+  async function newJob(name: string) {
+    const job = await core.createJob({ name: `${name} ${tag}` }, actor);
+    cleanup.push(() => core.deleteJob(job.id));
+    return job;
+  }
+
+  it("resolves a tag commissioned onto a unit to that unit", async () => {
+    const r = await radios("Tag store");
+    assert.deepEqual((await core.resolveScanCodes([r.epc])).get(r.epc), [{ itemId: r.item.id, unitId: r.u2.id }]);
+
+    const job = await newJob("Radio move");
+    await core.addItemsByCodes(job.id, [r.u1.assetCode, r.u2.assetCode], {}, actor);
+    const packed = await core.advanceStage(job.id, [r.epc], "packed", { via: "rfid", ...actor });
+    assert.deepEqual(packed.advanced.map((l) => l.unitId), [r.u2.id]);
+  });
 });
