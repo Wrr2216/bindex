@@ -317,6 +317,32 @@ describe("claims against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
     await claims.deleteClaim(fresh.id, reporter);
   });
 
+  it("clears line totals when the last line goes", async () => {
+    assert.ok(jobId, "needs the job from the first test");
+    let claim = await claims.createClaim(
+      { type: "damage", title: `Lamp shade ${tag}`, lines: [{ jobItemId: lampLine, estimatedCents: 1_000 }] },
+      reporter,
+    );
+    const id = claim.id;
+    cleanup.push(() => pool.query("DELETE FROM claims WHERE id = $1", [id]));
+    await claims.setStatus(id, { status: "submitted" }, reporter);
+    await claims.setStatus(id, { status: "under_review" }, bystander);
+    await claims.assignClaim(id, { userOid: reviewerOid }, admin);
+    claim = await claims.updateLine(id, claim.lines[0]!.id, { resolution: "repair", approvedCents: 1_000 }, reviewer);
+    assert.equal(claim.approvedTotalCents, 1_000);
+
+    // Its sums must not stay behind as if typed in, to be approved and paid.
+    claim = await claims.removeLine(id, claim.lines[0]!.id, reporter);
+    assert.equal(claim.lines.length, 0);
+    assert.equal(claim.estimatedTotalCents, null);
+    assert.equal(claim.approvedTotalCents, null);
+    assert.equal(claim.totals.approvedTotalCents, null);
+    await assert.rejects(
+      claims.setStatus(id, { status: "approved", note: "Stale amount" }, reviewer),
+      statusOf("amount_required"),
+    );
+  });
+
   it("announces a missed deadline once", async () => {
     const late = await claims.createClaim({ type: "delay", title: `Late ${tag}`, estimatedTotalCents: 10_000 }, reporter);
     cleanup.push(() => pool.query("DELETE FROM claims WHERE id = $1", [late.id]));

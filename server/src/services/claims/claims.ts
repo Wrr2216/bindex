@@ -310,8 +310,9 @@ function lineValues(claimId: string, line: ResolvedLine, position: number): type
 /** Keep the claim's totals equal to its lines' sums, in the same transaction as the change. */
 async function syncTotals(tx: Executor, claim: Claim): Promise<Claim> {
   const lines = await loadLines(claim.id, tx);
-  if (!lines.length) return claim;
-  const totals = claimTotals(lines, claim);
+  // The last line gone: its sums go with it, or they would read as amounts
+  // typed on the claim and be approved and paid as such.
+  const totals = lines.length ? claimTotals(lines, claim) : { estimatedTotalCents: null, approvedTotalCents: null };
   const [row] = await tx
     .update(claims)
     .set({ estimatedTotalCents: totals.estimatedTotalCents, approvedTotalCents: totals.approvedTotalCents, updatedAt: new Date() })
