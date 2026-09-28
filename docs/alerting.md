@@ -4,7 +4,6 @@ Alerts go independently to Pushover and to a Wazuh manager over syslog. Both
 are off until configured. One destination being absent or unavailable does not
 disable the other. The examples below use `51.81.233.158:514 TCP`; substitute
 your own manager's address.
-Existing `SYSLOG_*` settings remain a separate log destination.
 
 ## Deployment settings
 
@@ -20,19 +19,15 @@ Existing `SYSLOG_*` settings remain a separate log destination.
 | `WAZUH_ENABLED` | Set `false` to disable Wazuh |
 
 Set these in the application's Coolify/runtime environment, then redeploy.
-GitHub Actions secrets are separate: set `PUSHOVER_TOKEN` and `PUSHOVER_USER`
-under Settings > Secrets and variables > Actions. The local notification action
-uses repository variables `WAZUH_HOST`, `WAZUH_PORT`, `WAZUH_PROTOCOL`, and
-`WAZUH_ENABLED`, defaulting to the target above. No credentials belong in Git.
+No credentials belong in Git.
 
-Node consumers vendor `lm-observability` 0.2.1 because the npm registry's 0.1.5
-release still uses the previous provider. Keep the tarball, package manifest,
-lockfile, and Docker COPY steps together when updating it. `pushover.send()`
-mirrors the notification to Wazuh even when Pushover credentials are absent.
-The shared logger also mirrors warning/error event messages, without metadata.
-Delivery attempts have a 5-second Pushover timeout and 3-second Wazuh timeout.
-Pushover titles/messages are limited to 250/1024 characters. Priority `max`
-maps to emergency priority 2 (retry every 60 seconds, expire after one hour).
+Delivery is in `server/src/lib/notify.ts` (Pushover) and
+`server/src/lib/wazuh.ts` (Wazuh), with no third-party packages. Every alert
+goes to Wazuh even when Pushover has no credentials. The logger also forwards
+warning and error event names to Wazuh, without their metadata. Pushover times
+out after 5 seconds and Wazuh after 3. Pushover titles and messages are cut to
+250 and 1,024 characters. Priority `max` maps to Pushover's emergency priority 2
+(repeat every 60 seconds, expire after an hour).
 
 ## Wazuh manager setup (once)
 
@@ -58,9 +53,10 @@ use a runner or relay with a known egress IP, or manage the actual runner ranges
 in your network configuration. An application-host allowlist alone does not
 allow GitHub-hosted CI, Home Assistant, or Windmill workers.
 
-Install `wazuh/decoders/mct-alert.xml` into `/var/ossec/etc/decoders/` and
-`wazuh/rules/100300-mct-alerts.xml` into `/var/ossec/etc/rules/` on the manager.
-These are shared files: install one copy for all projects. The 100300-100399
+The manager needs the shared `mct-alert` decoder in `/var/ossec/etc/decoders/`
+and the 100300-series rules in `/var/ossec/etc/rules/`. They are shared by all
+projects, so install one copy; Bindex does not ship them. It sends lines in the
+format that decoder expects (see the sample below). The 100300-100399
 block follows the local registry (100100 Datum; 100200 The Foundry); verify
 there are no additional manager-side rules using those IDs before installing.
 Validate configuration with `/var/ossec/bin/wazuh-analysisd -t` and restart
@@ -68,8 +64,7 @@ Validate configuration with `/var/ossec/bin/wazuh-analysisd -t` and restart
 
 ## Verify
 
-From an allowlisted sender, run the repository's notification helper or trigger
-a controlled application alert. A successful socket write proves transport
+From an allowlisted sender, trigger a controlled application alert. A successful socket write proves transport
 acceptance only. Confirm ingestion and rule matching on the manager:
 
 ```bash

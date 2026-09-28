@@ -6,7 +6,6 @@ WORKDIR /app
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY server/package.json server/
-COPY server/vendor ./server/vendor
 COPY client/package.json client/
 RUN pnpm install --frozen-lockfile
 COPY . .
@@ -16,7 +15,14 @@ RUN pnpm run build
 FROM node:24-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
-RUN corepack enable
+# Use the pnpm the repository pins ("packageManager" in the root package.json).
+# The server's package.json below has no pin, and without one corepack fetches
+# the newest pnpm, whose defaults change between majors (pnpm 12 stops on
+# dependency build scripts that pnpm 10 only skips).
+COPY package.json /tmp/root-package.json
+RUN corepack enable \
+ && corepack install -g "$(node -p "require('/tmp/root-package.json').packageManager")" \
+ && rm /tmp/root-package.json
 # The canvas module used to render labels links against libstdc++ on Alpine.
 RUN apk add --no-cache libstdc++
 # Optional media tools. ffmpeg samples frames from walkthrough videos and takes
@@ -28,7 +34,6 @@ RUN apk add --no-cache ffmpeg poppler-utils
 # A standalone production install for the server alone, which keeps the client
 # toolchain out of the image.
 COPY server/package.json ./package.json
-COPY server/vendor ./vendor
 RUN pnpm install --prod --no-frozen-lockfile && pnpm store prune
 
 COPY --from=builder /app/server/dist ./dist
