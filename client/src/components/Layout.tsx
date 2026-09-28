@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
 import { useConfig } from "../config/useConfig";
+import { useBulkCaptureEnabled } from "../features/bulk-capture/shared";
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `rounded-lg px-3 py-2 text-sm font-medium transition ${
@@ -13,6 +14,7 @@ export function Layout() {
   const { user, signOut } = useAuth();
   const { config } = useConfig();
   const { terms, features } = config;
+  const bulkCapture = useBulkCaptureEnabled();
 
   // Built rather than written out so switching a feature off also removes it
   // from the navigation, with no second place to keep in step.
@@ -24,6 +26,25 @@ export function Layout() {
     { to: "/locations", label: terms.location.plural },
     ...(features.holders ? [{ to: "/entities", label: terms.holder.plural }] : []),
     ...(features.audit ? [{ to: "/audit", label: "Audit" }] : []),
+    ...(features.tracking ? [{ to: "/tracking", label: "Tracking" }] : []),
+    ...(features.jobs ? [{ to: "/jobs", label: "Jobs" }] : []),
+    ...(features.consumables ? [{ to: "/supplies", label: "Supplies" }] : []),
+    { to: "/tags", label: "Tags" },
+    ...(features.offline ? [{ to: "/offline", label: "Offline" }] : []),
+    ...(bulkCapture ? [{ to: "/capture", label: "Capture" }] : []),
+    ...(features.aiCondition ? [{ to: "/condition", label: "Condition" }] : []),
+    ...(features.inspections ? [{ to: "/inspections", label: "Inspections" }] : []),
+    ...(features.valuation ? [{ to: "/valuation", label: "Valuation" }] : []),
+    ...(features.crew ? [{ to: "/crew", label: "Crew" }] : []),
+    ...(features.custody ? [{ to: "/custody", label: "Custody" }] : []),
+    ...(features.teardown ? [{ to: "/teardown", label: "Teardowns" }] : []),
+    ...(features.gps && features.tracking ? [{ to: "/gps", label: "Map" }] : []),
+    ...(features.documents ? [{ to: "/documents", label: "Documents" }] : []),
+    ...(features.portal && user?.role === "admin" ? [{ to: "/portal", label: "Portal" }] : []),
+    ...(features.opsIntel ? [{ to: "/insights", label: "Insights" }] : []),
+    ...(features.ble ? [{ to: "/ble", label: "Bluetooth" }] : []),
+    ...(features.jobs && features.placement ? [{ to: "/placement", label: "Placement" }] : []),
+    ...(features.claims ? [{ to: "/claims", label: "Claims" }] : []),
     { to: "/settings", label: "Settings" },
   ];
 

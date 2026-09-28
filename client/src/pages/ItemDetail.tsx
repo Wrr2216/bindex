@@ -11,6 +11,15 @@ import { UnitsSection } from "../components/UnitsSection";
 import { MoveAction } from "../components/MoveAction";
 import { NfcTagUrl } from "../components/NfcTagUrl";
 import { useScan } from "../scan/ScanProvider";
+import { LastSeenCard } from "../features/tracking-core/LastSeenCard";
+import { BlePresenceCard } from "../features/ble/BlePresenceCard";
+import { ItemMediaSection } from "../features/media-ai-core";
+import { ItemTagPanel } from "../features/tag-commissioning/ItemTagPanel";
+import { ItemTagChip } from "../features/tag-commissioning/badges";
+import { ItemConditionSection } from "../features/ai-condition";
+import { ItemValuationSection } from "../features/valuation/ItemValuationSection";
+import { ItemCustodySection } from "../features/custody";
+import { TeardownSection } from "../features/teardown";
 import {
   AlertIcon,
   ArrowLeftIcon,
@@ -21,7 +30,7 @@ import {
   TagIcon,
 } from "../components/icons";
 
-const ID_TYPES: IdentifierType[] = ["upc", "serial", "asset_tag", "mac", "sku", "other", "rfid", "domain"];
+const ID_TYPES: IdentifierType[] = ["upc", "serial", "asset_tag", "mac", "sku", "other", "rfid", "domain", "nfc", "legacy"];
 
 const daysUntil = (iso: string) => Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
 
@@ -310,6 +319,11 @@ export function ItemDetail() {
             <PricingLookup item={item} onUpdated={setItem} />
           )}
 
+          {!isDomain && <ItemMediaSection item={item} onChange={setItem} />}
+
+          <ItemConditionSection item={item} onChange={setItem} />
+          <ItemValuationSection item={item} onItemChange={load} />
+
           {hasVehicleInfo && (
             <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -401,6 +415,12 @@ export function ItemDetail() {
             </section>
           )}
 
+          {config.features.tracking && !isDomain && <LastSeenCard itemId={item.id} />}
+          {config.features.custody && !isDomain && <ItemCustodySection itemId={item.id} />}
+
+          {config.features.teardown && !isDomain && <TeardownSection item={item} />}
+          {config.features.ble && !isDomain && <BlePresenceCard itemId={item.id} />}
+
           <AssignmentSection item={item} onChange={setItem} />
 
           <UnitsSection item={item} onChange={setItem} highlightUnitId={highlightUnitId} />
@@ -450,7 +470,7 @@ export function ItemDetail() {
                 onChange={(e) => setNewValue(e.target.value)}
                 placeholder="Add identifier (UPC, serial, asset tag…)"
                 aria-label="Identifier value"
-                className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
               />
               <button className="rounded-lg bg-slate-700 px-4 text-sm text-slate-100 hover:bg-slate-600">
                 Add
@@ -481,6 +501,8 @@ export function ItemDetail() {
             )}
             {error && <p className="mt-1 text-sm text-red-400">{error}</p>}
           </section>
+
+          {!isDomain && <ItemTagPanel item={item} onChange={setItem} />}
 
           {!isDomain && <NfcTagUrl path={`/items/${item.id}`} kind="item" />}
 
@@ -517,7 +539,8 @@ export function ItemDetail() {
                     >
                       {c.name}
                     </Link>{" "}
-                    <span className="text-sm text-slate-500">×{c.quantity}</span>
+                    <span className="text-sm text-slate-500">×{c.quantity}</span>{" "}
+                    <ItemTagChip itemId={c.id} />
                     {c.flaggedMissing && <span className="ml-1 text-xs text-red-400">possibly missing</span>}
                   </li>
                 ))}

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useConfig, useMoney } from "../config/useConfig";
 import type { Breakdown, Stats } from "../types";
+import { LowStockCard } from "../features/consumables/shared";
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -93,6 +94,8 @@ export function Dashboard() {
           hint={`${stats.noLocation} with no ${terms.location.singular.toLowerCase()} · ${stats.noValue} with no value`}
         />
       </div>
+
+      {features.consumables && <LowStockCard />}
 
       {features.domains && (
         <section>

@@ -3,6 +3,7 @@ import { api, type UnitPayload } from "../api/client";
 import { useMoney, useTerms } from "../config/useConfig";
 import type { Entity, ItemDetail, ItemUnit, Location } from "../types";
 import { CloseIcon } from "./icons";
+import { UnitTagActions } from "../features/tag-commissioning/UnitTagActions";
 
 const STATUSES = ["active", "in_repair", "retired", "lost"];
 const SEL =
@@ -265,6 +266,7 @@ export function UnitsSection({
                 </button>
               </div>
             )}
+            <UnitTagActions item={item} unit={u} onChange={onChange} />
           </div>
         ))}
         {item.units.length === 0 && (

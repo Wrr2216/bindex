@@ -17,3 +17,7 @@ Thumbs.db
 
 npm-debug.log*
 pnpm-debug.log*
+
+# Attachments written by a local server (DATA_DIR).
+/data/
+/server/data/

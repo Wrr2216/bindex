@@ -77,6 +77,132 @@ const FEATURE_LABELS: { key: keyof Features; title: string; description: string 
     description:
       "Type what you are looking for instead of setting filters. Needs a language model to be configured.",
   },
+  {
+    key: "tracking",
+    title: "Readers, beacons and trackers",
+    description:
+      "Register fixed RFID readers, dock portals and other devices, and see where things were last detected.",
+  },
+  {
+    key: "aiCapture",
+    title: "AI capture from photos",
+    description:
+      "Photos, video and files on every record, and reading serial numbers and data plates from a photo of the label. Reading labels needs a vision model to be configured.",
+  },
+  {
+    key: "jobs",
+    title: "Projects, jobs and shipments",
+    description:
+      "Plan moves and deliveries as jobs, print floor and department manifests, and scan everything through pack, load, deliver and place.",
+  },
+  {
+    key: "registerReconcile",
+    title: "Asset register reconciliation",
+    description:
+      "Import a register (CSV or XLSX, including Snipe-IT and Homebox exports), reconcile it against what is on file, or import it as new records. Reached from Audit.",
+  },
+  {
+    key: "consumables",
+    title: "Consumables and equipment",
+    description:
+      "Stock levels for supplies such as boxes and tape, issued to crews, trucks and branches, and equipment kits checked out and back in by scan.",
+  },
+  {
+    key: "legacyTags",
+    title: "Legacy sticker numbers",
+    description:
+      "Colour, lot and number stickers from an older labelling system: entry, lookup and a coloured dot in lists.",
+  },
+  {
+    key: "offline",
+    title: "Work offline on this device",
+    description:
+      "Let a phone or tablet keep a copy for dead zones: scans, moves, check-outs, spot checks, audits, notes and photos keep working and are sent when the signal returns. Each device opts in on its Offline screen.",
+  },
+  {
+    key: "bulkCapture",
+    title: "AI bulk capture",
+    description:
+      "Catalogue a room from photos or a walkthrough video, survey desks against a standard kit, and convert paper inventories, reviewing the AI's draft before anything is created. Needs a vision model to be configured.",
+  },
+  {
+    key: "aiCondition",
+    title: "AI condition and container capture",
+    description:
+      "Condition reports with before and after comparison, handling notes, condition sweeps, and container pack lists that add a box's contents in one step. The AI drafts need a vision model to be configured.",
+  },
+  {
+    key: "inspections",
+    title: "Site inspections",
+    description:
+      "Survey a building's walls, doors, floors, docks and elevators before and after a move, compare the two, collect sign-off and share the report. Reading damage from a photo needs a vision model.",
+  },
+  {
+    key: "valuation",
+    title: "Valuation and warranty",
+    description:
+      "Values with their history, AI estimates from photos, signed high-value declarations, receipts matched to items, warranty and service reminders, and an insurance valuation report.",
+  },
+  {
+    key: "crew",
+    title: "Crew check-in",
+    description:
+      "Badges for workers and subcontractors, their licences and inductions, and scanning them in on a job with each required credential shown green, amber or red. Needs jobs for the check-in itself.",
+  },
+  {
+    key: "custody",
+    title: "Chain of custody",
+    description:
+      "Signed handoffs with seals, receipts and an audit trail per item; delivery sign-off for shipments; and items that cannot be marked delivered without one.",
+  },
+  {
+    key: "teardown",
+    title: "Teardown guides",
+    description:
+      "Film a teardown while narrating it, and get numbered steps tied to the video, a parts list to tick off at reassembly, a printable report and hardware bag labels. Reading the narration needs speech to text and a language model; without them steps are written by hand.",
+  },
+  {
+    key: "gps",
+    title: "GPS tracking",
+    description:
+      "Follow GPS trackers on a map, draw geofences around sites, and let shipments go in transit and arrive on their own. Needs Readers, beacons and trackers.",
+  },
+  {
+    key: "documents",
+    title: "Documents",
+    description:
+      "Templates people fill in and sign, with packets that attach themselves to jobs by type, project, phase or site, and PDFs whose hash is recorded.",
+  },
+  {
+    key: "portal",
+    title: "External portal",
+    description:
+      "Share a project, job or shipment with someone outside through a link: customers follow progress, and subcontracted crews scan, add photos and sign. Needs projects, jobs and shipments.",
+  },
+  {
+    key: "opsIntel",
+    title: "Operations insights",
+    description:
+      "Rules that catch cartons left behind, duplicate records and tags in two places at once; dwell time and slotting suggestions; load plans against vehicle capacity.",
+  },
+  {
+    key: "ble",
+    title: "Bluetooth beacons",
+    description:
+      "Bluetooth tags on equipment placed room by room from gateways, room beacons for phones, and alerts for missing tags and flat batteries. Needs Readers, beacons and trackers.",
+  },
+  {
+    key: "placement",
+    title: "Placement guidance",
+    description:
+      "Tell delivery crews which room each thing goes to, confirm placement by scan, room sweep or room reader, and flag anything in the wrong room or off the wrong truck. Needs projects, jobs and shipments.",
+  },
+  {
+    key: "claims",
+    title: "Claims and incidents",
+    description:
+      "File claims for lost or damaged things and report incidents. Each claim gathers its pack-day photos, condition notes and trip history on its own, and prints as an adjuster-ready PDF.",
+  },
 ];
 
 export function InstanceSettings() {

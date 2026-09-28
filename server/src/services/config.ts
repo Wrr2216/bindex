@@ -40,6 +40,48 @@ export type Features = {
   askSearch: boolean;
   /** Prompt to confirm a random item when a container is moved. */
   spotCheck: boolean;
+  /** Readers, beacons and trackers: devices, sightings and positions. */
+  tracking: boolean;
+  /** Photos, video and files on records, and reading labels with AI. */
+  aiCapture: boolean;
+  /** Projects, jobs, shipments and relocation manifests. */
+  jobs: boolean;
+  /** T05: import an asset register and reconcile it against the inventory. */
+  registerReconcile: boolean;
+  /** Stock levels for supplies, and equipment kits checked out to crews. */
+  consumables: boolean;
+  /** Colour, lot and number stickers from an older labelling system. */
+  legacyTags: boolean;
+  /** Keep a copy on a device and queue changes while it has no connection. */
+  offline: boolean;
+  /** Walkthroughs, desk surveys and paper inventories turned into items with AI. */
+  bulkCapture: boolean;
+  /** Condition reports, container capture and condition sweeps (T12). */
+  aiCondition: boolean;
+  /** Pre- and post-move facility inspections with comparison, sign-off and share links. */
+  inspections: boolean;
+  /** Values and their history, high-value declarations, receipts, warranty and service. */
+  valuation: boolean;
+  /** Crew badges, credentials and check-in on jobs. */
+  crew: boolean;
+  /** Chain of custody: controlled items, signed handoffs and delivery sign-off. */
+  custody: boolean;
+  /** Teardown videos turned into step-by-step reassembly guides. */
+  teardown: boolean;
+  /** GPS trackers, maps and geofences. */
+  gps: boolean;
+  /** Document templates, packets attached to jobs, filling and signing. */
+  documents: boolean;
+  /** Links for people without an account to follow or work on a job. */
+  portal: boolean;
+  /** Operations insights: anomaly rules, storage analytics and load planning. */
+  opsIntel: boolean;
+  /** Bluetooth beacons, gateways and room-level presence. Needs tracking. */
+  ble: boolean;
+  /** Room-based placement guidance and delivery matching. Needs jobs. */
+  placement: boolean;
+  /** Claims and incident reports, with their evidence packs. */
+  claims: boolean;
 };
 
 export type AppConfig = {
@@ -90,6 +132,27 @@ const KEYS = {
   // Predates the config table; kept under its original key so existing
   // deployments do not silently lose the setting.
   featureSpotCheck: "spot_check_enabled",
+  featureTracking: "features.tracking",
+  featureAiCapture: "features.ai_capture",
+  featureJobs: "features.jobs",
+  featureRegisterReconcile: "features.register_reconcile",
+  featureConsumables: "features.consumables",
+  featureLegacyTags: "features.legacy_tags",
+  featureOffline: "features.offline",
+  featureBulkCapture: "features.bulk_capture",
+  featureAiCondition: "features.ai_condition",
+  featureInspections: "features.inspections",
+  featureValuation: "features.valuation",
+  featureCrew: "features.crew",
+  featureCustody: "features.custody",
+  featureTeardown: "features.teardown",
+  featureGps: "features.gps",
+  featureDocuments: "features.documents",
+  featurePortal: "features.portal",
+  featureOpsIntel: "features.ops_intel",
+  featureBle: "features.ble",
+  featurePlacement: "features.placement",
+  featureClaims: "features.claims",
 } as const;
 
 function defaults(): AppConfig {
@@ -120,6 +183,27 @@ function defaults(): AppConfig {
       lookup: true,
       askSearch: true,
       spotCheck: false,
+      tracking: true,
+      aiCapture: true,
+      jobs: false,
+      registerReconcile: true,
+      consumables: false,
+      legacyTags: false,
+      offline: false,
+      bulkCapture: true,
+      aiCondition: true,
+      inspections: false,
+      valuation: true,
+      crew: false,
+      custody: false,
+      teardown: true,
+      gps: false,
+      documents: false,
+      portal: false,
+      opsIntel: false,
+      ble: false,
+      placement: false,
+      claims: false,
     },
   };
 }
@@ -179,6 +263,28 @@ function build(stored: Map<string, string>): AppConfig {
       lookup: flag(KEYS.featureLookup, base.features.lookup),
       askSearch: flag(KEYS.featureAskSearch, base.features.askSearch) && env.llmConfigured,
       spotCheck: flag(KEYS.featureSpotCheck, base.features.spotCheck),
+      tracking: flag(KEYS.featureTracking, base.features.tracking),
+      aiCapture: flag(KEYS.featureAiCapture, base.features.aiCapture),
+      jobs: flag(KEYS.featureJobs, base.features.jobs),
+      registerReconcile: flag(KEYS.featureRegisterReconcile, base.features.registerReconcile),
+      consumables: flag(KEYS.featureConsumables, base.features.consumables),
+      legacyTags: flag(KEYS.featureLegacyTags, base.features.legacyTags),
+      offline: flag(KEYS.featureOffline, base.features.offline),
+      bulkCapture: flag(KEYS.featureBulkCapture, base.features.bulkCapture),
+      aiCondition: flag(KEYS.featureAiCondition, base.features.aiCondition),
+      inspections: flag(KEYS.featureInspections, base.features.inspections),
+      valuation: flag(KEYS.featureValuation, base.features.valuation),
+      crew: flag(KEYS.featureCrew, base.features.crew),
+      custody: flag(KEYS.featureCustody, base.features.custody),
+      teardown: flag(KEYS.featureTeardown, base.features.teardown),
+      gps: flag(KEYS.featureGps, base.features.gps),
+      documents: flag(KEYS.featureDocuments, base.features.documents),
+      portal: flag(KEYS.featurePortal, base.features.portal),
+      opsIntel: flag(KEYS.featureOpsIntel, base.features.opsIntel),
+      // Beacons are tracking devices, so they go when tracking does.
+      ble: flag(KEYS.featureBle, base.features.ble) && flag(KEYS.featureTracking, base.features.tracking),
+      placement: flag(KEYS.featurePlacement, base.features.placement),
+      claims: flag(KEYS.featureClaims, base.features.claims),
     },
   };
 }
@@ -265,6 +371,27 @@ const FEATURE_KEYS: Record<keyof Features, string> = {
   lookup: KEYS.featureLookup,
   askSearch: KEYS.featureAskSearch,
   spotCheck: KEYS.featureSpotCheck,
+  tracking: KEYS.featureTracking,
+  aiCapture: KEYS.featureAiCapture,
+  jobs: KEYS.featureJobs,
+  registerReconcile: KEYS.featureRegisterReconcile,
+  consumables: KEYS.featureConsumables,
+  legacyTags: KEYS.featureLegacyTags,
+  offline: KEYS.featureOffline,
+  bulkCapture: KEYS.featureBulkCapture,
+  aiCondition: KEYS.featureAiCondition,
+  inspections: KEYS.featureInspections,
+  valuation: KEYS.featureValuation,
+  crew: KEYS.featureCrew,
+  custody: KEYS.featureCustody,
+  teardown: KEYS.featureTeardown,
+  gps: KEYS.featureGps,
+  documents: KEYS.featureDocuments,
+  portal: KEYS.featurePortal,
+  opsIntel: KEYS.featureOpsIntel,
+  ble: KEYS.featureBle,
+  placement: KEYS.featurePlacement,
+  claims: KEYS.featureClaims,
 };
 
 export async function updateConfig(patch: ConfigPatch): Promise<AppConfig> {

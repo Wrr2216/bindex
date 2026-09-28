@@ -12,6 +12,74 @@ way they are.
 
 ## [Unreleased]
 
+### Added
+
+- Fixed RFID readers and dock-door portals, with a device registry, per-device
+  tokens, sightings and each asset's current zone
+  ([tracking core](docs/tracking-core.md), `0022_tracking_core`).
+- Photos, video and files on any record, signatures over a content hash, and
+  data plates read from a label photo
+  ([attachments and AI capture](docs/media-ai-core.md), `0023_media_ai_core`).
+- Projects, phases, jobs, shipments and relocation manifests, with scanning to
+  stage and printed load sheets ([jobs](docs/jobs-core.md), `0024_jobs_core`).
+- A hash-chained audit log, signed webhooks and a polling feed
+  ([event backbone](docs/event-backbone.md), `0025_event_backbone`).
+- Asset register import and reconciliation, including Snipe-IT and Homebox
+  exports ([register](docs/register-reconcile.md), `0026_register_reconcile`).
+- Consumable stock by location, issued to crews, trucks and branches, and
+  equipment kits ([consumables](docs/consumables.md), `0027_consumables`).
+- NFC and RFID tag binding, Web NFC, Zebra RFID print-and-encode and legacy
+  sticker numbers
+  ([tag commissioning](docs/tag-commissioning.md), `0028_tag_commissioning`).
+- Offline field mode, and an `Idempotency-Key` header on the HTTP API
+  ([offline field mode](docs/offline-field.md), `0029_offline_field`).
+- Bluetooth beacons, gateways and room-level presence
+  ([Bluetooth](docs/ble.md), `0030_ble`).
+- GPS trackers, trails, maps and geofences that move shipments along
+  ([GPS](docs/gps.md), `0031_gps`).
+- Room-based placement guidance for deliveries
+  ([placement](docs/placement.md), `0032_placement`).
+- Condition reports, handling notes, container capture and condition sweeps
+  ([condition records](docs/ai-condition.md), `0033_ai_condition`).
+- Pre- and post-move site inspections with comparison, sign-off and share links
+  ([inspections](docs/inspections.md), `0034_inspections`).
+- Chain of custody: controlled items, signed hand-offs, receipts and delivery
+  sign-off ([custody](docs/custody.md), `0035_custody`).
+- An external portal for customers and subcontracted crews
+  ([portal](docs/portal.md), `0036_portal`).
+- Claims and incident reports with evidence packs and a review workflow
+  ([claims](docs/claims.md), `0037_claims`).
+- Document templates and packets attached to jobs by condition, with signing and
+  verifiable PDFs ([documents](docs/documents.md), `0038_documents`).
+- Crew badges, credentials, check-in on jobs and timesheets
+  ([crew](docs/crew.md), `0039_crew`).
+- Value history, high-value declarations, receipt matching, warranty and
+  service reminders ([valuation](docs/valuation.md), `0040_valuation`).
+- Teardown videos turned into reassembly guides with parts lists and bag labels
+  ([teardown](docs/teardown.md), `0041_teardown`).
+- Bulk capture of rooms, desk surveys and paper inventories from photos, video
+  and PDFs ([bulk capture](docs/bulk-capture.md), `0042_bulk_capture`).
+- Operations insights: anomaly rules, storage analytics, slotting and load
+  planning ([operations insights](docs/ops-intel.md), `0043_ops_intel`).
+
+### Changed
+
+- The JSON backup format is version 5, carrying the new features' tables.
+  Version 4 files still restore, and each feature leaves its own records alone
+  when restoring one.
+- Server test files run one at a time, because several database suites share
+  `TEST_DATABASE_URL` and reset each other's tables when run in parallel.
+- Moves made by fixed readers, Bluetooth presence and GPS geofences are
+  published as `item.moved` to the audit log and webhooks, credited to the
+  device.
+- Job, task, stage and shipment changes are published as `job.*` and
+  `shipment.status_changed` events.
+- Printed manifests and load sheets show each line's handling note from its
+  condition records.
+- Job and shipment pages link to placement, crew check-in, inspections,
+  documents, custody, insights and the shipment map when those features are on.
+  A scanned crew badge opens its worker, and the portal offers claims.
+
 ## [1.0.0] - 2026-08-31
 
 First public release. The application was generalised so that one codebase

@@ -6,7 +6,9 @@ export type IdentifierType =
   | "sku"
   | "other"
   | "rfid"
-  | "domain";
+  | "domain"
+  | "nfc"
+  | "legacy";
 
 export interface Identifier {
   id: string;
@@ -280,6 +282,27 @@ export interface Features {
   lookup: boolean;
   askSearch: boolean;
   spotCheck: boolean;
+  tracking: boolean;
+  aiCapture: boolean;
+  jobs: boolean;
+  registerReconcile: boolean;
+  consumables: boolean;
+  legacyTags: boolean;
+  offline: boolean;
+  bulkCapture: boolean;
+  aiCondition: boolean;
+  inspections: boolean;
+  valuation: boolean;
+  crew: boolean;
+  custody: boolean;
+  teardown: boolean;
+  gps: boolean;
+  documents: boolean;
+  portal: boolean;
+  opsIntel: boolean;
+  ble: boolean;
+  placement: boolean;
+  claims: boolean;
 }
 
 /**

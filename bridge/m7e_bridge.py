@@ -9,6 +9,11 @@ channel and streams the reads in live.
 Requires the `mercury` module (python-mercuryapi). Configure via environment
 variables (see .env.example). Set READ_TEST=1 to just print tags to the console
 for first-boot verification (no server needed).
+
+With SEND_READS=1 it posts to /api/device/reads instead, adding each tag's
+antenna, signal strength and read time, which the server stores as sightings
+(and uses to tell direction on a portal). Off by default: the /scan path is
+unchanged.
 """
 import json
 import os
@@ -33,6 +38,7 @@ REGION = env("REGION") or "NA"
 READ_POWER = int(env("READ_POWER") or "2400")  # centi-dBm; +24 dBm = 2400 (Pico max)
 FLUSH_MS = int(env("FLUSH_MS") or "200")
 READ_TEST = (env("READ_TEST") or "") not in ("", "0", "false", "False")
+SEND_READS = (env("SEND_READS") or "") not in ("", "0", "false", "False")
 
 if not READ_TEST:
     if not SERVER_URL:
@@ -40,18 +46,28 @@ if not READ_TEST:
     if not DEVICE_TOKEN:
         sys.exit("Missing DEVICE_TOKEN (or set READ_TEST=1 to just print tags)")
 
-ENDPOINT = f"{SERVER_URL}/api/device/scan"
+ENDPOINT = f"{SERVER_URL}/api/device/reads" if SEND_READS else f"{SERVER_URL}/api/device/scan"
 
 _lock = threading.Lock()
 _pending = set()      # EPCs read but not yet POSTed
+_detail = {}          # EPC -> strongest (rssi, antenna, time) since the last POST, for SEND_READS
 _seen_total = set()   # everything seen this run (console counter)
 _stop = threading.Event()
 
 
 def on_tag(tag):
     epc = tag.epc.hex().upper() if isinstance(tag.epc, (bytes, bytearray)) else str(tag.epc)
+    # Not every MercuryAPI build fills these in, so each is optional.
+    rssi = getattr(tag, "rssi", None)
+    antenna = getattr(tag, "antenna", None)
+    seen = getattr(tag, "timestamp", None)
     with _lock:
         _pending.add(epc)
+        if SEND_READS:
+            prev = _detail.get(epc)
+            # Keep the strongest read per flush: it says best where the tag was.
+            if prev is None or (rssi is not None and (prev[0] is None or rssi > prev[0])):
+                _detail[epc] = (rssi, antenna, seen)
         is_new = epc not in _seen_total
         _seen_total.add(epc)
         total = len(_seen_total)
@@ -59,8 +75,25 @@ def on_tag(tag):
         print(f"  tag {epc}   (unique this run: {total})")
 
 
-def post(epcs):
-    body = json.dumps({"reader": READER_ID, "epcs": list(epcs)}).encode("utf-8")
+def read_entry(epc, detail):
+    entry = {"code": epc}
+    rssi, antenna, seen = detail or (None, None, None)
+    if rssi is not None:
+        entry["rssi"] = rssi
+    if antenna is not None:
+        entry["antenna"] = antenna
+    if seen:
+        entry["ts"] = int(float(seen) * 1000)  # epoch milliseconds
+    return entry
+
+
+def post(epcs, details=None):
+    if SEND_READS:
+        details = details or {}
+        payload = {"device": READER_ID, "reads": [read_entry(e, details.get(e)) for e in epcs]}
+    else:
+        payload = {"reader": READER_ID, "epcs": list(epcs)}
+    body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(ENDPOINT, data=body, method="POST")
     req.add_header("Content-Type", "application/json")
     req.add_header("Authorization", f"Bearer {DEVICE_TOKEN}")
@@ -81,14 +114,18 @@ def flush_loop():
                 continue
             batch = set(_pending)
             _pending.clear()
+            details = dict(_detail)
+            _detail.clear()
         if READ_TEST:
             continue
         try:
-            post(batch)
+            post(batch, details)
         except Exception as exc:  # network blip, server restart, etc.
             print(f"POST failed ({exc}); re-queueing {len(batch)}", file=sys.stderr)
             with _lock:
                 _pending.update(batch)  # requeued, so nothing is lost
+                for epc, detail in details.items():
+                    _detail.setdefault(epc, detail)
 
 
 def configure_read_plan(reader) -> None:

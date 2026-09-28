@@ -95,6 +95,111 @@ company keeps Item, Location, Company and Assignee; a household might use Thing,
 Room, Household and Person. The words follow through the whole interface,
 including the CSV export.
 
+The features below are for warehouse, relocation and field work. Each has its
+own switch in Settings, Features, so an instance shows only what it uses. The
+exceptions are the audit log and webhooks, which are always on and send nothing
+until a webhook is added, and tag commissioning, where only legacy sticker
+numbers have a switch.
+
+**Fixed readers and portals.** Zebra and Impinj RFID readers post their reads to
+Bindex, each with its own token. A reader covers a zone, a dock-door portal
+tells in from out, and every item keeps its current zone, how long it has been
+there, and a history of where it was seen.
+
+**Bluetooth beacons.** Gateways in each room report the tags they hear, and
+Bindex places each tagged item in the room that hears it best, smoothed so it
+does not flap between neighbours. Missing tags, moves out of hours and low
+batteries raise alerts.
+
+**GPS and geofences.** Phones running Traccar Client or OsmAnd, and any tracker
+a Traccar server understands, report positions. Trails and geofences are drawn
+on a map. Leaving a shipment's origin puts it in transit, and reaching its
+destination asks for delivery to be confirmed.
+
+**Jobs, shipments and relocations.** Projects run in phases, jobs carry a
+manifest of what moves where, and shipments are the truck runs. Crews scan
+labels to move lines through packed, loaded, delivered and placed, and anything
+on the wrong truck is flagged on the spot.
+
+**Placement.** At the truck, a scan shows the room each thing belongs in. Room
+sweeps with a handheld reader, and readers fixed in rooms, confirm it arrived
+and flag what is in the wrong room.
+
+**Custody and sign-off.** Controlled items get a signed, timestamped trail of
+hand-offs with a PDF receipt. A controlled item cannot be marked delivered on a
+job until the receiver has signed for it, on the crew's device or their own
+phone.
+
+**Crew check-in.** Workers scan a badge onto a job and see at once whether their
+credentials are in order. A job type can hold back anyone missing one until
+someone overrides it with a reason. Hours export as a timesheet.
+
+**Documents.** Templates with fields, job data and signatures are grouped into
+packets that attach themselves to matching jobs. A completed document exports as
+a PDF whose hash is recorded, so a copy can be checked later.
+
+**Inspections.** A site is inspected before and after a move, the two are
+compared so new damage stands out, both sides sign, and the report is shared
+through a link that expires.
+
+**Claims and incidents.** A claim starts from a job's damaged or missing lines
+with their pack-day photos, notes and stage history already gathered, goes
+through review against a deadline, and prints as a PDF for an adjuster.
+
+**External portal.** A link lets someone without an account follow a project,
+job or shipment, or lets a subcontracted crew scan, photograph and sign for its
+own lines.
+
+**Register reconciliation.** Import an asset register as CSV or XLSX, including
+Snipe-IT and Homebox exports, and see what is missing, misplaced or disagrees,
+or bring it in as new records.
+
+**Consumables and equipment.** Boxes, tape and wrap are counted by location and
+issued to crews, trucks and branches. Dollies and straps go out as kits and come
+back through an end-of-day return.
+
+**Tag commissioning.** Bind NFC and UHF RFID tags one at a time or in bulk,
+print and encode RFID labels on a Zebra printer, and keep legacy colour and
+number stickers working until they are replaced.
+
+**Offline mode.** A phone or tablet keeps a copy of chosen locations, queues
+moves, check-outs and audits while it has no signal, and sends each change
+exactly once when it reconnects.
+
+**Photos, files and data plates.** Photos, video and documents attach to any
+record. A photo of an equipment label reads its serial number, model and MAC
+address for a person to check and save.
+
+**Condition and containers.** Condition reports record rated defects, compare
+before and after, and carry a handling note that prints on the manifest. A
+photo of an open box creates its contents as items inside it.
+
+**Valuation and warranty.** Value history, estimates from photos, signed
+high-value declarations, receipts matched to what they bought, warranty and
+service reminders, and a valuation report with depreciation.
+
+**Teardown guides.** A narrated video of something being taken apart becomes
+numbered steps, a parts list and labels for the bags of hardware.
+
+**Bulk capture.** Catalogue a room from photos or a short video, check desks
+against a standard kit, or turn a paper inventory into records. A person reviews
+every entry before anything is created.
+
+**Audit log and webhooks.** Events from across the application are written to
+a hash-chained log that can be exported and verified offline, and sent to
+signed webhooks or read from a polling feed.
+
+**Operations insights.** Fixed rules flag cartons left behind, duplicate
+serials, and assets read in two places too far apart to have travelled between.
+Storage analytics, slotting suggestions and a load planner work from the same
+data.
+
+**Optional services.** Reading labels, condition, receipts, rooms and paper
+needs a vision model; teardown narration needs speech-to-text; portal codes and
+emails need SMTP; video and PDF handling needs ffmpeg and poppler, which the
+Docker image includes; maps need a tile server, OpenStreetMap's by default.
+Without the service, a feature works by hand or hides the button that needs it.
+
 ## Quick start
 
 ```bash
@@ -212,9 +317,9 @@ Settings, under an administrator account, controls:
   prefix on printed codes. Codes already printed keep their old prefix, because
   a label on a shelf has to keep resolving.
 - **Vocabulary.** What the four core concepts are called.
-- **Features.** Eleven switches. Turning one off removes it from the navigation
-  entirely, so a home instance is not cluttered with groups and check-out
-  history it will never use.
+- **Features.** Thirty-two switches. Turning one off removes it from the
+  navigation entirely, so a home instance is not cluttered with groups,
+  check-out history or shipments it will never use.
 - **Currency and locale.** How money and dates are formatted.
 
 ## Labels and hardware
@@ -239,6 +344,13 @@ page shows its own URL, which can be written to an NFC tag as an NDEF URI
 record. For walking a large space, [`bridge/`](bridge/) has a networked reader
 bridge that streams tag reads into the audit screen.
 
+Fixed and dock-door RFID readers from Zebra and Impinj, Bluetooth gateways, and
+GPS trackers reporting through Traccar or OsmAnd post to their own endpoints
+with per-device tokens ([readers](docs/tracking-core.md),
+[Bluetooth](docs/ble.md), [GPS](docs/gps.md)). Zebra RFID printers print and
+encode a label in one pass, and Chrome on Android reads and writes NFC tags
+through Web NFC ([tag commissioning](docs/tag-commissioning.md)).
+
 See [docs/hardware.md](docs/hardware.md) for tested equipment and setup.
 
 ## Documentation
@@ -247,6 +359,30 @@ See [docs/hardware.md](docs/hardware.md) for tested equipment and setup.
 - [Deployment with Docker Compose or Coolify, backups and upgrades](docs/deployment.md)
 - [Scanners, printers and tags](docs/hardware.md)
 - [HTTP API](docs/api.md)
+- [Notifications through Pushover and Wazuh](docs/alerting.md)
+- [Audit log, events and webhooks](docs/event-backbone.md)
+- [Fixed RFID readers, portals and the tracking core](docs/tracking-core.md)
+- [Bluetooth beacons and room-level presence](docs/ble.md)
+- [GPS trackers, maps and geofences](docs/gps.md)
+- [Projects, jobs, shipments and manifests](docs/jobs-core.md)
+- [Placement guidance](docs/placement.md)
+- [Chain of custody and sign-off](docs/custody.md)
+- [Crew check-in and credentials](docs/crew.md)
+- [Documents and conditional packets](docs/documents.md)
+- [Site inspections](docs/inspections.md)
+- [Claims and incidents](docs/claims.md)
+- [External portal](docs/portal.md)
+- [Asset register import and reconciliation](docs/register-reconcile.md)
+- [Consumables and equipment](docs/consumables.md)
+- [Tag commissioning: NFC, RFID encoding, legacy stickers](docs/tag-commissioning.md)
+- [Offline field mode](docs/offline-field.md)
+- [Attachments, signatures and AI capture](docs/media-ai-core.md)
+- [Condition records and container capture](docs/ai-condition.md)
+- [Valuation, declarations, receipts and warranty](docs/valuation.md)
+- [Teardown guides](docs/teardown.md)
+- [AI bulk capture](docs/bulk-capture.md)
+- [Operations insights](docs/ops-intel.md)
+- [Tagdd+ parity plan and status](docs/tagdd-parity.md)
 
 ## Development
 
@@ -264,7 +400,7 @@ Setting `AUTH_MODE=trusted` skips sign-in while you work on something else.
 ```
 server/    Express API, authentication, Drizzle schema, SQL migrations
 client/    React app: global scan capture, item overlay, search, CRUD screens
-bridge/    Optional networked RFID reader bridge
+bridge/    Optional networked RFID reader bridge and Bluetooth gateway script
 docs/      Reference documentation
 ```
 
@@ -275,10 +411,7 @@ request. See [CONTRIBUTING.md](CONTRIBUTING.md) for how the pieces fit together.
 
 Roughly in order of how likely each is to land next.
 
-- Import from CSV, and from Snipe-IT and Homebox exports
 - Per-location permissions, so a member can be scoped to one site
-- Warranty and service intervals, with reminders
-- Webhooks on item events
 - Translations, once the vocabulary layer proves itself in English
 
 Open an issue if you need something that is not on this list. Real use cases

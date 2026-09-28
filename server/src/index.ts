@@ -14,12 +14,34 @@ import { apiRouter } from "./routes/api";
 import { configRouter } from "./routes/config";
 import { deviceRouter } from "./routes/device";
 import { manifestRouter } from "./routes/manifest";
+import { offlineFieldPublicRouter } from "./routes/offline-field";
 import { seedConfig } from "./services/config";
 import { ensureBootstrapAdmin } from "./services/users";
 import { runNinjaSync } from "./services/ninjaone/sync";
 import { runRegistrarSync } from "./services/registrars/sync";
 import { sendExpiryDigest } from "./services/registrars/alerts";
+import { startSightingsPrune } from "./services/tracking/prune";
+import { startAttachmentSweeper } from "./services/media-ai-core";
+import { wireIntegrations } from "./services/integration";
 import { HttpError, describeError } from "./lib/errors";
+import { startEventBackbone } from "./services/event-backbone";
+import { startLowStockDigest } from "./services/consumables/lowstock";
+import { inspectionShareRouter } from "./routes/inspections";
+import { startValuationDigest } from "./services/valuation";
+import { startCrewDigest } from "./services/crew";
+import { custodyPublicRouter } from "./routes/custody";
+import { startTeardownWorker } from "./services/teardown";
+import { gpsDeviceRouter } from "./routes/gps";
+import { mapTileSources } from "./services/gps/tiles";
+import { startGpsPrune } from "./services/gps/prune";
+import { portalRouter } from "./routes/portal";
+import { startPortalNotifier } from "./services/portal";
+import { startOpsIntel } from "./services/ops-intel";
+import { bleDeviceRouter } from "./routes/ble";
+import { startBle } from "./services/ble";
+import { startPlacementReaders } from "./services/placement";
+import { claimsPortalRouter } from "./routes/claims";
+import { startClaimsSlaWatch } from "./services/claims";
 
 const app = express();
 // One proxy hop, which is what a container behind a reverse proxy sees. Needed
@@ -36,8 +58,8 @@ app.use(
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "blob:", "https:"],
-        connectSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "blob:", "https:", ...mapTileSources(env.MAP_TILE_URL)],
+        connectSrc: ["'self'", ...mapTileSources(env.MAP_TILE_URL)],
         mediaSrc: ["'self'", "blob:"],
       },
     },
@@ -47,12 +69,18 @@ app.use(
 app.use(compression());
 
 // 1mb of JSON is plenty for every route except the backup import, which parses
-// its own larger body inside the handler.
+// its own larger body inside the handler, and hardware ingest under
+// /api/device, which parses its own (see routes/device.ts).
 const jsonParser = express.json({ limit: "1mb" });
 app.use((req, res, next) => {
-  if (req.path === "/api/backup/import") return next();
+  if (req.path === "/api/backup/import" || req.path.startsWith("/api/device/")) return next();
   jsonParser(req, res, next);
 });
+// Portal links are for people without an account. Mounted before the session
+// so a portal request never reads or creates one (see routes/portal.ts).
+app.use("/api/portal", portalRouter);
+// Filing a claim through a portal link: the link is the credential, as above.
+app.use("/api/claims-portal", claimsPortalRouter);
 app.use(sessionMiddleware);
 app.use(attachTrustedUser);
 
@@ -63,8 +91,18 @@ app.use("/api/config", configRouter);
 // Reader-bridge ingest is token-authed and mounted before the session guard so
 // hardware can post without a browser cookie.
 app.use("/api/device", deviceRouter);
+// GPS trackers post here with their device tokens; bodies are parsed by deviceRouter above.
+app.use("/api/device/gps", gpsDeviceRouter);
+app.use("/api/device/ble", bleDeviceRouter);
 // Built from the configuration, so it has to come before the static handler.
 app.use(manifestRouter);
+// The service worker is stamped with the build, so it too comes before them.
+app.use(offlineFieldPublicRouter);
+// Read-only inspection reports opened from a signed, expiring link, by people
+// without an account.
+app.use("/api/share/inspections", inspectionShareRouter);
+// One-time custody signing links are opened by people with no account.
+app.use(custodyPublicRouter);
 app.use("/api", apiRouter);
 
 // Unmatched API routes answer with JSON rather than the single-page shell.
@@ -111,6 +149,7 @@ async function main(): Promise<void> {
   // synchronously and would otherwise use the defaults on the first requests.
   await seedConfig();
   await ensureBootstrapAdmin();
+  wireIntegrations();
 
   // Warm the identity provider client. A provider that is slow or briefly down
   // should not stop the server from starting.
@@ -132,6 +171,19 @@ async function main(): Promise<void> {
     }
     startNinjaSync();
     startRegistrarSync();
+    startEventBackbone();
+    startSightingsPrune();
+    startAttachmentSweeper();
+    startLowStockDigest();
+    startValuationDigest();
+    startCrewDigest();
+    startTeardownWorker();
+    startGpsPrune();
+    startPortalNotifier();
+    startOpsIntel();
+    startBle();
+    startPlacementReaders();
+    startClaimsSlaWatch();
   });
 }
 

@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import type { Item } from "../types";
 import { ProductImage } from "./ProductImage";
 import { AlertIcon, CheckIcon } from "./icons";
+import { ItemTagChip } from "../features/tag-commissioning/badges";
 
 function CardBody({ item }: { item: Item }) {
   return (
@@ -23,6 +24,7 @@ function CardBody({ item }: { item: Item }) {
           {item.ninjaoneAssetId && (
             <span className="rounded bg-emerald-950 px-1.5 py-0.5 text-emerald-400">NinjaOne</span>
           )}
+          <ItemTagChip itemId={item.id} />
           {item.flaggedMissing && (
             <span className="inline-flex items-center gap-1 rounded bg-red-950 px-1.5 py-0.5 text-red-400">
               <AlertIcon className="h-3 w-3" />

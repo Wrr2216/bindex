@@ -27,6 +27,8 @@ configRouter.get(
         lookup: Boolean(env.UPC_API_KEY) || env.UPC_API_PROVIDER === "upcitemdb",
         webSearch: env.webSearchConfigured,
         languageModel: env.llmConfigured,
+        vision: env.llmVisionConfigured,
+        transcription: env.sttConfigured,
       },
     });
   }),

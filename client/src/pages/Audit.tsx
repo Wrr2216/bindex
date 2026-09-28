@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import type { Item, Location } from "../types";
 import { useScan } from "../scan/ScanProvider";
+import { useFeatures } from "../config/useConfig";
 
 /**
  * Stock take for one place: scan what is there, and see present, missing and
@@ -11,6 +12,7 @@ import { useScan } from "../scan/ScanProvider";
  */
 export function Audit() {
   const { armCapture } = useScan();
+  const features = useFeatures();
   const [locations, setLocations] = useState<Location[]>([]);
   const [locationId, setLocationId] = useState("");
   const [expected, setExpected] = useState<Item[]>([]);
@@ -102,9 +104,16 @@ export function Audit() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-slate-100">Stock take</h1>
-        <Link to="/audit/building" className="text-sm text-sky-400 hover:underline">
-          Audit the whole building
-        </Link>
+        <div className="flex flex-wrap items-center gap-4">
+          {features.registerReconcile && (
+            <Link to="/audit/register" className="text-sm text-sky-400 hover:underline">
+              Reconcile against a register
+            </Link>
+          )}
+          <Link to="/audit/building" className="text-sm text-sky-400 hover:underline">
+            Audit the whole building
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

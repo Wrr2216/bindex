@@ -33,7 +33,7 @@ export class ApiError extends Error {
   }
 }
 
-async function req<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function req<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {
     credentials: "include",
     headers: options.body ? { "Content-Type": "application/json" } : undefined,
