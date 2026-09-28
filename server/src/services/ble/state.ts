@@ -147,6 +147,22 @@ export async function insertAlerts(alerts: readonly NewAlert[]): Promise<void> {
   );
 }
 
+/**
+ * Drop the rows kept under these identities for a tag known only through an
+ * item identifier, and close their "missing" alerts. Once the tag is a
+ * registered ble_tag device it is kept under the device's id, so the old row
+ * would never be written again and would go missing while the tag is heard.
+ */
+export async function dropIdentityStates(identities: readonly string[]): Promise<void> {
+  if (!identities.length) return;
+  await pool.query(
+    `WITH gone AS (DELETE FROM ble_tag_state WHERE tag_key = ANY($1::text[]) AND device_id IS NULL)
+     UPDATE ble_alerts SET resolved_at = now()
+      WHERE kind = 'missing' AND resolved_at IS NULL AND tag_key = ANY($1::text[])`,
+    [identities],
+  );
+}
+
 /** Close the open "missing" alerts of tags that have been heard again. */
 export async function resolveMissing(tagKeys: readonly string[]): Promise<void> {
   if (!tagKeys.length) return;

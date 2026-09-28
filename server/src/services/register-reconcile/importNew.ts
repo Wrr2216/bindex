@@ -30,16 +30,20 @@ export async function loadExistingKeys(): Promise<ExistingKeys> {
       .select({ type: itemIdentifiers.type, value: itemIdentifiers.value, code: items.assetCode })
       .from(itemIdentifiers)
       .innerJoin(items, eq(items.id, itemIdentifiers.itemId))
-      .where(inArray(itemIdentifiers.type, ["asset_tag", "serial", "rfid"])),
+      // The types uq_item_identifiers_identity_value (0028) covers.
+      .where(inArray(itemIdentifiers.type, ["asset_tag", "serial", "rfid", "mac", "nfc", "legacy"])),
     db.execute<{ serial: string; code: string }>(
       sql`SELECT serial, asset_code AS code FROM item_units WHERE serial IS NOT NULL`,
     ),
   ]);
-  const keys: ExistingKeys = { assetTags: new Map(), serials: new Map(), epcs: new Map() };
+  const keys: ExistingKeys = { assetTags: new Map(), serials: new Map(), epcs: new Map(), identities: new Map() };
   for (const r of ids) {
-    if (r.type === "asset_tag") keys.assetTags.set(normKey(r.value)!, r.code);
-    else if (r.type === "serial") keys.serials.set(normKey(r.value)!, r.code);
-    else keys.epcs.set(normalizeEpc(r.value)!, r.code);
+    const norm = normKey(r.value);
+    if (!norm) continue;
+    keys.identities.set(norm, r.code);
+    if (r.type === "asset_tag") keys.assetTags.set(norm, r.code);
+    else if (r.type === "serial") keys.serials.set(norm, r.code);
+    else if (r.type === "rfid") keys.epcs.set(normalizeEpc(r.value)!, r.code);
   }
   for (const r of units.rows) keys.serials.set(normKey(r.serial)!, r.code);
   return keys;

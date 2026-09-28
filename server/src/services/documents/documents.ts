@@ -10,7 +10,7 @@ import {
   type DocumentRow,
   type DocumentStatus,
 } from "../../db/schema";
-import { badRequest, conflict, notFound } from "../../lib/errors";
+import { badRequest, conflict, forbidden, notFound } from "../../lib/errors";
 import { logger } from "../../lib/logger";
 import { getConfig } from "../config";
 import { getSignature, listSignatures, verifySignature } from "../media-ai-core";
@@ -394,8 +394,12 @@ export async function completeDocument(id: string, actor: Actor, timeZone: strin
   return row;
 }
 
-/** Back to draft, while nobody has signed: a signature would no longer match. */
-export async function reopenDocument(id: string, actor: Actor) {
+/**
+ * Back to draft, while nobody has signed: a signature would no longer match.
+ * An administrator's call, as deleting a completed document is: anyone may
+ * delete a draft, so a member reopening one could otherwise delete it.
+ */
+export async function reopenDocument(id: string, actor: Actor & { isAdmin: boolean }) {
   const row = await db.transaction(async (tx) => {
     const doc = await lockDocument(id, tx);
     if (doc.status === "draft") throw conflict("This document is already a draft.");
@@ -403,6 +407,9 @@ export async function reopenDocument(id: string, actor: Actor) {
     const signed = fieldsOf(version.body).some((f) => isSigningType(f.type) && isSignatureValue(doc.values[f.key]));
     if (doc.status === "signed" || signed) {
       throw conflict("Someone has signed this document, so it cannot be reopened. Duplicate it to start a new draft.");
+    }
+    if (!actor.isAdmin) {
+      throw forbidden("This document is completed. Only an administrator can reopen it; duplicate it to start a new draft.");
     }
     const [updated] = await tx
       .update(documents)
@@ -434,6 +441,10 @@ export async function attachSignature(id: string, input: { fieldKey: string; sig
     const field = fields.find((f) => f.key === input.fieldKey);
     if (!field || !isSigningType(field.type)) throw badRequest("This document has no signature field with that key.");
     if (isSignatureValue(doc.values[field.key])) throw conflict(`"${field.label}" is already signed.`);
+    // The statement is not part of the signed content, so it is compared here.
+    if (signature.statement !== statementFor(field)) {
+      throw badRequest(`That signature agreed to different words from what "${field.label}" asks. Sign again from the document.`);
+    }
     const check = await verifySignature(input.signatureId, signingContent(doc.id, version.id, doc.contentHash, field.key));
     if (!check.valid) {
       throw badRequest("That signature does not match this document as it stands. Reload the document and sign again.");

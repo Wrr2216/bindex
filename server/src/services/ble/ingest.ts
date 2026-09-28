@@ -13,8 +13,16 @@ import { CalibrationStore } from "./calibrate";
 import { bleSettings, isOutOfHours, LIVE_MS, presenceConfig, type BleDeviceSettings } from "./config";
 import { HeardNearby } from "./heard";
 import { PresenceEngine, type ZoneChange } from "./presence";
-import { getRegistry, primaryIdentity } from "./registry";
-import { insertAlerts, loadStates, resolveMissing, writeStates, type NewAlert, type StateWrite } from "./state";
+import { getRegistry, identitiesOf, primaryIdentity } from "./registry";
+import {
+  dropIdentityStates,
+  insertAlerts,
+  loadStates,
+  resolveMissing,
+  writeStates,
+  type NewAlert,
+  type StateWrite,
+} from "./state";
 
 /**
  * From a gateway's report to positions, moves and alerts.
@@ -406,6 +414,9 @@ async function ingest(gateway: TrackingDevice, payload: GatewayPayload, now: Dat
     };
   });
   const found = await writeStates(writes);
+  // A tag heard before it was registered left a row under its identity, which
+  // nothing writes any more; drop it before the missing sweep reports it.
+  await dropIdentityStates([...new Set(due.flatMap((h) => (h.ref.device ? identitiesOf(h.ref.device) : [])))]);
   for (const h of due) lastStored.set(h.ref.key, h.lastAt);
   if (lastStored.size > MAX_CACHE) lastStored.delete(lastStored.keys().next().value!);
 

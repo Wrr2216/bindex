@@ -217,13 +217,50 @@ describe("custody against Postgres", { skip: url ? false : "set CUSTODY_TEST_DAT
     assert.equal(view.lines.length, 1);
 
     const tf = await custody.transferForToken(token);
-    const result = await custody.signByLink(tf.linkTokenHash!, { signerName: "Lee Chan", image: PNG }, {});
+    const result = await custody.signByLink(tf.linkTokenHash!, { signerName: "Lee Chan", image: PNG }, { fingerprint: view.fingerprint });
     assert.equal(result.completed, true);
     await assert.rejects(custody.publicView(token), (e: { status?: number }) => e.status === 410);
     const detail = await custody.getTransfer(t.id);
     assert.equal(detail.signing.to?.via, "link");
     assert.equal(detail.link.state, "used");
     assert.equal("linkTokenHash" in detail, false);
+    await custody.finalizeTransfer(t.id, null);
+    assert.equal((await custody.verifyTransfer(t.id)).valid, true);
+  });
+
+  it("refuses a link signature over a delivery that changed after the page loaded", async () => {
+    const [crate, extra] = await Promise.all([createItem({ name: `Crate ${tag}` }, null), createItem({ name: `Extra ${tag}` }, null)]);
+    const t = await custody.createTransfer(
+      { purpose: "delivery", from: { kind: "external", name: "Crew 5" }, to: { kind: "external", name: "Kim Ode" }, sealNumbers: ["S-9"] },
+      actor,
+    );
+    await custody.scanIntoTransfer(t.id, [crate.assetCode]);
+    const { token } = await custody.issueLink(t.id, "to", 24, actor);
+    const seen = await custody.publicView(token);
+    assert.equal(seen.editable, true);
+    assert.match(seen.fingerprint, /^[0-9a-f]{64}$/);
+    const hash = (await custody.transferForToken(token)).linkTokenHash!;
+    const changed = (e: { status?: number; code?: string }) => e.status === 409 && e.code === "content_changed";
+
+    // The crew adds a line and changes the seal while the receiver is reading.
+    await custody.scanIntoTransfer(t.id, [extra.assetCode]);
+    await custody.updateTransfer(t.id, { sealNumbers: ["S-10"] }, actor);
+    await assert.rejects(custody.signByLink(hash, { signerName: "Kim Ode", image: PNG }, { fingerprint: seen.fingerprint }), changed);
+    // A page that sends no fingerprint cannot say what it showed.
+    await assert.rejects(custody.signByLink(hash, { signerName: "Kim Ode", image: PNG }, {}), changed);
+    assert.equal((await custody.loadTransfer(t.id)).status, "draft", "nothing was signed or locked");
+
+    // Reloaded, the receiver sees both lines and the new seal, marks one, and signs.
+    const fresh = await custody.publicView(token);
+    assert.equal(fresh.lines.length, 2);
+    assert.deepEqual(fresh.seals, ["S-10"]);
+    const extraLine = fresh.lines.find((l) => l.code === extra.assetCode)!;
+    const result = await custody.signByLink(
+      hash,
+      { signerName: "Kim Ode", image: PNG },
+      { fingerprint: fresh.fingerprint, outcomes: [{ lineId: extraLine.id, outcome: "refused", note: "Not ours" }] },
+    );
+    assert.equal(result.completed, true);
     await custody.finalizeTransfer(t.id, null);
     assert.equal((await custody.verifyTransfer(t.id)).valid, true);
   });
@@ -242,6 +279,79 @@ describe("custody against Postgres", { skip: url ? false : "set CUSTODY_TEST_DAT
     await sign(t.id, "to", "B");
     await assert.rejects(custody.publicView(token), (e: { status?: number }) => e.status === 410);
     assert.equal((await custody.getTransfer(t.id)).link.state, "none");
+  });
+
+  it("a restore keeps current signing links and never trusts one from the file", async () => {
+    const backup = await import("../src/services/custody/backup");
+    const { hashLinkToken } = await import("../src/services/custody/rules");
+    const { db } = await import("../src/db/client");
+    const { sql } = await import("drizzle-orm");
+    const open = async (name: string) => {
+      const item = await createItem({ name: `${name} ${tag}` }, null);
+      const t = await custody.createTransfer(
+        { purpose: "handoff", from: { kind: "external", name: "A" }, to: { kind: "external", name: "B" } },
+        actor,
+      );
+      await custody.scanIntoTransfer(t.id, [item.assetCode]);
+      await custody.lockTransfer(t.id, { expectedCount: 1 });
+      return t;
+    };
+    const live = await open("Linked");
+    const plain = await open("Unlinked");
+    const { token } = await custody.issueLink(live.id, "to", 24, actor);
+    const exported = await backup.exportCustodyTables();
+    // A hand-edited file names a token its author knows.
+    const forged = "F".repeat(32);
+    const row = exported.custody_transfers.find((r) => r.id === plain.id)!;
+    Object.assign(row, { linkTokenHash: hashLinkToken(forged), linkParty: "to", linkExpiresAt: new Date(Date.now() + 86_400_000) });
+
+    const rollback = new Error("rollback");
+    await assert.rejects(
+      db.transaction(async (tx) => {
+        await backup.clearCustodyTables(tx);
+        await backup.restoreCustodyTables(tx, exported);
+        const { rows } = await tx.execute<{ id: string; link_token_hash: string | null; link_party: string | null }>(
+          sql`SELECT id, link_token_hash, link_party FROM custody_transfers WHERE id IN (${live.id}, ${plain.id})`,
+        );
+        const byId = new Map(rows.map((r) => [r.id, r]));
+        assert.equal(byId.get(plain.id)!.link_token_hash, null, "the file's link must not work");
+        assert.equal(byId.get(live.id)!.link_token_hash, hashLinkToken(token), "a surviving transfer keeps its link");
+        assert.equal(byId.get(live.id)!.link_party, "to");
+        throw rollback;
+      }),
+      (err) => err === rollback,
+    );
+    assert.equal((await custody.publicView(token)).party, "to");
+    await custody.voidTransfer(live.id, "test", actor);
+    await custody.voidTransfer(plain.id, "test", actor);
+  });
+
+  it("starts a shipment's sign-off whole or not at all", async () => {
+    const [mug, bad] = await Promise.all([createItem({ name: `Mug ${tag}` }, null), createItem({ name: `Boom ${tag}` }, null)]);
+    const job = await core.createJob({ name: `Kitchen move ${tag}` }, actor);
+    cleanup.push(() => core.deleteJob(job.id));
+    const van = await core.createShipment({ jobId: job.id, name: "Van 2" }, actor);
+    await core.addItemsByCodes(job.id, [mug.assetCode, bad.assetCode], { shipmentId: van.id }, actor);
+
+    // A line that cannot be written, standing in for any failure part-way.
+    const fn = `custody_test_boom_${tag}`;
+    const unblock = async () => {
+      await pool.query(`DROP TRIGGER IF EXISTS ${fn} ON custody_transfer_items`);
+      await pool.query(`DROP FUNCTION IF EXISTS ${fn}()`);
+    };
+    cleanup.push(unblock);
+    await pool.query(`CREATE FUNCTION ${fn}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'boom'; END $$`);
+    await pool.query(
+      `CREATE TRIGGER ${fn} BEFORE INSERT ON custody_transfer_items FOR EACH ROW WHEN (NEW.name = '${bad.name}') EXECUTE FUNCTION ${fn}()`,
+    );
+    const to = { kind: "external" as const, name: "Ana Ruiz" };
+    await assert.rejects(custody.startSignOff(van.id, { to }, actor), (e: { cause?: { message?: string } }) => e.cause?.message === "boom");
+    // Nothing half-built is left for the next start to resume and sign short.
+    assert.deepEqual(await custody.listTransfers({ shipmentId: van.id }), []);
+
+    await unblock();
+    const signOff = await custody.startSignOff(van.id, { to }, actor);
+    assert.equal(signOff.lines.length, 2);
   });
 
   it("voids an unfinished transfer and keeps it out of the chain", async () => {

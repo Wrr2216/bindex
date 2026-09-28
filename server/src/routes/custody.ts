@@ -465,12 +465,13 @@ custodyPublicRouter.post(
   noStore,
   requireCustody,
   asyncHandler(async (req, res) => {
-    const body = parse(z.object({ ...signer, outcomes: outcomes.optional() }), req.body);
+    // The fingerprint the page was shown; left out, signing is refused as changed.
+    const body = parse(z.object({ ...signer, outcomes: outcomes.optional(), fingerprint: z.string().max(128).optional() }), req.body);
     const t = await custody.transferForToken(param(req, "token"));
     const result = await custody.signByLink(
       t.linkTokenHash!,
       { signerName: body.signerName, signerEmail: body.signerEmail, image: decodeImage(body.image) },
-      { ip: req.ip ?? null, userAgent: req.get("user-agent") ?? null, outcomes: body.outcomes },
+      { ip: req.ip ?? null, userAgent: req.get("user-agent") ?? null, outcomes: body.outcomes, fingerprint: body.fingerprint },
     );
     await afterSigning(t.id, result.completed, null);
     res.json({ ok: true, code: result.transfer.code, completed: result.completed });

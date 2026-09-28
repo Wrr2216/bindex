@@ -5,7 +5,7 @@ import { HttpError, badRequest, forbidden } from "../../lib/errors";
 import { logger } from "../../lib/logger";
 import { getConfig } from "../config";
 import { isExceptionStage, stageLabel } from "../jobs-core";
-import { createClaim, setStatus } from "./claims";
+import { createClaim } from "./claims";
 import { MONEY_TYPES, TYPE_INFO } from "./model";
 import { grantUsable, portalActorName, type PortalGrant } from "./normalize";
 import type { ClaimActor } from "./shared";
@@ -177,7 +177,8 @@ export async function portalFileClaim(token: string | null | undefined, input: P
     if (inScope.length !== ids.length) throw badRequest("Pick items from this delivery only.");
   }
   const actor = portalActor(scope.grant, input.contactEmail);
-  const created = await createClaim(
+  // Opened and submitted in one transaction: a failure leaves nothing for a retry to duplicate.
+  const submitted = await createClaim(
     {
       type: input.type,
       title: input.title?.trim() || `${TYPE_INFO[input.type].label} on ${scope.label}`,
@@ -193,8 +194,8 @@ export async function portalFileClaim(token: string | null | undefined, input: P
       })),
     },
     actor,
+    { submit: { note: "Filed through the portal." } },
   );
-  const submitted = await setStatus(created.id, { status: "submitted", note: "Filed through the portal." }, actor);
   logger.info("claims.portal.filed", { claimId: submitted.id, code: submitted.code, grantId: scope.grant.id });
   return {
     code: submitted.code,

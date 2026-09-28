@@ -105,6 +105,33 @@ way they are.
 - Restoring a current backup whose devices, teardown guides, crew, documents,
   geofences or condition records were empty kept the existing ones, as if the
   file predated them. Only a file without those tables keeps them now.
+- A BLE gateway reporting an impossible battery or temperature value failed
+  its whole batch, and every tag in it went missing. Such values are dropped.
+  Ingics reports sent as a JSON array are now read.
+- A GPS fix straddling a new geofence's edge no longer decides the tracker is
+  outside, which later announced a false arrival.
+- A BLE tag heard before it was registered no longer leaves a stale record that
+  goes missing and alerts while the tag is still heard.
+- A restore never makes a token or link hash written into the backup file
+  valid (devices, custody signing links), keeps current custody links, and
+  drops a portal link whose settings in the file are looser than now.
+- Register imports no longer fail on a row whose asset tag is also its serial,
+  or a value another item holds under a different identifier type.
+- Scanning a tag commissioned onto a unit advances, places or checks out that
+  unit rather than the whole item or another unit.
+- A job never holds a whole-item line next to lines for its units, lines
+  cannot be put on a closed shipment, and a finished job's lines cannot be
+  changed.
+- Reopening a signed inspection or a completed document needs an
+  administrator, and a claim that was submitted once can only be deleted by
+  one, so reopening or returning a record no longer gets round the delete
+  rules.
+- A custody signing link signs only what its page showed; if the transfer
+  changed since, the signer is asked to reload.
+- Removing a claim's last line clears its line totals; a portal claim is filed
+  and submitted in one step; a shipment's sign-off is created whole or not at
+  all; a document signature must carry the field's own statement.
+- Malformed ids on register import routes answer 404 rather than 500.
 
 ## [1.0.0] - 2026-08-31
 

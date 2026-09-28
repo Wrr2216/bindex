@@ -300,6 +300,49 @@ describe("claims against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
     assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");
   });
 
+  it("keeps a claim returned to its reporter on the record", async () => {
+    // Anyone can return a claim to its reporter, the reporter included; that
+    // must not open the way to deleting what was submitted.
+    const claim = await claims.createClaim({ type: "delay", title: `Late crates ${tag}`, estimatedTotalCents: 5_000 }, reporter);
+    cleanup.push(() => pool.query("DELETE FROM claims WHERE id = $1", [claim.id]));
+    await claims.setStatus(claim.id, { status: "submitted" }, reporter);
+    const returned = await claims.setStatus(claim.id, { status: "draft", note: "Say which crates" }, reporter);
+    assert.equal(returned.status, "draft");
+    await assert.rejects(claims.deleteClaim(claim.id, reporter), /submitted once/);
+    await claims.deleteClaim(claim.id, admin);
+    await assert.rejects(claims.getClaim(claim.id), statusOf(404));
+
+    // A draft never submitted still goes freely, by whoever opened it.
+    const fresh = await claims.createClaim({ type: "delay", title: `Never sent ${tag}` }, reporter);
+    await claims.deleteClaim(fresh.id, reporter);
+  });
+
+  it("clears line totals when the last line goes", async () => {
+    assert.ok(jobId, "needs the job from the first test");
+    let claim = await claims.createClaim(
+      { type: "damage", title: `Lamp shade ${tag}`, lines: [{ jobItemId: lampLine, estimatedCents: 1_000 }] },
+      reporter,
+    );
+    const id = claim.id;
+    cleanup.push(() => pool.query("DELETE FROM claims WHERE id = $1", [id]));
+    await claims.setStatus(id, { status: "submitted" }, reporter);
+    await claims.setStatus(id, { status: "under_review" }, bystander);
+    await claims.assignClaim(id, { userOid: reviewerOid }, admin);
+    claim = await claims.updateLine(id, claim.lines[0]!.id, { resolution: "repair", approvedCents: 1_000 }, reviewer);
+    assert.equal(claim.approvedTotalCents, 1_000);
+
+    // Its sums must not stay behind as if typed in, to be approved and paid.
+    claim = await claims.removeLine(id, claim.lines[0]!.id, reporter);
+    assert.equal(claim.lines.length, 0);
+    assert.equal(claim.estimatedTotalCents, null);
+    assert.equal(claim.approvedTotalCents, null);
+    assert.equal(claim.totals.approvedTotalCents, null);
+    await assert.rejects(
+      claims.setStatus(id, { status: "approved", note: "Stale amount" }, reviewer),
+      statusOf("amount_required"),
+    );
+  });
+
   it("announces a missed deadline once", async () => {
     const late = await claims.createClaim({ type: "delay", title: `Late ${tag}`, estimatedTotalCents: 10_000 }, reporter);
     cleanup.push(() => pool.query("DELETE FROM claims WHERE id = $1", [late.id]));
@@ -564,6 +607,23 @@ describe("claims against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
         statusOf(400),
       );
       await assert.rejects(claims.portalFileClaim(token, { type: "damage", description: "Nothing picked", lines: [] }), statusOf(400));
+
+      // Filing is one step: a failure while submitting leaves no draft behind
+      // for a retry to file twice. A trigger stands in for any such failure.
+      const fn = `claims_test_submit_${tag}`;
+      await pool.query(`CREATE FUNCTION ${fn}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'no submitting'; END $$`);
+      await pool.query(
+        `CREATE TRIGGER ${fn} BEFORE UPDATE ON claims FOR EACH ROW
+           WHEN (NEW.status = 'submitted' AND NEW.reporter_grant_id IS NOT NULL) EXECUTE FUNCTION ${fn}()`,
+      );
+      try {
+        await assert.rejects(claims.portalFileClaim(token, { type: "damage", description: "First try", lines: [{ jobItemId: vaseLine }] }));
+      } finally {
+        await pool.query(`DROP TRIGGER IF EXISTS ${fn} ON claims`);
+        await pool.query(`DROP FUNCTION IF EXISTS ${fn}()`);
+      }
+      assert.deepEqual((await claims.portalView(token)).claims, [], "no draft is left behind");
+
       const filed = await claims.portalFileClaim(token, {
         type: "damage",
         description: "The vase arrived in pieces.",
@@ -578,6 +638,7 @@ describe("claims against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
       assert.ok(rows[0].reporter_grant_id);
       assert.equal(rows[0].reporter_name, "Pat Consignee");
       assert.equal(rows[0].shipment_id, shipmentId);
+      assert.equal((await claims.getEvidence(rows[0].id)).unchangedSinceSubmission, true, "fingerprinted in the filing transaction");
       const audit = await pool.query(
         "SELECT actor_kind, actor_id, actor_name FROM audit_log WHERE type = 'claim.created' AND subject_id = $1",
         [rows[0].id],

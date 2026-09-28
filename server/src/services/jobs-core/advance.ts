@@ -27,7 +27,7 @@ import { planAdvance, uniqueCodes, type MatchLine, type ScanPlan, type ScanRef }
 import { OPEN_JOB_STATUSES, VIA_PATTERN, isProgressStage, isStage, type StageVia } from "./model";
 import { resolveScanCodes } from "./resolve";
 import { decideStage } from "./rules";
-import { assertJobOpen, loadShipmentOnJob, type Executor } from "./shared";
+import { assertJobOpen, assertShipmentOpen, loadShipmentOnJob, type Executor } from "./shared";
 
 /**
  * Moving manifest lines up the stage ladder. `advanceStage` takes scanned codes
@@ -173,10 +173,8 @@ async function apply(
   return db.transaction(async (tx) => {
     const job = await lockJob(tx, jobId);
     if (opts.shipmentId) {
-      const shipment = await loadShipmentOnJob(jobId, opts.shipmentId, tx);
-      if (shipment.status === "closed") {
-        throw badRequest(`${shipment.code} is closed. Reopen it, or pick another shipment.`);
-      }
+      // Locked so the shipment cannot close while these lines join it.
+      assertShipmentOpen(await loadShipmentOnJob(jobId, opts.shipmentId, tx, "share"));
     }
     const plan = buildPlan(await loadCandidates(tx));
     const from = new Map(plan.advance.map((p) => [p.line.id, p.line.stage]));

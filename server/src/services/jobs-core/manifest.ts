@@ -8,7 +8,7 @@ import { logger } from "../../lib/logger";
 import { parseManifestCsv } from "./csv";
 import { resolveScanCodes } from "./resolve";
 import { buildPlaceIndex, matchPlace, pathFromRoot, subtreeIds, type PlaceIndex } from "./places";
-import { assertJobOpen, clean, loadJob, loadShipmentOnJob, type Actor, type Executor } from "./shared";
+import { assertJobOpen, assertShipmentOpen, clean, loadJob, loadShipmentOnJob, type Actor, type Executor } from "./shared";
 import type { ScanRef } from "./match";
 
 /**
@@ -182,12 +182,20 @@ async function insertLines(ex: Executor, rows: NewLine[]): Promise<JobItem[]> {
   return added;
 }
 
-type Existing = {
+/** A line on the job, or one about to be added to it. */
+type Line = { itemId: string; unitId?: string | null };
+
+type Existing<L extends Line = JobItem> = {
   /** By item and unit. */
-  lines: Map<string, JobItem>;
+  lines: Map<string, L>;
   /** Unit lines by item, for an item code that stands for all of its units. */
-  unitLines: Map<string, JobItem[]>;
+  unitLines: Map<string, L[]>;
 };
+
+function remember<L extends Line>(existing: Existing<L>, line: L): void {
+  existing.lines.set(lineKey(line.itemId, line.unitId), line);
+  if (line.unitId) existing.unitLines.set(line.itemId, [...(existing.unitLines.get(line.itemId) ?? []), line]);
+}
 
 async function existingLines(ex: Executor, jobId: string, itemIds: string[]): Promise<Existing> {
   const out: Existing = { lines: new Map(), unitLines: new Map() };
@@ -196,18 +204,17 @@ async function existingLines(ex: Executor, jobId: string, itemIds: string[]): Pr
     .select()
     .from(jobItems)
     .where(and(eq(jobItems.jobId, jobId), inArray(jobItems.itemId, [...new Set(itemIds)])));
-  for (const r of rows) {
-    out.lines.set(lineKey(r.itemId, r.unitId), r);
-    if (r.unitId) out.unitLines.set(r.itemId, [...(out.unitLines.get(r.itemId) ?? []), r]);
-  }
+  for (const r of rows) remember(out, r);
   return out;
 }
 
 /**
  * The lines a reference already has on the job: its own line, the whole
- * item's line for a unit, or every unit line for a whole item.
+ * item's line for a unit, or every unit line for a whole item. The whole item
+ * and its units are never on a job side by side, so a batch that adds lines
+ * remembers each one before looking at the next.
  */
-function linesFor(ref: ScanRef, existing: Existing): JobItem[] {
+function linesFor<L extends Line>(ref: ScanRef, existing: Existing<L>): L[] {
   const own = existing.lines.get(lineKey(ref.itemId, ref.unitId));
   if (own) return [own];
   if (ref.unitId) {
@@ -240,7 +247,7 @@ async function currentLocations(refs: ScanRef[]): Promise<Map<string, string | n
 }
 
 async function checkFields(jobId: string, fields: LineFields): Promise<void> {
-  if (fields.shipmentId) await loadShipmentOnJob(jobId, fields.shipmentId);
+  if (fields.shipmentId) assertShipmentOpen(await loadShipmentOnJob(jobId, fields.shipmentId));
 }
 
 const fieldValues = (fields: LineFields): Partial<NewLine> => {
@@ -299,26 +306,29 @@ export async function addItemsByCodes(
   }
 
   const refs = [...wanted.values()].map((w) => w.ref);
-  const [existing, origins] = await Promise.all([
+  const [onJob, origins] = await Promise.all([
     existingLines(db, jobId, refs.map((r) => r.itemId)),
     currentLocations(refs),
   ]);
+  const existing: Existing<Line> = onJob;
   const rows: NewLine[] = [];
   for (const [key, { code, ref }] of wanted) {
     // The whole item on the job covers each of its units, and its units on
-    // the job cover the whole item.
+    // the job cover the whole item, whether already there or earlier in this batch.
     if (linesFor(ref, existing).length) {
       result.alreadyOnJob.push(code);
       continue;
     }
-    rows.push({
+    const row: NewLine = {
       jobId,
       itemId: ref.itemId,
       unitId: ref.unitId,
       originLocationId: origins.get(key) ?? null,
       stageBy: actor.name ?? actor.userOid,
       ...fieldValues(fields),
-    });
+    };
+    rows.push(row);
+    remember(existing, row);
   }
   result.added = (await insertLines(db, rows)).length;
   logger.info("jobs.manifest.add_codes", { jobId, added: result.added, unknown: result.unknown.length });
@@ -456,7 +466,16 @@ export async function addItemsFromLocation(
     rows.push({ ...base, itemId: u.itemId, unitId: u.id, originLocationId: loc, ...describe(loc, dept) });
   }
 
-  const added = await insertLines(db, rows);
+  // As when adding by code: the whole item already on the job covers its
+  // units, and its units already on the job cover the whole item.
+  const existing: Existing<Line> = await existingLines(db, jobId, rows.map((r) => r.itemId));
+  const fresh = rows.filter((row) => {
+    if (linesFor({ itemId: row.itemId, unitId: row.unitId ?? null }, existing).length) return false;
+    remember(existing, row);
+    return true;
+  });
+
+  const added = await insertLines(db, fresh);
   logger.info("jobs.manifest.add_subtree", { jobId, rootLocationId, found: rows.length, added: added.length });
   return { added: added.length, alreadyOnJob: rows.length - added.length, found: rows.length };
 }
@@ -575,7 +594,7 @@ export async function importManifestCsv(
         },
       ]);
       if (added) {
-        existing.lines.set(key, added);
+        remember(existing, added);
         result.added += 1;
       }
     }
@@ -608,7 +627,8 @@ export async function updateJobItems(
   ids: string[],
   fields: LineFields,
 ): Promise<{ updated: number }> {
-  await loadJob(jobId);
+  const job = await loadJob(jobId);
+  assertJobOpen(job);
   if (!ids.length) return { updated: 0 };
   await checkFields(jobId, fields);
   const set = fieldValues(fields);

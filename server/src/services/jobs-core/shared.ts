@@ -49,19 +49,36 @@ export function assertJobOpen(job: Job): void {
   }
 }
 
-export async function loadShipment(id: string, ex: Executor = db): Promise<Shipment> {
-  const [row] = await ex.select().from(shipments).where(eq(shipments.id, id)).limit(1);
+/**
+ * `lock: "share"` holds the row until the transaction ends, so the shipment
+ * cannot change status (setShipmentStatus locks it for update) meanwhile.
+ */
+export async function loadShipment(id: string, ex: Executor = db, lock?: "share"): Promise<Shipment> {
+  const query = ex.select().from(shipments).where(eq(shipments.id, id)).limit(1);
+  const [row] = await (lock ? query.for(lock) : query);
   if (!row) throw notFound("Shipment not found");
   return row;
 }
 
 /** A shipment that belongs to `jobId`, or a 400 saying it does not. */
-export async function loadShipmentOnJob(jobId: string, shipmentId: string, ex: Executor = db): Promise<Shipment> {
-  const shipment = await loadShipment(shipmentId, ex);
+export async function loadShipmentOnJob(
+  jobId: string,
+  shipmentId: string,
+  ex: Executor = db,
+  lock?: "share",
+): Promise<Shipment> {
+  const shipment = await loadShipment(shipmentId, ex, lock);
   if (shipment.jobId !== jobId) {
     throw badRequest(`${shipment.code} belongs to a different job. Pick one of this job's shipments.`);
   }
   return shipment;
+}
+
+/** A shipment that still takes lines. */
+export function assertShipmentOpen(shipment: Shipment): void {
+  if (shipment.status === "closed") {
+    throw badRequest(`${shipment.code} is closed. Reopen it, or pick another shipment.`);
+  }
 }
 
 /**

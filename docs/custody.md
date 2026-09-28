@@ -226,7 +226,10 @@ elsewhere (a webhook receiver, the customer's PDF) are what catch that.
 - A handoff's link can only be sent once the count is confirmed, so the party
   sees a fixed list. A delivery's receiver link can be sent while the list is
   open: the receiver marks what they find and signs in one step, which fixes
-  the list.
+  the list. The page is given a fingerprint of what it shows (the content the
+  signature would cover) and sends it back; if the crew changed the list, a
+  seal, a party or the note in between, or the fingerprint is missing, signing
+  is refused with `409 content_changed` and the receiver reloads.
 - The page is served by the server, not the app, because the app shows its
   sign-in screen to anyone without an account. It is a fixed shell plus a
   script from this origin (the site's CSP allows no inline script), renders
@@ -295,7 +298,7 @@ Signing link, no account, mounted before the session guard:
 | `GET /custody-sign/assets/sign.js` | Its script |
 | `GET /api/custody-public/:token` | What the party sees; `410 link_gone` when used, expired or revoked |
 | `GET /api/custody-public/:token/photos/:attachmentId` | A photo of an item on the transfer |
-| `POST /api/custody-public/:token/sign` | `{ signerName, signerEmail?, image, outcomes? }` → `{ ok, code, completed }` |
+| `POST /api/custody-public/:token/sign` | `{ signerName, signerEmail?, image, outcomes?, fingerprint }` → `{ ok, code, completed }`; `409 content_changed` when the transfer no longer matches `fingerprint` from the GET |
 
 ```bash
 # A handoff by script: create, scan, confirm, sign both sides.

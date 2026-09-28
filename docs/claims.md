@@ -113,7 +113,8 @@ A move is refused with a code a script can act on:
 Lines and amounts can be changed while a claim is draft, submitted or under
 review. After a decision they are locked: reopen to change them. Only drafts
 can be deleted, by whoever opened them or an administrator; a submitted claim
-is part of the record and is closed instead.
+is part of the record and is closed instead. A draft returned to its reporter
+was submitted once, so only an administrator can delete it.
 
 ### Who decides
 

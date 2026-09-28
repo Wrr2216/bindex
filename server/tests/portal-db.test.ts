@@ -721,6 +721,58 @@ describe("portal against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
     assert.equal((await call("GET", "/api/portal/session", { token: w.viewerA })).json!.code, "link_revoked");
   });
 
+  it("a restore never gives a live link settings looser than it has now", async () => {
+    const { sql } = await import("drizzle-orm");
+    const admin = "local:portal-test-admin";
+    const make = (input: Partial<Parameters<typeof portal.createGrant>[0]>) =>
+      portal.createGrant(
+        { scope: "shipment", targetId: w.shipA.id, role: "viewer", granteeName: "Restore test", expiresAt: new Date(Date.now() + 86_400_000), ...input },
+        admin,
+      );
+    const g = {
+      demoted: await make({ role: "contributor" }),
+      values: await make({ showValues: true }),
+      docs: await make({}),
+      stages: await make({ role: "contributor", allowedStages: ["packed", "loaded"] }),
+      coded: await make({ granteeEmail: "restore@example.com" }),
+      moved: await make({ granteeEmail: "old@example.com", requireCode: true }),
+      loosened: await make({ scope: "job", targetId: w.job1.id }),
+      same: await make({ role: "contributor" }),
+    };
+    const exported = await portal.exportPortalTables();
+    // Tightened after the backup was taken, as after a leak.
+    await portal.updateGrant(g.demoted.grant.id, { role: "viewer" }, admin);
+    await portal.updateGrant(g.values.grant.id, { showValues: false }, admin);
+    await portal.updateGrant(g.docs.grant.id, { showDocuments: false }, admin);
+    await portal.updateGrant(g.stages.grant.id, { allowedStages: ["packed"] }, admin);
+    await portal.updateGrant(g.coded.grant.id, { requireCode: true }, admin);
+    await portal.updateGrant(g.moved.grant.id, { granteeEmail: "new@example.com" }, admin);
+    // Loosened after the backup: the file is stricter, so the link may stay.
+    await portal.updateGrant(g.loosened.grant.id, { role: "contributor", showValues: true }, admin);
+    const rollback = new Error("rollback");
+    await assert.rejects(
+      db.transaction(async (tx) => {
+        await portal.keepPortalSecrets(tx);
+        await portal.restorePortalTables(tx, exported);
+        const ids = Object.values(g).map((x) => x.grant.id);
+        const { rows } = await tx.execute<{ id: string; token_last4: string | null; token_hash: string | null; role: string }>(
+          sql`SELECT id, token_last4, token_hash, role FROM portal_grants WHERE id IN (${sql.join(ids, sql`, `)})`,
+        );
+        const byId = new Map(rows.map((r) => [r.id, r]));
+        for (const k of ["demoted", "values", "docs", "stages", "coded", "moved"] as const) {
+          assert.equal(byId.get(g[k].grant.id)!.token_hash, null, `${k}: the leaked link must not work again`);
+        }
+        // The file's settings still come back, just without a link.
+        assert.equal(byId.get(g.demoted.grant.id)!.role, "contributor");
+        for (const k of ["loosened", "same"] as const) {
+          assert.equal(byId.get(g[k].grant.id)!.token_last4, g[k].token.slice(-4), `${k} keeps its link`);
+        }
+        throw rollback;
+      }),
+      (err) => err === rollback,
+    );
+  });
+
   it("a project link covers its jobs' lines and shipments, and no other job's", async () => {
     const project = await core.createProject({ name: `Portal project ${tag}` }, actor);
     // Cleanup runs last-in first: take the job out, then delete the project.

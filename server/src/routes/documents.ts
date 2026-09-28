@@ -481,7 +481,7 @@ documentRoutes.post(
 documentRoutes.post(
   "/:id/reopen",
   asyncHandler(async (req, res) => {
-    await docs.reopenDocument(param(req, "id"), actor(req));
+    await docs.reopenDocument(param(req, "id"), { ...actor(req), isAdmin: isAdmin(req) });
     res.json(await docs.getDocumentDetail(param(req, "id"), tz(req)));
   }),
 );

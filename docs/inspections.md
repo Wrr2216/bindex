@@ -64,7 +64,8 @@ shows "Changed since signing" if what it covered is then edited; completing it
 again without a change makes them count again.
 
 Only an administrator can delete a signed inspection, or a pre-move inspection
-that a completed post-move inspection is compared with.
+that a completed post-move inspection is compared with. Only an administrator
+can reopen a signed inspection either, since a draft can be deleted by anyone.
 
 ## How the comparison works
 

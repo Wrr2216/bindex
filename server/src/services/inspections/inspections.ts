@@ -893,9 +893,13 @@ async function findingSummary(inspection: Inspection) {
   return out;
 }
 
-export async function reopenInspection(id: string, actor: Actor): Promise<Inspection> {
+export async function reopenInspection(id: string, actor: InspectionActor): Promise<Inspection> {
   const current = await loadInspection(id);
   if (current.status === "draft") return current;
+  // A reopened draft can be deleted by anyone, so reopening signed evidence is as guarded as deleting it.
+  if (current.status === "signed" && !actor.isAdmin) {
+    throw forbidden("A signed inspection is evidence. Only an administrator can reopen it.");
+  }
   const [row] = await db
     .update(inspections)
     .set({ status: "draft", completedAt: null, completedBy: null, signedAt: null, updatedAt: new Date() })

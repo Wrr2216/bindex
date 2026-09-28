@@ -1,6 +1,6 @@
-import { inArray, or } from "drizzle-orm";
+import { eq, inArray, or } from "drizzle-orm";
 import { db } from "../../db/client";
-import { itemIdentifiers, itemUnits, items } from "../../db/schema";
+import { itemIdentifiers, itemUnits, items, tagIdentifierUnits } from "../../db/schema";
 import type { ScanRef } from "./match";
 
 /**
@@ -14,9 +14,9 @@ import type { ScanRef } from "./match";
  * merged when both land.
  *
  * A product code (UPC, SKU) can name several items, so each code maps to a
- * list, best first: the unit a unit code or serial names, then the item an
- * asset code or identity identifier (serial, asset tag, MAC, RFID) names, then
- * items sharing a product code.
+ * list, best first: the unit a unit code, serial or tag bound to a unit names,
+ * then the item an asset code or identity identifier (serial, asset tag, MAC,
+ * RFID) names, then items sharing a product code.
  */
 
 const IDENTITY_TYPES = new Set(["serial", "asset_tag", "mac", "rfid"]);
@@ -73,8 +73,14 @@ export async function resolveScanCodes(rawCodes: readonly string[]): Promise<Map
       : [],
     values.length
       ? db
-          .select({ itemId: itemIdentifiers.itemId, type: itemIdentifiers.type, value: itemIdentifiers.value })
+          .select({
+            itemId: itemIdentifiers.itemId,
+            unitId: tagIdentifierUnits.unitId,
+            type: itemIdentifiers.type,
+            value: itemIdentifiers.value,
+          })
           .from(itemIdentifiers)
+          .leftJoin(tagIdentifierUnits, eq(tagIdentifierUnits.identifierId, itemIdentifiers.id))
           .where(inArray(itemIdentifiers.value, values))
       : [],
     linkedItemIds.length ? db.select({ id: items.id }).from(items).where(inArray(items.id, linkedItemIds)) : [],
@@ -97,7 +103,9 @@ export async function resolveScanCodes(rawCodes: readonly string[]): Promise<Map
   }
   for (const i of itemRows) push(i.assetCode, 1, { itemId: i.id, unitId: null });
   for (const r of identifierRows) {
-    push(r.value, IDENTITY_TYPES.has(r.type) ? 2 : 3, { itemId: r.itemId, unitId: null });
+    // A tag commissioned onto one unit names that unit, not the whole item.
+    const tier = r.unitId ? 0 : IDENTITY_TYPES.has(r.type) ? 2 : 3;
+    push(r.value, tier, { itemId: r.itemId, unitId: r.unitId });
   }
 
   for (const [code, list] of tiers) {

@@ -20,7 +20,7 @@ import { logger } from "../../lib/logger";
 import { actorFromOid, publish } from "../event-backbone";
 import { resolveScanCodes } from "../jobs-core";
 import { listSignatures, sign, type Signature } from "../media-ai-core";
-import { contentLines, itemsHash, transferContent } from "./content";
+import { contentFingerprint, contentLines, itemsHash, transferContent } from "./content";
 import {
   cleanSeals,
   genTransferCode,
@@ -48,7 +48,7 @@ import { LINK_HOURS_DEFAULT, LINK_HOURS_MAX, linkState, newLinkToken } from "./r
 
 export type Actor = { userOid: string | null; name: string | null };
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /** The most lines one transfer holds; a pallet of archive boxes and their folders fits well within it. */
 export const MAX_LINES = 5000;
@@ -210,28 +210,36 @@ export type TransferInput = Placement & {
   notes?: string | null;
 };
 
-export async function createTransfer(input: TransferInput, actor: Actor, metadata: Record<string, unknown> = {}) {
+export async function createTransfer(
+  input: TransferInput,
+  actor: Actor,
+  metadata: Record<string, unknown> = {},
+  ex: Tx | typeof db = db,
+) {
   if (!isPurpose(input.purpose)) throw badRequest(`Unknown purpose "${input.purpose}".`);
   const from = await resolveParty(input.from, "releasing", actor);
   const to = await resolveParty(input.to, "receiving", actor);
   const placement = await placementColumns(input);
   for (let attempt = 0; ; attempt++) {
     try {
-      const [row] = await db
-        .insert(custodyTransfers)
-        .values({
-          code: genTransferCode((n) => randomBytes(n)),
-          purpose: input.purpose,
-          ...fromColumns(from),
-          ...toColumns(to),
-          ...placement,
-          sealNumbers: cleanSeals(input.sealNumbers ?? []),
-          conditionNote: clean(input.conditionNote),
-          notes: clean(input.notes),
-          metadata,
-          createdBy: actor.userOid,
-        })
-        .returning();
+      // A savepoint inside a caller's transaction, so a code collision can be retried there.
+      const [row] = await ex.transaction((sp) =>
+        sp
+          .insert(custodyTransfers)
+          .values({
+            code: genTransferCode((n) => randomBytes(n)),
+            purpose: input.purpose,
+            ...fromColumns(from),
+            ...toColumns(to),
+            ...placement,
+            sealNumbers: cleanSeals(input.sealNumbers ?? []),
+            conditionNote: clean(input.conditionNote),
+            notes: clean(input.notes),
+            metadata,
+            createdBy: actor.userOid,
+          })
+          .returning(),
+      );
       logger.info("custody.transfer.created", { id: row!.id, code: row!.code, purpose: row!.purpose });
       return row!;
     } catch (err) {
@@ -583,19 +591,37 @@ export async function signTransfer(id: string, party: CustodyParty, signer: Sign
   return db.transaction(async (tx) => signInTx(tx, await lockRow(tx, id), party, signer, ctx));
 }
 
-/** Record the signature of whoever holds the one-time link. */
-export async function signByLink(tokenHash: string, signer: SignerInput, ctx: Omit<SignContext, "via" | "capturedBy">) {
+/**
+ * Record the signature of whoever holds the one-time link. `fingerprint` is
+ * the one publicView gave the page they signed on; a draft delivery can still
+ * change on the crew's side, so it must match what is stored now.
+ */
+export async function signByLink(
+  tokenHash: string,
+  signer: SignerInput,
+  ctx: Omit<SignContext, "via" | "capturedBy"> & { fingerprint?: string | null },
+) {
   const [found] = await db
     .select({ id: custodyTransfers.id })
     .from(custodyTransfers)
     .where(eq(custodyTransfers.linkTokenHash, tokenHash))
     .limit(1);
   if (!found) throw linkGone();
+  const { fingerprint, ...rest } = ctx;
   return db.transaction(async (tx) => {
     const t = await lockRow(tx, found.id);
     // Re-checked under the lock: the link may have been used or revoked since.
     if (t.linkTokenHash !== tokenHash || linkState(t) !== "active" || !t.linkParty) throw linkGone();
-    return signInTx(tx, t, t.linkParty, signer, { ...ctx, via: "link", capturedBy: null });
+    // Checked before the signer's own outcomes are applied, as the page saw it.
+    // A page that sent none (an older one) cannot show what it covered, so it is refused too.
+    if (fingerprint !== contentFingerprint(t, await transferLines(t.id, tx))) {
+      throw new HttpError(
+        409,
+        "content_changed",
+        `${t.code} changed since you opened it. Reload the page and check it again before signing.`,
+      );
+    }
+    return signInTx(tx, t, t.linkParty, signer, { ...rest, via: "link", capturedBy: null });
   });
 }
 

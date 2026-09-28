@@ -224,12 +224,13 @@ export const SIGN_PAGE_SCRIPT = String.raw`(function () {
       button.setAttribute("disabled", "disabled");
       button.textContent = "Saving…";
       clear(error);
-      var body = { signerName: name.value.trim(), signerEmail: email.value.trim() || null, image: png };
+      // What this page showed: the server refuses the signature if the transfer changed since.
+      var body = { signerName: name.value.trim(), signerEmail: email.value.trim() || null, image: png, fingerprint: d.fingerprint };
       if (d.editable) body.outcomes = d.lines.map(function (l) { return { lineId: l.id, outcome: outcomes[l.id].outcome, note: outcomes[l.id].note.trim() || null }; });
       fetch(api + "/sign", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
         .then(function (res) { return res.json().catch(function () { return {}; }).then(function (b) { return { ok: res.ok, body: b }; }); })
         .then(function (r) {
-          if (!r.ok) throw new Error(r.body.error || "The signature could not be saved. Try again.");
+          if (!r.ok) { var e = new Error(r.body.error || "The signature could not be saved. Try again."); e.code = r.body.code; throw e; }
           clear(app);
           app.appendChild(h("div", { class: "done" },
             h("div", { class: "tick", text: "✓" }),
@@ -240,6 +241,11 @@ export const SIGN_PAGE_SCRIPT = String.raw`(function () {
         .catch(function (err) {
           error.appendChild(h("p", { class: "error", text: err.message }));
           button.textContent = "Agree and sign";
+          // Signing again would be refused the same way; only a reload shows what is there now.
+          if (err.code === "content_changed") {
+            error.appendChild(h("button", { class: "quiet", type: "button", style: "margin-bottom:12px", text: "Reload", onclick: function () { location.reload(); } }));
+            return;
+          }
           ready();
         });
     });

@@ -310,6 +310,25 @@ describe("consumables against Postgres", { skip }, () => {
     assert.equal(r.returned[0]!.fromHolderId, crew);
   });
 
+  it("describes a tag commissioned onto a unit as that unit", async () => {
+    const { describeCodes } = await import("../src/services/consumables/resolve");
+    const radio = await makeItem("Radio");
+    const units = await q<{ id: string; asset_code: string }>(
+      "INSERT INTO item_units (item_id) VALUES ($1), ($1) RETURNING id, asset_code",
+      [radio],
+    );
+    const code = `${TAG}-NFC`;
+    const [tag] = await q<{ id: string }>(
+      "INSERT INTO item_identifiers (item_id, type, value) VALUES ($1, 'nfc', $2) RETURNING id",
+      [radio, code],
+    );
+    await q("INSERT INTO tag_identifier_units (identifier_id, unit_id) VALUES ($1, $2)", [tag!.id, units[1]!.id]);
+    const [seen] = await describeCodes([code]);
+    assert.equal(seen!.itemId, radio);
+    assert.equal(seen!.unitId, units[1]!.id);
+    assert.equal(seen!.assetCode, units[1]!.asset_code);
+  });
+
   it("sends the low-stock digest once a day, not once per check", async () => {
     // Tape is at 10 in the annex against a reorder point of 10.
     const lowRows = await low.listLowStock();

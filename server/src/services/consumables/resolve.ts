@@ -7,6 +7,7 @@ import {
   itemIdentifiers,
   itemUnits,
   locations,
+  tagIdentifierUnits,
 } from "../../db/schema";
 import { locationCode } from "../../lib/codes";
 
@@ -70,9 +71,11 @@ export async function resolveCodes(rawCodes: string[]): Promise<Map<string, Reso
     await Promise.all([
       plain.length
         ? db
-            .select({ value: itemIdentifiers.value, itemId: itemIdentifiers.itemId })
+            .select({ value: itemIdentifiers.value, itemId: itemIdentifiers.itemId, unitId: tagIdentifierUnits.unitId })
             .from(itemIdentifiers)
             .innerJoin(items, eq(items.id, itemIdentifiers.itemId))
+            // A tag commissioned onto one unit names that unit.
+            .leftJoin(tagIdentifierUnits, eq(tagIdentifierUnits.identifierId, itemIdentifiers.id))
             .where(inArray(itemIdentifiers.value, plain))
             // A shared product code resolves to the most recently touched item,
             // the same tie-break the interactive scanner uses.
@@ -112,7 +115,7 @@ export async function resolveCodes(rawCodes: string[]): Promise<Map<string, Reso
   const setOnce = (code: string, r: Resolved) => {
     if (!out.has(code)) out.set(code, r);
   };
-  for (const r of byIdentifier) setOnce(r.value, { kind: "item", itemId: r.itemId, unitId: null });
+  for (const r of byIdentifier) setOnce(r.value, { kind: "item", itemId: r.itemId, unitId: r.unitId });
   for (const r of byAsset) setOnce(r.code, { kind: "item", itemId: r.id, unitId: null });
   for (const r of byUnitCode) setOnce(r.code, { kind: "item", itemId: r.itemId, unitId: r.id });
   for (const r of byUnitSerial) {
