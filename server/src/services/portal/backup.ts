@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import { portalGrants, portalNotes } from "../../db/schema";
 import type { Executor } from "../jobs-core/shared";
+import { DEFAULT_CONTRIBUTOR_STAGES } from "./policy";
 
 /**
  * Portal links and crew notes in the instance backup. services/backup.ts
@@ -10,9 +11,12 @@ import type { Executor } from "../jobs-core/shared";
  * Link tokens are secrets and stay out of the file, like device tokens. On a
  * restore, a grant that still exists keeps its current token, and stays
  * revoked (or expires sooner) if that happened after the file was written: a
- * restore must never bring a revoked link back. A grant that exists only in
- * the file comes back without a link until someone reissues it. Codes,
- * browser passes and the notification log are not backed up.
+ * restore must never bring a revoked link back. Nor may it give a live link
+ * more than it has now: when the file's settings for a grant are looser (say
+ * it was cut from contributor to viewer after a link leaked), the grant comes
+ * back with the file's settings but without a link. So does a grant that
+ * exists only in the file, until someone reissues it. Codes, browser passes
+ * and the notification log are not backed up.
  */
 
 export const PORTAL_TABLES = ["portal_grants", "portal_notes"] as const;
@@ -36,13 +40,35 @@ export async function exportPortalTables(): Promise<Record<PortalTable, Record<s
 export async function keepPortalSecrets(tx: Executor): Promise<void> {
   await tx.execute(sql`
     CREATE TEMP TABLE backup_kept_portal ON COMMIT DROP AS
-    SELECT id, token_hash, token_last4, revoked_at, revoked_by, expires_at FROM portal_grants`);
+    SELECT id, token_hash, token_last4, revoked_at, revoked_by, expires_at,
+           scope, project_id, job_id, shipment_id, role, show_values, show_documents,
+           allowed_stages, require_code, grantee_email
+      FROM portal_grants`);
 }
 
 const TARGET_EXISTS = sql`(
   (g.project_id IS NOT NULL AND EXISTS (SELECT 1 FROM projects p WHERE p.id = g.project_id))
   OR (g.job_id IS NOT NULL AND EXISTS (SELECT 1 FROM jobs j WHERE j.id = g.job_id))
   OR (g.shipment_id IS NOT NULL AND EXISTS (SELECT 1 FROM shipments s WHERE s.id = g.shipment_id)))`;
+
+// Stages a contributor grant may scan to; null or empty means the default set.
+const stagesOf = (t: "g" | "k") =>
+  sql`COALESCE(NULLIF(${sql.raw(t)}.allowed_stages, '{}'), ${`{${DEFAULT_CONTRIBUTOR_STAGES.join(",")}}`}::text[])`;
+
+/**
+ * The file's grant (g) would let its link do something the current grant (k)
+ * does not: another target, contributor over viewer, values or documents, more
+ * stages, or no code (or a code sent to another address) where one is needed.
+ * No single "stricter" exists for an address or a stage list, so such a grant
+ * loses its live token instead of mixing the two.
+ */
+const LOOSER_THAN_KEPT = sql`(
+  (g.scope, g.project_id, g.job_id, g.shipment_id) IS DISTINCT FROM (k.scope, k.project_id, k.job_id, k.shipment_id)
+  OR (g.role = 'contributor' AND k.role <> 'contributor')
+  OR (g.show_values AND NOT k.show_values)
+  OR (g.show_documents AND NOT k.show_documents)
+  OR (g.role = 'contributor' AND NOT (${stagesOf("g")} <@ ${stagesOf("k")}))
+  OR (k.require_code AND (NOT g.require_code OR g.grantee_email IS DISTINCT FROM k.grantee_email)))`;
 
 const toSnake = (row: Record<string, unknown>) =>
   Object.fromEntries(
@@ -90,13 +116,16 @@ export async function restorePortalTables(
     await tx.execute(sql`INSERT INTO portal_grants SELECT g.* FROM backup_portal_grants g WHERE ${TARGET_EXISTS}`);
     await tx.execute(sql`
       UPDATE portal_grants g
-         SET token_hash = k.token_hash,
-             token_last4 = k.token_last4,
-             revoked_at = COALESCE(k.revoked_at, g.revoked_at),
+         SET revoked_at = COALESCE(k.revoked_at, g.revoked_at),
              revoked_by = COALESCE(k.revoked_by, g.revoked_by),
              expires_at = LEAST(k.expires_at, g.expires_at)
         FROM backup_kept_portal k
        WHERE k.id = g.id`);
+    await tx.execute(sql`
+      UPDATE portal_grants g
+         SET token_hash = k.token_hash, token_last4 = k.token_last4
+        FROM backup_kept_portal k
+       WHERE k.id = g.id AND NOT ${LOOSER_THAN_KEPT}`);
   }
   if (data.portal_notes.length) {
     await stage(tx, "portal_notes", data.portal_notes);
