@@ -296,5 +296,22 @@ describe("placement against Postgres", { skip: url ? false : "set TEST_DATABASE_
     placement.forgetTree();
     const after = await placement.lookup(job.id, stranger.assetCode, { who });
     assert.equal(after.outcome, "not_on_job");
+
+    // The export leaves device tokens out; one written into the file is ignored.
+    const edited = JSON.parse(JSON.stringify(await buildBackup()));
+    const forgedId = crypto.randomUUID();
+    edited.data.tracking_devices.push({
+      ...edited.data.tracking_devices[0],
+      id: forgedId,
+      name: `Forged ${tag}`,
+      externalId: null,
+      tokenHash: "f".repeat(64),
+      tokenLast4: "ffff",
+    });
+    await restoreBackup(edited);
+    const { rows } = await pool.query("SELECT token_hash FROM tracking_devices WHERE id = $1", [forgedId]);
+    assert.equal(rows[0]?.token_hash, null);
+    const live = await pool.query("SELECT count(*)::int AS n FROM tracking_devices WHERE token_hash IS NOT NULL");
+    assert.ok(live.rows[0].n >= 3, "devices that still exist keep their tokens");
   });
 });

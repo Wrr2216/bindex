@@ -424,7 +424,10 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
 
     // Devices come after the zones, items and units they point at.
     if (has("tracking_devices")) {
-      for (const part of chunk(d.tracking_devices, 500)) await tx.insert(trackingDevices).values(part as never);
+      // The export leaves tokens out, so a token in the file did not come from
+      // it; never trust one. Devices that still exist get theirs back below.
+      const devices = d.tracking_devices.map(({ tokenHash: _t, tokenLast4: _l, ...dev }) => dev);
+      for (const part of chunk(devices, 500)) await tx.insert(trackingDevices).values(part as never);
       await tx.execute(sql`
         UPDATE tracking_devices t SET token_hash = k.token_hash, token_last4 = k.token_last4
           FROM backup_kept_devices k WHERE k.id = t.id`);
