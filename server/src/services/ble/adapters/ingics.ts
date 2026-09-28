@@ -56,7 +56,18 @@ export function parseIngics(body: unknown): GatewayPayload {
 }
 
 function textOf(body: unknown): string {
-  if (typeof body === "string") return body;
+  if (typeof body === "string") {
+    // A JSON array of report lines, as some gateways publish over MQTT.
+    if (body.trimStart().startsWith("[")) {
+      try {
+        const lines: unknown = JSON.parse(body);
+        if (Array.isArray(lines)) return textOf(lines);
+      } catch {
+        // Not JSON; read it as lines.
+      }
+    }
+    return body;
+  }
   if (Array.isArray(body)) return body.filter((l): l is string => typeof l === "string").join("\n");
   if (isRecord(body)) {
     // A form post: the lines are in whichever field the gateway was told to use.

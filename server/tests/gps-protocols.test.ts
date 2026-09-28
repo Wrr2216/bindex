@@ -307,6 +307,35 @@ describe("planning a batch", () => {
     assert.equal(loud.crossings[0]!.transition.kind, "entered");
   });
 
+  it("keeps learning a new fence while every fix straddles its edge", () => {
+    const tracker = {
+      lastLat: north(180).lat,
+      lastLng: north(180).lng,
+      lastAccuracyM: 30,
+      lastFixAt: new Date(Date.UTC(2026, 8, 26, 13)),
+      rejectStreak: 0,
+      rejectLat: null,
+      rejectLng: null,
+      rejectAccuracyM: null,
+      rejectAt: null,
+      evaluatedAt: new Date(Date.UTC(2026, 8, 26, 13, 1)),
+    };
+    const fresh = { ...origin(), geometryAt: Date.UTC(2026, 8, 26, 13, 30) };
+    // Parked 20 m inside, reporting ±30 m: neither side yet.
+    const vague = ingest.planBatch({ settings: {} }, tracker, new Map(), [fresh], [report(180, 0, { accuracyM: 30 })], now);
+    assert.equal(vague.crossings.length, 0);
+    assert.equal(vague.states.has("origin"), false);
+    assert.equal(vague.unlearnedSince, fresh.geometryAt);
+
+    // Stored as tested only up to just before the fence, the next, sharper
+    // fix is learned quietly rather than announced as an arrival.
+    const next = { ...tracker, evaluatedAt: new Date(vague.unlearnedSince! - 1) };
+    const sharp = ingest.planBatch({ settings: {} }, next, new Map(), [fresh], [report(180, 60), report(180, 120)], now);
+    assert.equal(sharp.crossings.length, 0);
+    assert.equal(sharp.states.get("origin")?.inside, true);
+    assert.equal(sharp.unlearnedSince, null);
+  });
+
   it("converts speed with the tracker's own unit", () => {
     const plan = ingest.planBatch(
       { settings: { gps: { speedUnit: "kmh" } } },

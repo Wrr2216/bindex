@@ -90,6 +90,12 @@ type Plan = {
   filter: FilterState;
   states: Map<string, FenceState>;
   touched: Set<string>;
+  /**
+   * The earliest drawing time of a new fence whose side is still unknown
+   * because every fix straddled its edge. The tracker is recorded as tested
+   * only up to just before it, so the next batch keeps learning silently.
+   */
+  unlearnedSince: number | null;
   batteryPct: number | null;
   latestReportAt: Date | null;
   counts: { fixes: number; accepted: number; outOfOrder: number; rejected: number };
@@ -148,10 +154,14 @@ export function planBatch(
     filter,
     states,
     touched,
+    unlearnedSince: null,
     batteryPct: null,
     latestReportAt: null,
     counts: { fixes: 0, accepted: 0, outOfOrder: 0, rejected: 0 },
   };
+
+  // New fences seen only by fixes straddling their edge, by drawing time.
+  const unlearned = new Map<string, number>();
 
   const ordered = reports
     .map((r) => ({ r, at: clampObservedAt(r.at, now) }))
@@ -204,6 +214,12 @@ export function planBatch(
       let st = states.get(fence.id);
       if (!st) {
         if (evaluatedAt === null || evaluatedAt < fence.geometryAt) {
+          // A fix straddling the edge says neither side; wait for one that does.
+          if (side === "uncertain") {
+            unlearned.set(fence.id, fence.geometryAt);
+            continue;
+          }
+          unlearned.delete(fence.id);
           st = side === "inside" ? { inside: true, since: point.at, pending: null } : OUTSIDE;
           states.set(fence.id, st);
           if (st.inside) touched.add(fence.id);
@@ -228,6 +244,7 @@ export function planBatch(
     plan.counts.accepted += 1;
   }
   plan.filter = filter;
+  plan.unlearnedSince = unlearned.size ? Math.min(...unlearned.values()) : null;
   for (const r of plan.reads) if (r.meta && !Object.keys(r.meta).length) r.meta = null;
   return plan;
 }
@@ -315,7 +332,11 @@ async function commitState(
       d(f.lastRejected?.at),
       JSON.stringify(recent),
       battery.alerted,
-      plan.counts.accepted ? now : null,
+      plan.counts.accepted
+        ? plan.unlearnedSince === null
+          ? now
+          : new Date(Math.min(now.getTime(), plan.unlearnedSince - 1))
+        : null,
     ],
   );
 
