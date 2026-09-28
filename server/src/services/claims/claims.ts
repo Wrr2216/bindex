@@ -383,7 +383,15 @@ function validateCategory(type: ClaimType, category: string | null | undefined):
 
 // --- Creating -------------------------------------------------------------------------
 
-export async function createClaim(input: ClaimInput, actor: ClaimActor): Promise<ClaimDetail> {
+/**
+ * Open a claim as a draft, or with `submit` open and submit it as one step
+ * (the portal), so a failure submitting leaves no draft behind to file twice.
+ */
+export async function createClaim(
+  input: ClaimInput,
+  actor: ClaimActor,
+  opts: { submit?: { note: string } } = {},
+): Promise<ClaimDetail> {
   const title = clean(input.title);
   if (!title) throw badRequest("Give the claim a short title, such as what was damaged and where.");
   const category = validateCategory(input.type, input.category);
@@ -409,7 +417,7 @@ export async function createClaim(input: ClaimInput, actor: ClaimActor): Promise
   const reporterName = clean(input.reporterName) ?? actor.name;
   const onBehalf = Boolean(clean(input.reporterName));
 
-  const { claim, activity } = await withClaimCode(input.type, (code) =>
+  const { claim, activity, submitted } = await withClaimCode(input.type, (code) =>
     db.transaction(async (tx) => {
       const [row] = await tx
         .insert(claims)
@@ -446,12 +454,19 @@ export async function createClaim(input: ClaimInput, actor: ClaimActor): Promise
         body: onBehalf ? `Reported by ${reporterName}, entered by ${actor.name ?? "someone"}.` : null,
         detail: { lines: lines.length },
       });
-      return { claim: created, activity };
+      let submitted: Move | null = null;
+      if (opts.submit) {
+        // Fingerprinted from the rows as written here, which nothing else can see or change yet.
+        const evidenceHash = (await buildEvidence(created, await loadLines(created.id, tx))).hash;
+        submitted = await moveInTx(tx, created, { status: "submitted", note: opts.submit.note }, actor, evidenceHash);
+      }
+      return { claim: created, activity, submitted };
     }),
   );
 
   logger.info("claims.created", { claimId: claim.id, code: claim.code, type: claim.type, lines: lines.length });
   await announce("claim.created", claim, { lines: lines.length, reporter: claim.reporterName }, actor, activity.id);
+  if (submitted) await announceMove(submitted, actor);
   return getClaim(claim.id, actor);
 }
 
@@ -896,64 +911,73 @@ export type StatusInput = {
 
 const CHECK_STATUS: Record<string, number> = { note_required: 400, amount_required: 400, lines_required: 400 };
 
-export async function setStatus(id: string, input: StatusInput, actor: ClaimActor): Promise<ClaimDetail> {
+type Move = { claim: Claim; from: ClaimStatus; to: ClaimStatus; note: string | null; evidenceHash: string | null; activity: ClaimActivity };
+
+/**
+ * One move of a claim the caller holds in `tx` (locked, or created there):
+ * checked, stamped and logged. The caller announces it once `tx` commits.
+ */
+async function moveInTx(tx: Executor, claim: Claim, input: StatusInput, actor: ClaimActor, evidenceHash: string | null): Promise<Move> {
   const to = input.status;
   const note = clean(input.note);
+  const lines = await loadLines(claim.id, tx);
+  const totals = claimTotals(lines, claim);
+  const check = checkTransition({ type: claim.type, status: claim.status, to, note, totals });
+  if (!check.ok) throw new HttpError(CHECK_STATUS[check.code] ?? 409, check.code, check.message);
+  if (check.transition.decision) assertDecider(claim, actor);
 
-  // The fingerprint of what was on file when it was submitted. Read before the
-  // transaction; the status is checked again inside it.
-  let evidenceHash: string | null = null;
+  const now = new Date();
+  const set: Partial<typeof claims.$inferInsert> = {
+    status: to,
+    ...transitionStamps(claim, to, now, slaHoursFor(claim.type)),
+    updatedAt: now,
+  };
   if (to === "submitted") {
-    const before = await loadClaim(id);
-    evidenceHash = (await buildEvidence(before, await loadLines(id))).hash;
+    set.evidenceHash = evidenceHash;
+    set.evidenceFrozenAt = now;
   }
-
-  const { claim, from, activity } = await db.transaction(async (tx) => {
-    const claim = await loadClaim(id, tx, true);
-    const lines = await loadLines(id, tx);
-    const totals = claimTotals(lines, claim);
-    const check = checkTransition({ type: claim.type, status: claim.status, to, note, totals });
-    if (!check.ok) throw new HttpError(CHECK_STATUS[check.code] ?? 409, check.code, check.message);
-    if (check.transition.decision) assertDecider(claim, actor);
-
-    const now = new Date();
-    const set: Partial<typeof claims.$inferInsert> = {
-      status: to,
-      ...transitionStamps(claim, to, now, slaHoursFor(claim.type)),
-      updatedAt: now,
-    };
-    if (to === "submitted") {
-      set.evidenceHash = evidenceHash;
-      set.evidenceFrozenAt = now;
-    }
-    if (to === "paid") {
-      const paid = input.paidTotalCents ?? totals.approvedTotalCents;
-      if (paid === null || paid === undefined || paid <= 0) throw badRequest("Enter the amount paid.");
-      set.paidTotalCents = paid;
-      if (input.paymentReference !== undefined) set.paymentReference = clean(input.paymentReference);
-    }
-    const [row] = await tx.update(claims).set(set).where(eq(claims.id, id)).returning();
-    const activity = await addActivity(tx, id, "status", actor, {
-      fromStatus: claim.status,
-      toStatus: to,
-      body: note,
-      detail: {
-        action: check.transition.action,
-        ...(to === "submitted" ? { evidenceHash } : {}),
-        ...(to === "paid" ? { paidTotalCents: set.paidTotalCents, paymentReference: set.paymentReference ?? null } : {}),
-      },
-    });
-    return { claim: row!, from: claim.status, activity };
+  if (to === "paid") {
+    const paid = input.paidTotalCents ?? totals.approvedTotalCents;
+    if (paid === null || paid === undefined || paid <= 0) throw badRequest("Enter the amount paid.");
+    set.paidTotalCents = paid;
+    if (input.paymentReference !== undefined) set.paymentReference = clean(input.paymentReference);
+  }
+  const [row] = await tx.update(claims).set(set).where(eq(claims.id, claim.id)).returning();
+  const activity = await addActivity(tx, claim.id, "status", actor, {
+    fromStatus: claim.status,
+    toStatus: to,
+    body: note,
+    detail: {
+      action: check.transition.action,
+      ...(to === "submitted" ? { evidenceHash } : {}),
+      ...(to === "paid" ? { paidTotalCents: set.paidTotalCents, paymentReference: set.paymentReference ?? null } : {}),
+    },
   });
+  return { claim: row!, from: claim.status, to, note, evidenceHash, activity };
+}
 
-  logger.info("claims.status_changed", { claimId: id, code: claim.code, from, to });
+async function announceMove(move: Move, actor: ClaimActor): Promise<void> {
+  const { claim, from, to, note, evidenceHash } = move;
+  logger.info("claims.status_changed", { claimId: claim.id, code: claim.code, from, to });
   await announce(
     "claim.status_changed",
     claim,
     { from, to, note, ...(to === "submitted" ? { evidenceHash, slaDueAt: claim.slaDueAt } : {}) },
     actor,
-    activity.id,
+    move.activity.id,
   );
+}
+
+export async function setStatus(id: string, input: StatusInput, actor: ClaimActor): Promise<ClaimDetail> {
+  // The fingerprint of what was on file when it was submitted. Read before the
+  // transaction; the status is checked again inside it.
+  let evidenceHash: string | null = null;
+  if (input.status === "submitted") {
+    const before = await loadClaim(id);
+    evidenceHash = (await buildEvidence(before, await loadLines(id))).hash;
+  }
+  const move = await db.transaction(async (tx) => moveInTx(tx, await loadClaim(id, tx, true), input, actor, evidenceHash));
+  await announceMove(move, actor);
   return getClaim(id, actor);
 }
 

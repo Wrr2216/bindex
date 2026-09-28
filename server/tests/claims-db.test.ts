@@ -607,6 +607,23 @@ describe("claims against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
         statusOf(400),
       );
       await assert.rejects(claims.portalFileClaim(token, { type: "damage", description: "Nothing picked", lines: [] }), statusOf(400));
+
+      // Filing is one step: a failure while submitting leaves no draft behind
+      // for a retry to file twice. A trigger stands in for any such failure.
+      const fn = `claims_test_submit_${tag}`;
+      await pool.query(`CREATE FUNCTION ${fn}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'no submitting'; END $$`);
+      await pool.query(
+        `CREATE TRIGGER ${fn} BEFORE UPDATE ON claims FOR EACH ROW
+           WHEN (NEW.status = 'submitted' AND NEW.reporter_grant_id IS NOT NULL) EXECUTE FUNCTION ${fn}()`,
+      );
+      try {
+        await assert.rejects(claims.portalFileClaim(token, { type: "damage", description: "First try", lines: [{ jobItemId: vaseLine }] }));
+      } finally {
+        await pool.query(`DROP TRIGGER IF EXISTS ${fn} ON claims`);
+        await pool.query(`DROP FUNCTION IF EXISTS ${fn}()`);
+      }
+      assert.deepEqual((await claims.portalView(token)).claims, [], "no draft is left behind");
+
       const filed = await claims.portalFileClaim(token, {
         type: "damage",
         description: "The vase arrived in pieces.",
@@ -621,6 +638,7 @@ describe("claims against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
       assert.ok(rows[0].reporter_grant_id);
       assert.equal(rows[0].reporter_name, "Pat Consignee");
       assert.equal(rows[0].shipment_id, shipmentId);
+      assert.equal((await claims.getEvidence(rows[0].id)).unchangedSinceSubmission, true, "fingerprinted in the filing transaction");
       const audit = await pool.query(
         "SELECT actor_kind, actor_id, actor_name FROM audit_log WHERE type = 'claim.created' AND subject_id = $1",
         [rows[0].id],
