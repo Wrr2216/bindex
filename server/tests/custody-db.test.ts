@@ -244,6 +244,51 @@ describe("custody against Postgres", { skip: url ? false : "set CUSTODY_TEST_DAT
     assert.equal((await custody.getTransfer(t.id)).link.state, "none");
   });
 
+  it("a restore keeps current signing links and never trusts one from the file", async () => {
+    const backup = await import("../src/services/custody/backup");
+    const { hashLinkToken } = await import("../src/services/custody/rules");
+    const { db } = await import("../src/db/client");
+    const { sql } = await import("drizzle-orm");
+    const open = async (name: string) => {
+      const item = await createItem({ name: `${name} ${tag}` }, null);
+      const t = await custody.createTransfer(
+        { purpose: "handoff", from: { kind: "external", name: "A" }, to: { kind: "external", name: "B" } },
+        actor,
+      );
+      await custody.scanIntoTransfer(t.id, [item.assetCode]);
+      await custody.lockTransfer(t.id, { expectedCount: 1 });
+      return t;
+    };
+    const live = await open("Linked");
+    const plain = await open("Unlinked");
+    const { token } = await custody.issueLink(live.id, "to", 24, actor);
+    const exported = await backup.exportCustodyTables();
+    // A hand-edited file names a token its author knows.
+    const forged = "F".repeat(32);
+    const row = exported.custody_transfers.find((r) => r.id === plain.id)!;
+    Object.assign(row, { linkTokenHash: hashLinkToken(forged), linkParty: "to", linkExpiresAt: new Date(Date.now() + 86_400_000) });
+
+    const rollback = new Error("rollback");
+    await assert.rejects(
+      db.transaction(async (tx) => {
+        await backup.clearCustodyTables(tx);
+        await backup.restoreCustodyTables(tx, exported);
+        const { rows } = await tx.execute<{ id: string; link_token_hash: string | null; link_party: string | null }>(
+          sql`SELECT id, link_token_hash, link_party FROM custody_transfers WHERE id IN (${live.id}, ${plain.id})`,
+        );
+        const byId = new Map(rows.map((r) => [r.id, r]));
+        assert.equal(byId.get(plain.id)!.link_token_hash, null, "the file's link must not work");
+        assert.equal(byId.get(live.id)!.link_token_hash, hashLinkToken(token), "a surviving transfer keeps its link");
+        assert.equal(byId.get(live.id)!.link_party, "to");
+        throw rollback;
+      }),
+      (err) => err === rollback,
+    );
+    assert.equal((await custody.publicView(token)).party, "to");
+    await custody.voidTransfer(live.id, "test", actor);
+    await custody.voidTransfer(plain.id, "test", actor);
+  });
+
   it("voids an unfinished transfer and keeps it out of the chain", async () => {
     const thing = await createItem({ name: `Thing ${tag}` }, null);
     const t = await custody.createTransfer(
