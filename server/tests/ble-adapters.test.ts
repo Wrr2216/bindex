@@ -272,6 +272,17 @@ describe("phones", () => {
   });
 });
 
+describe("readings out of range", () => {
+  it("are dropped rather than stored", () => {
+    const o = interpretAdvert({ mac: "AC233FA1B2C3", rssi: -60, batteryMv: 4294967295, batteryPct: 255, temperatureC: 1e40 });
+    assert.equal(o.batteryMv, null);
+    assert.equal(o.batteryPct, null);
+    assert.equal(o.temperatureC, null);
+    const ok = interpretAdvert({ mac: "AC233FA1B2C3", rssi: -60, batteryMv: 3000, batteryPct: 80, temperatureC: 21.5 });
+    assert.deepEqual([ok.batteryMv, ok.batteryPct, ok.temperatureC], [3000, 80, 21.5]);
+  });
+});
+
 describe("format detection (MQTT)", () => {
   it("tells each format apart by its shape", () => {
     assert.equal(detectFormat(JSON.stringify(MINEW)), "minew");
@@ -286,6 +297,9 @@ describe("format detection (MQTT)", () => {
   it("parses with the detected format, or the one it is told", () => {
     assert.equal(parseGatewayPayload(JSON.stringify(MINEW)).gatewayId, "AC233FC04EAB");
     assert.equal(parseGatewayPayload(INGICS, "ingics").adverts.length, 3);
+    const asArray = JSON.stringify(INGICS.split("\r\n").filter(Boolean));
+    assert.equal(parseGatewayPayload(asArray).adverts.length, 3);
+    assert.equal(parseGatewayPayload(asArray, "ingics").adverts.length, 3);
     assert.throws(() => detectFormat("not json at all"), AdapterError);
     assert.throws(() => detectFormat('[{"foo":1}]'), /BLE_MQTT_FORMAT/);
   });

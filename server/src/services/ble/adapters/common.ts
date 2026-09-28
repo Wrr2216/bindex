@@ -73,6 +73,15 @@ export type Observation = {
 const MAX_DATA_HEX = 1024;
 
 /**
+ * A reading inside what a tag can physically report, or null. A gateway that
+ * forwards a sentinel (0xFFFFFFFF for "no battery") would otherwise fail the
+ * whole batch's state write, and keep failing it while the value is carried.
+ */
+function within(v: number | null, min: number, max: number): number | null {
+  return v !== null && v >= min && v <= max ? v : null;
+}
+
+/**
  * Decode one advertisement. Raw bytes win over an identity the gateway decoded
  * itself, since they are what was actually on the air. An identity that turns
  * out to be a MAC is treated as the address.
@@ -93,9 +102,9 @@ export function interpretAdvert(raw: RawAdvert): Observation {
     at: raw.at ?? null,
     frame: parsed?.frame ?? (identity?.startsWith("ibeacon:") ? "ibeacon" : identity?.startsWith("eddystone:") ? "eddystone_uid" : "none"),
     txPower: parsed?.txPower ?? finiteOrNull(raw.txPower),
-    batteryPct: finiteOrNull(raw.batteryPct),
-    batteryMv: parsed?.tlm?.batteryMv ?? finiteOrNull(raw.batteryMv),
-    temperatureC: parsed?.tlm?.temperatureC ?? finiteOrNull(raw.temperatureC),
+    batteryPct: within(finiteOrNull(raw.batteryPct), 0, 100),
+    batteryMv: within(parsed?.tlm?.batteryMv ?? finiteOrNull(raw.batteryMv), 1, 20_000),
+    temperatureC: within(parsed?.tlm?.temperatureC ?? finiteOrNull(raw.temperatureC), -100, 200),
     name: parsed?.name ?? raw.name ?? null,
     url: parsed?.url ?? null,
   };

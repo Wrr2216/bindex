@@ -77,14 +77,15 @@ export async function exportDocumentsTables(): Promise<Record<DocumentsTable, Re
 
 /**
  * Replace documents with the snapshot's. Runs after jobs are restored (a
- * document may belong to a job). A file with no templates predates documents:
- * its templates, fields and packets are kept, the way job types are.
+ * document may belong to a job). A file without the template, field and
+ * packet tables predates documents (`keepConfiguration`): the current ones are
+ * kept, the way job types are.
  */
 export async function restoreDocumentsTables(
   tx: Executor,
   data: Record<DocumentsTable, Record<string, unknown>[]>,
+  { keepConfiguration }: { keepConfiguration: boolean },
 ): Promise<void> {
-  const keepConfiguration = data.document_templates.length === 0 && data.document_custom_fields.length === 0 && data.document_packets.length === 0;
   for (const t of [...DOCUMENTS_TABLES].reverse()) {
     if (keepConfiguration && CONFIGURATION.includes(t)) continue;
     await tx.delete(TABLE[t]);

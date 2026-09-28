@@ -30,9 +30,6 @@ export async function exportCrewTables(): Promise<Record<CrewTable, Record<strin
   return out;
 }
 
-/** A file written before crew existed has none of these tables. */
-export const predatesCrew = (data: Record<CrewTable, unknown[]>): boolean => CREW_TABLES.every((t) => data[t].length === 0);
-
 /**
  * Clear crew before a restore, which has to happen before jobs are cleared:
  * check-ins hold workers, and workers cannot be deleted while they do.

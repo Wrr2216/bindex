@@ -127,18 +127,20 @@ export async function getByIdentifier(value: string, userOid: string | null) {
   // A product code (UPC/SKU) may be shared by several items, so resolve to the
   // most recently touched one so scanning is at least deterministic.
   const [idRow] = await db
-    .select({ itemId: itemIdentifiers.itemId })
+    .select({ itemId: itemIdentifiers.itemId, type: itemIdentifiers.type })
     .from(itemIdentifiers)
     .innerJoin(items, eq(items.id, itemIdentifiers.itemId))
     .where(eq(itemIdentifiers.value, code))
     .orderBy(desc(items.updatedAt))
     .limit(1);
 
-  // Tag UIDs typed another way, legacy stickers as typed, assigned EPCs, and
-  // which unit a tag is stuck on.
-  const tag = await resolveTagCode(code);
-  let itemId = idRow?.itemId ?? tag?.itemId;
-  let matchedUnitId: string | null = tag && tag.itemId === itemId ? tag.unitId : null;
+  let itemId = idRow?.itemId;
+  let matchedUnitId: string | null = null;
+  if (idRow && (idRow.type === "rfid" || idRow.type === "nfc")) {
+    // Which unit the tag is stuck on, if any.
+    const tag = await resolveTagCode(code);
+    if (tag && tag.itemId === itemId) matchedUnitId = tag.unitId;
+  }
   if (!itemId) {
     const [byCode] = await db
       .select({ id: items.id })
@@ -154,6 +156,17 @@ export async function getByIdentifier(value: string, userOid: string | null) {
     if (unit) {
       itemId = unit.itemId;
       matchedUnitId = unit.id;
+    }
+  }
+  if (!itemId) {
+    // Looser forms only after every exact code has missed: tag UIDs typed
+    // another way, legacy stickers as typed, and assigned EPCs. A printed
+    // code such as "BX-0042" also reads as the sticker "BX-42", so matching
+    // this first would open the wrong item.
+    const tag = await resolveTagCode(code);
+    if (tag) {
+      itemId = tag.itemId;
+      matchedUnitId = tag.unitId;
     }
   }
   if (!itemId) {

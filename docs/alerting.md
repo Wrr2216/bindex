@@ -55,8 +55,10 @@ allow GitHub-hosted CI, Home Assistant, or Windmill workers.
 
 The manager needs the shared `mct-alert` decoder in `/var/ossec/etc/decoders/`
 and the 100300-series rules in `/var/ossec/etc/rules/`. They are shared by all
-projects, so install one copy; Bindex does not ship them. It sends lines in the
-format that decoder expects (see the sample below). The 100300-100399
+projects, so install one copy. Bindex keeps a copy of each in
+[`wazuh/decoders/mct-alert.xml`](../wazuh/decoders/mct-alert.xml) and
+[`wazuh/rules/100300-mct-alerts.xml`](../wazuh/rules/100300-mct-alerts.xml), and
+sends lines in the format that decoder expects (see the sample below). The 100300-100399
 block follows the local registry (100100 Datum; 100200 The Foundry); verify
 there are no additional manager-side rules using those IDs before installing.
 Validate configuration with `/var/ossec/bin/wazuh-analysisd -t` and restart

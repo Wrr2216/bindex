@@ -8,10 +8,10 @@ import { normalizeCode } from "./normalize";
  * (items.getByIdentifier) on purpose: exact matches only, no fuzzy model
  * lookup, and no "scanned" history event, because a portal reading a pallet
  * a thousand times an hour must not flood an item's history. It runs a fixed
- * five queries however many codes it is given.
+ * six queries however many codes it is given.
  */
 
-export type ResolveSource = "identifier" | "device" | "item_code" | "unit_code" | "unit_serial";
+export type ResolveSource = "identifier" | "epc" | "device" | "item_code" | "unit_code" | "unit_serial";
 
 export type ResolvedAsset = {
   itemId: string;
@@ -24,7 +24,9 @@ export type ResolvedAsset = {
 // When one code matches in several places, the more specific binding wins: a
 // tag bound to an item beats a printed code that happens to look the same.
 const PRIORITY: Record<ResolveSource, number> = {
-  identifier: 5,
+  identifier: 6,
+  // An EPC assigned for encoding, before or after it is recorded as a tag.
+  epc: 5,
   device: 4,
   item_code: 3,
   unit_code: 2,
@@ -33,7 +35,7 @@ const PRIORITY: Record<ResolveSource, number> = {
 
 // Identifier types that name one physical thing, as opposed to a product code
 // several items can share.
-const IDENTITY_TYPES = new Set(["rfid", "serial", "asset_tag", "mac"]);
+const IDENTITY_TYPES = new Set(["rfid", "nfc", "legacy", "serial", "asset_tag", "mac"]);
 
 type Candidate = {
   itemId: string;
@@ -69,12 +71,16 @@ export async function resolveCodes(codes: Iterable<string>): Promise<Map<string,
   const exactValues = [...new Set([...inputs, ...byNorm.keys()])];
   const normValues = [...byNorm.keys()];
 
-  const [identifiers, devices, itemCodes, unitCodes, unitSerials] = await Promise.all([
+  const [identifiers, epcs, devices, itemCodes, unitCodes, unitSerials] = await Promise.all([
+    // A tag commissioned onto one unit names that unit, not the whole item.
     pool.query<Row>(
-      `SELECT value, item_id, type FROM item_identifiers
-        WHERE value = ANY($1::text[]) OR tracking_normalize_code(value) = ANY($2::text[])`,
+      `SELECT ii.value, ii.item_id, tiu.unit_id, ii.type FROM item_identifiers ii
+         LEFT JOIN tag_identifier_units tiu ON tiu.identifier_id = ii.id
+        WHERE ii.value = ANY($1::text[]) OR tracking_normalize_code(ii.value) = ANY($2::text[])`,
       [exactValues, normValues],
     ),
+    // Stored as bare uppercase hex, which is what normalizing a read gives.
+    pool.query<Row>(`SELECT epc AS value, item_id, unit_id FROM tag_epcs WHERE epc = ANY($1::text[])`, [normValues]),
     // A tag or tracker registered as a device and attached to an asset.
     pool.query<Row>(
       `SELECT external_id AS value, item_id, unit_id FROM tracking_devices
@@ -114,6 +120,7 @@ export async function resolveCodes(codes: Iterable<string>): Promise<Map<string,
     }
   };
   add(identifiers.rows, "identifier");
+  add(epcs.rows, "epc");
   add(devices.rows, "device");
   add(itemCodes.rows, "item_code");
   add(unitCodes.rows, "unit_code");
