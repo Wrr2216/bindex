@@ -33,6 +33,19 @@ docker compose up -d
 docker compose logs -f app
 ```
 
+The compose file publishes no port on the host, because it is set up for
+Coolify, whose proxy reaches the app on the compose network. Anywhere else,
+publish it with a `docker-compose.override.yml` beside the compose file, which
+Docker Compose merges in on its own. Bind it to the loopback address when your
+reverse proxy runs on the same host:
+
+```yaml
+services:
+  app:
+    ports:
+      - "127.0.0.1:3000:3000"
+```
+
 `SESSION_SECRET` is the only value with no usable default:
 
 ```bash
@@ -99,7 +112,9 @@ starts in seconds.
 Create a new resource, choose **Docker Compose** as the build pack, and point it
 at `https://github.com/wrr2216/bindex` with `docker-compose.yml` as the compose
 file. Coolify reads the file, brings up both services, and puts them on their
-own network.
+own network. The compose file publishes no port on the host, so the app is
+reachable only through Coolify's proxy and cannot clash with another service on
+port 3000.
 
 ### From the pre-built image
 
@@ -113,21 +128,6 @@ This skips the build entirely. You supply Postgres yourself, either as a Coolify
 database resource or an existing server, and set `DATABASE_URL` to point at it.
 Pin to a major tag such as `:1` rather than `:latest` if you would rather
 control when a new version lands.
-
-### Removing the published port
-
-This is the one change worth making. The compose file publishes port 3000 on the
-host so that a plain `docker compose up` works out of the box:
-
-```yaml
-    ports:
-      - "${APP_PORT:-3000}:3000"
-```
-
-Under Coolify, a published port bypasses the proxy and exposes the application
-on the host directly, which is almost never what you want. Delete those two
-lines, or set `APP_PORT` to a port you have firewalled, and let the proxy do the
-routing.
 
 ### Domain and certificates
 
