@@ -324,6 +324,35 @@ describe("BLE presence with Postgres", { skip: url ? false : "set TEST_DATABASE_
     assert.equal(state!.tag_key, `mac:${mac.match(/../g)!.join(":")}`);
   });
 
+  it("moves a beacon to its device's state once it is registered, and closes the old alert", async () => {
+    const mac = hex(6).match(/../g)!.join(":");
+    const key = `mac:${mac}`;
+    const cart = await item("Tagged cart", null);
+    await q("INSERT INTO item_identifiers (item_id, type, value) VALUES ($1, 'mac', $2)", [cart, mac]);
+    const gw = await device({ kind: "ble_gateway", name: "Aisle 3 gateway 3", externalId: hex(6), locationId: aisle3 });
+    const start = t0 + 10_800_000;
+    const report = (at: number) =>
+      ingest.processGatewayReport(gw.row, { adverts: [{ mac, rssi: -60, at: new Date(at) }], skipped: 0 }, { now: new Date(at) });
+    // Known only by the item's identifier, then silent long enough to go missing.
+    for (let s = 0; s < 5; s++) await report(start + s * 1000);
+    await alerts.checkMissing(new Date(start + 11 * 60_000));
+    const alertOf = () =>
+      q<{ resolved_at: Date | null }>("SELECT resolved_at FROM ble_alerts WHERE tag_key = $1 AND kind = 'missing'", [key]);
+    assert.equal((await alertOf())[0]?.resolved_at, null, "the identity row went missing");
+
+    // Registered as a tag on the cart, and heard for longer than the timeout.
+    const tag = await device({ kind: "ble_tag", name: "Cart tag", externalId: mac, itemId: cart });
+    const back = start + 12 * 60_000;
+    for (let m = 0; m <= 12; m++) await report(back + m * 60_000);
+    await alerts.checkMissing(new Date(back + 12 * 60_000 + 1000));
+
+    const states = await q<{ tag_key: string }>("SELECT tag_key FROM ble_tag_state WHERE item_id = $1", [cart]);
+    assert.deepEqual(states.map((s) => s.tag_key), [tag.row.id], "only the device's row is left");
+    assert.notEqual((await alertOf())[0]!.resolved_at, null, "and the old alert is closed");
+    const open = await q("SELECT 1 FROM ble_alerts WHERE item_id = $1 AND kind = 'missing' AND resolved_at IS NULL", [cart]);
+    assert.equal(open.length, 0);
+  });
+
   it("raises one battery alert per low device and closes it when replaced", async () => {
     const tag = await device({ kind: "ble_tag", name: "Low tag", externalId: hex(6) });
     await q("UPDATE tracking_devices SET battery_pct = 9 WHERE id = $1", [tag.row.id]);
