@@ -4,7 +4,7 @@ import { custodyTransferItems, items, type CustodyOutcome } from "../../db/schem
 import { getShipment, listJobItems } from "../jobs-core";
 import { OUTCOMES, type PartyInput } from "./model";
 import { controlsFor } from "./policy";
-import { createTransfer, getTransfer, listTransfers, openDeliveryFor, type Actor } from "./transfers";
+import { createTransfer, getTransfer, listTransfers, openDeliveryFor, type Actor, type Tx } from "./transfers";
 
 /**
  * Delivery sign-off for a shipment: the receiving party sees every line on
@@ -105,17 +105,19 @@ export type SignOffInput = {
  * open returns that one, so two people opening the review do not fork it.
  */
 export async function startSignOff(shipmentId: string, input: SignOffInput, actor: Actor) {
-  // Held for the length of the call so two people opening the review at once
-  // wait for one another; the work itself commits as it goes.
-  return db.transaction(async (tx) => {
+  // Held until the transfer and every line commit together: two people opening
+  // the review at once wait for one another, and a failure part-way leaves no
+  // short draft behind for the next start to resume and sign.
+  const id = await db.transaction(async (tx) => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`custody-signoff:${shipmentId}`}, 0))`);
-    return createSignOff(shipmentId, input, actor);
+    return createSignOff(tx, shipmentId, input, actor);
   });
+  return getTransfer(id);
 }
 
-async function createSignOff(shipmentId: string, input: SignOffInput, actor: Actor) {
+async function createSignOff(tx: Tx, shipmentId: string, input: SignOffInput, actor: Actor): Promise<string> {
   const existing = await openDeliveryFor(shipmentId);
-  if (existing) return getTransfer(existing.id);
+  if (existing) return existing.id;
 
   const shipment = await getShipment(shipmentId);
   const { lines } = await listJobItems(shipment.jobId, { shipmentId, limit: 10000 });
@@ -136,9 +138,10 @@ async function createSignOff(shipmentId: string, input: SignOffInput, actor: Act
     },
     actor,
     { signOff: true },
+    tx,
   );
   for (let i = 0; i < lines.length; i += 500) {
-    await db.insert(custodyTransferItems).values(
+    await tx.insert(custodyTransferItems).values(
       lines.slice(i, i + 500).map((l, j) => ({
         transferId: transfer.id,
         position: i + j + 1,
@@ -153,7 +156,7 @@ async function createSignOff(shipmentId: string, input: SignOffInput, actor: Act
       })),
     );
   }
-  return getTransfer(transfer.id);
+  return transfer.id;
 }
 
 /**

@@ -326,6 +326,34 @@ describe("custody against Postgres", { skip: url ? false : "set CUSTODY_TEST_DAT
     await custody.voidTransfer(plain.id, "test", actor);
   });
 
+  it("starts a shipment's sign-off whole or not at all", async () => {
+    const [mug, bad] = await Promise.all([createItem({ name: `Mug ${tag}` }, null), createItem({ name: `Boom ${tag}` }, null)]);
+    const job = await core.createJob({ name: `Kitchen move ${tag}` }, actor);
+    cleanup.push(() => core.deleteJob(job.id));
+    const van = await core.createShipment({ jobId: job.id, name: "Van 2" }, actor);
+    await core.addItemsByCodes(job.id, [mug.assetCode, bad.assetCode], { shipmentId: van.id }, actor);
+
+    // A line that cannot be written, standing in for any failure part-way.
+    const fn = `custody_test_boom_${tag}`;
+    const unblock = async () => {
+      await pool.query(`DROP TRIGGER IF EXISTS ${fn} ON custody_transfer_items`);
+      await pool.query(`DROP FUNCTION IF EXISTS ${fn}()`);
+    };
+    cleanup.push(unblock);
+    await pool.query(`CREATE FUNCTION ${fn}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'boom'; END $$`);
+    await pool.query(
+      `CREATE TRIGGER ${fn} BEFORE INSERT ON custody_transfer_items FOR EACH ROW WHEN (NEW.name = '${bad.name}') EXECUTE FUNCTION ${fn}()`,
+    );
+    const to = { kind: "external" as const, name: "Ana Ruiz" };
+    await assert.rejects(custody.startSignOff(van.id, { to }, actor), (e: { cause?: { message?: string } }) => e.cause?.message === "boom");
+    // Nothing half-built is left for the next start to resume and sign short.
+    assert.deepEqual(await custody.listTransfers({ shipmentId: van.id }), []);
+
+    await unblock();
+    const signOff = await custody.startSignOff(van.id, { to }, actor);
+    assert.equal(signOff.lines.length, 2);
+  });
+
   it("voids an unfinished transfer and keeps it out of the chain", async () => {
     const thing = await createItem({ name: `Thing ${tag}` }, null);
     const t = await custody.createTransfer(

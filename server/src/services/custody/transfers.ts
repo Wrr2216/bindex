@@ -48,7 +48,7 @@ import { LINK_HOURS_DEFAULT, LINK_HOURS_MAX, linkState, newLinkToken } from "./r
 
 export type Actor = { userOid: string | null; name: string | null };
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /** The most lines one transfer holds; a pallet of archive boxes and their folders fits well within it. */
 export const MAX_LINES = 5000;
@@ -210,28 +210,36 @@ export type TransferInput = Placement & {
   notes?: string | null;
 };
 
-export async function createTransfer(input: TransferInput, actor: Actor, metadata: Record<string, unknown> = {}) {
+export async function createTransfer(
+  input: TransferInput,
+  actor: Actor,
+  metadata: Record<string, unknown> = {},
+  ex: Tx | typeof db = db,
+) {
   if (!isPurpose(input.purpose)) throw badRequest(`Unknown purpose "${input.purpose}".`);
   const from = await resolveParty(input.from, "releasing", actor);
   const to = await resolveParty(input.to, "receiving", actor);
   const placement = await placementColumns(input);
   for (let attempt = 0; ; attempt++) {
     try {
-      const [row] = await db
-        .insert(custodyTransfers)
-        .values({
-          code: genTransferCode((n) => randomBytes(n)),
-          purpose: input.purpose,
-          ...fromColumns(from),
-          ...toColumns(to),
-          ...placement,
-          sealNumbers: cleanSeals(input.sealNumbers ?? []),
-          conditionNote: clean(input.conditionNote),
-          notes: clean(input.notes),
-          metadata,
-          createdBy: actor.userOid,
-        })
-        .returning();
+      // A savepoint inside a caller's transaction, so a code collision can be retried there.
+      const [row] = await ex.transaction((sp) =>
+        sp
+          .insert(custodyTransfers)
+          .values({
+            code: genTransferCode((n) => randomBytes(n)),
+            purpose: input.purpose,
+            ...fromColumns(from),
+            ...toColumns(to),
+            ...placement,
+            sealNumbers: cleanSeals(input.sealNumbers ?? []),
+            conditionNote: clean(input.conditionNote),
+            notes: clean(input.notes),
+            metadata,
+            createdBy: actor.userOid,
+          })
+          .returning(),
+      );
       logger.info("custody.transfer.created", { id: row!.id, code: row!.code, purpose: row!.purpose });
       return row!;
     } catch (err) {
