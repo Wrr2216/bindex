@@ -193,7 +193,8 @@ A document is **draft**, **completed** or **signed**.
   refused. When every required signature field is signed the document is
   **signed**. Optional fields can still be signed afterwards.
 - **Reopen** takes a completed document back to draft, as long as nobody has
-  signed it. A signed document never changes; duplicate it instead.
+  signed it. Only an administrator can reopen, since anyone can delete a
+  draft. A signed document never changes; duplicate it instead.
 - Drafts can be deleted by anyone; completed and signed documents only by an
   administrator.
 

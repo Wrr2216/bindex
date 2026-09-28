@@ -110,6 +110,7 @@ function Header({ inspection, onChanged }: { inspection: Detail; onChanged: (d: 
     }
   };
 
+  // A signed inspection is evidence: only an administrator reopens or deletes it.
   const canDelete = inspection.status !== "signed" || user?.role === "admin";
 
   return (
@@ -170,21 +171,23 @@ function Header({ inspection, onChanged }: { inspection: Detail; onChanged: (d: 
             Complete inspection
           </button>
         ) : (
-          <button
-            disabled={busy}
-            onClick={() => {
-              if (
-                inspection.status === "signed" &&
-                !window.confirm("Reopen this signed inspection? Any change made afterwards shows against its signatures.")
-              ) {
-                return;
-              }
-              void act(() => inspectionsApi.reopen(inspection.id));
-            }}
-            className={BTN_QUIET}
-          >
-            Reopen
-          </button>
+          canDelete && (
+            <button
+              disabled={busy}
+              onClick={() => {
+                if (
+                  inspection.status === "signed" &&
+                  !window.confirm("Reopen this signed inspection? Any change made afterwards shows against its signatures.")
+                ) {
+                  return;
+                }
+                void act(() => inspectionsApi.reopen(inspection.id));
+              }}
+              className={BTN_QUIET}
+            >
+              Reopen
+            </button>
+          )
         )}
         {inspection.editable && (
           <button onClick={() => setEditing(!editing)} className={BTN_QUIET}>

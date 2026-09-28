@@ -250,7 +250,8 @@ export function DocumentPage() {
               Verify
             </button>
           )}
-          {doc.status === "completed" && !anySigned && (
+          {/* Only an administrator reopens, as only one deletes a completed document. */}
+          {admin && doc.status === "completed" && !anySigned && (
             <button className={BTN_QUIET} disabled={busy} onClick={reopen}>
               Reopen
             </button>

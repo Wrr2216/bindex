@@ -763,6 +763,12 @@ export async function deleteClaim(id: string, actor: ClaimActor): Promise<void> 
   if (actor.role !== "admin" && claim.createdBy !== actor.userOid) {
     throw forbidden("Only whoever opened a draft, or an administrator, can delete it.");
   }
+  // Returned to the reporter, it is a draft again but was on the record once
+  // (evidence frozen, deadline started): anyone can return a claim, so this is
+  // what keeps a member from submitting, returning and deleting it.
+  if (claim.evidenceFrozenAt && actor.role !== "admin") {
+    throw forbidden(`${claim.code} was submitted once, so it is part of the record. Withdraw it instead, or ask an administrator.`);
+  }
   const lineIds = (await loadLines(id)).map((l) => l.id);
   await db.delete(claims).where(eq(claims.id, id));
   // Files go now rather than waiting for the orphan sweep.

@@ -203,8 +203,14 @@ describe("inspections against Postgres", { skip: url ? false : "set TEST_DATABAS
     const { PDFDocument } = await import("pdf-lib");
     assert.ok((await PDFDocument.load(pdf)).getPageCount() >= 2);
 
+    // ---- Reopening signed evidence is an administrator's call: a reopened
+    // draft can be deleted by anyone, which would get round the delete guard.
+    await assert.rejects(insp.reopenInspection(post.id, actor), /Only an administrator can reopen/);
+    await assert.rejects(insp.reopenInspection(pre.id, actor), /Only an administrator can reopen/);
+    assert.equal((await insp.loadInspection(post.id)).status, "signed");
+
     // ---- Editing after signing is visible
-    await insp.reopenInspection(post.id, actor);
+    await insp.reopenInspection(post.id, { ...actor, isAdmin: true });
     assert.equal((await taskOf("post_inspection")).status, "doing", "reopening reopens the task");
     await insp.updateFinding(post.id, dock.id, { description: "Dock door panel dented and scraped" }, actor);
     const recompleted = await insp.completeInspection(post.id, actor);

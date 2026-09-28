@@ -147,6 +147,14 @@ describe("documents against Postgres", { skip: url ? false : "set TEST_DATABASE_
     assert.deepEqual((await docs.jobDocuments(job.id)).packets.map((p) => p.applies), [true]);
     assert.equal((await docs.jobDocuments(job.id)).documents.length, 1);
 
+    // Reopening is an administrator's call, as deleting a completed document
+    // is: a member's reopened draft could otherwise be deleted by anyone.
+    const member = { ...actor, isAdmin: false };
+    await docs.completeDocument(id, actor, "UTC");
+    await assert.rejects(docs.reopenDocument(id, member), /Only an administrator can reopen/);
+    await assert.rejects(docs.deleteDocument(id, member), /Only an administrator/);
+    assert.equal((await docs.reopenDocument(id, { ...actor, isAdmin: true })).status, "draft");
+
     const completed = await docs.completeDocument(id, actor, "UTC");
     assert.equal(completed.status, "completed");
     assert.match(completed.contentHash!, /^[0-9a-f]{64}$/);
@@ -177,7 +185,7 @@ describe("documents against Postgres", { skip: url ? false : "set TEST_DATABASE_
     });
     const signed = await docs.attachSignature(id, { fieldKey: "customer_sig", signatureId: signature.id }, actor);
     assert.equal(signed.status, "signed");
-    await assert.rejects(docs.reopenDocument(id, actor), /signed/);
+    await assert.rejects(docs.reopenDocument(id, { ...actor, isAdmin: true }), /signed/);
     await assert.rejects(docs.attachSignature(id, { fieldKey: "customer_sig", signatureId: signature.id }, actor), /already signed/);
 
     const report = await docs.verifyDocument(id);

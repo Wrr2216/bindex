@@ -300,6 +300,23 @@ describe("claims against Postgres", { skip: url ? false : "set TEST_DATABASE_URL
     assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");
   });
 
+  it("keeps a claim returned to its reporter on the record", async () => {
+    // Anyone can return a claim to its reporter, the reporter included; that
+    // must not open the way to deleting what was submitted.
+    const claim = await claims.createClaim({ type: "delay", title: `Late crates ${tag}`, estimatedTotalCents: 5_000 }, reporter);
+    cleanup.push(() => pool.query("DELETE FROM claims WHERE id = $1", [claim.id]));
+    await claims.setStatus(claim.id, { status: "submitted" }, reporter);
+    const returned = await claims.setStatus(claim.id, { status: "draft", note: "Say which crates" }, reporter);
+    assert.equal(returned.status, "draft");
+    await assert.rejects(claims.deleteClaim(claim.id, reporter), /submitted once/);
+    await claims.deleteClaim(claim.id, admin);
+    await assert.rejects(claims.getClaim(claim.id), statusOf(404));
+
+    // A draft never submitted still goes freely, by whoever opened it.
+    const fresh = await claims.createClaim({ type: "delay", title: `Never sent ${tag}` }, reporter);
+    await claims.deleteClaim(fresh.id, reporter);
+  });
+
   it("announces a missed deadline once", async () => {
     const late = await claims.createClaim({ type: "delay", title: `Late ${tag}`, estimatedTotalCents: 10_000 }, reporter);
     cleanup.push(() => pool.query("DELETE FROM claims WHERE id = $1", [late.id]));

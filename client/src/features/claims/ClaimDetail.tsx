@@ -35,6 +35,7 @@ import {
 export function ClaimDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const features = useFeatures();
   const meta = useClaimsMeta();
   const [claim, setClaim] = useState<Detail | null>(null);
@@ -122,7 +123,8 @@ export function ClaimDetail() {
             Open a claim from this
           </Link>
         )}
-        {claim.status === "draft" && (
+        {/* A draft returned after submission is on the record: only an administrator deletes it. */}
+        {claim.status === "draft" && (!claim.evidenceFrozenAt || user?.role === "admin") && (
           <button
             onClick={async () => {
               if (!confirm(`Delete draft ${claim.code}? This cannot be undone.`)) return;
