@@ -41,8 +41,12 @@ export async function clearGpsTables(tx: Executor): Promise<void> {
 }
 
 /** After locations, devices and shipments are back. */
-export async function restoreGpsTables(tx: Executor, data: Record<GpsTable, Record<string, unknown>[]>): Promise<void> {
-  if (data.geofences.length) {
+export async function restoreGpsTables(
+  tx: Executor,
+  data: Record<GpsTable, Record<string, unknown>[]>,
+  opts: { keepGeofences: boolean },
+): Promise<void> {
+  if (!opts.keepGeofences) {
     for (let i = 0; i < data.geofences.length; i += 500) {
       await tx.insert(geofences).values(data.geofences.slice(i, i + 500) as never);
     }

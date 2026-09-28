@@ -296,6 +296,46 @@ describe("recordSightings", { skip: url ? false : "set TRACKING_TEST_DATABASE_UR
     assert.equal(await tracking.resolveCode(upc), null);
   });
 
+  it("resolves a tag commissioned onto a unit, an assigned EPC, and a dashed NFC UID", async () => {
+    const id = await item("Laptop");
+    const [unit] = await q<{ id: string }>("INSERT INTO item_units (item_id) VALUES ($1) RETURNING id", [id]);
+    const unitTag = tag();
+    const [ident] = await q<{ id: string }>(
+      "INSERT INTO item_identifiers (item_id, type, value) VALUES ($1, 'rfid', $2) RETURNING id",
+      [id, unitTag],
+    );
+    await q("INSERT INTO tag_identifier_units (identifier_id, unit_id) VALUES ($1, $2)", [ident!.id, unit!.id]);
+    assert.deepEqual(await tracking.resolveCode(unitTag), { itemId: id, unitId: unit!.id, via: "identifier" });
+
+    // Assigned for encoding but not yet recorded as a tag.
+    const epc = tag();
+    await q("INSERT INTO tag_epcs (item_id, unit_id, scheme, epc) VALUES ($1, $2, 'bindex-96', $3)", [id, unit!.id, epc]);
+    assert.deepEqual(await tracking.resolveCode(epc.toLowerCase()), { itemId: id, unitId: unit!.id, via: "epc" });
+
+    // Tag commissioning stores an NFC UID as bare hex; a reader may send dashes.
+    const nfc = tag().slice(0, 14);
+    const phone = await item("Phone");
+    await q("INSERT INTO item_identifiers (item_id, type, value) VALUES ($1, 'nfc', $2)", [phone, nfc]);
+    const dashed = nfc.match(/.{2}/g)!.join("-");
+    assert.equal((await tracking.resolveCode(dashed))?.itemId, phone);
+  });
+
+  it("scans an exact printed code before a legacy sticker that reads the same", async () => {
+    const { getByIdentifier } = await import("../src/services/items");
+    const letters = [...randomBytes(4)].map((b) => String.fromCharCode(65 + (b % 26))).join("");
+    const number = 1000 + (randomBytes(2).readUInt16BE() % 9000);
+    const sticker = await item("Stickered");
+    await q("INSERT INTO item_identifiers (item_id, type, value) VALUES ($1, 'legacy', $2)", [
+      sticker,
+      `${letters}-${number}`,
+    ]);
+    const printed = await item("Printed");
+    await q("UPDATE items SET asset_code = $2 WHERE id = $1", [printed, `${letters}-0${number}`]);
+
+    assert.equal((await getByIdentifier(`${letters}-0${number}`, null))?.id, printed);
+    assert.equal((await getByIdentifier(`${letters.toLowerCase()} ${number}`, null))?.id, sticker);
+  });
+
   it("follows a tracker attached to an asset from code-less GPS points", async () => {
     const id = await item("Trailer");
     const tracker = await device({ kind: "gps_tracker", name: "Trailer GPS", externalId: `imei-${run}`, itemId: id });

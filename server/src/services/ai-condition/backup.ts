@@ -48,9 +48,16 @@ const snake = (key: string) => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}
 const toColumns = (rows: Record<string, unknown>[]) =>
   rows.map((row) => Object.fromEntries(Object.entries(row).map(([k, v]) => [snake(k), v])));
 
-/** After items, units and locations are back: put the condition rows back. */
-export async function restoreAiConditionRows(tx: Tx, data: Record<Tables, Record<string, unknown>[]>): Promise<void> {
-  if (TABLES.some((t) => data[t].length)) {
+/**
+ * After items, units and locations are back: put the condition rows back. A
+ * file without these tables (`keep`) leaves the current rows as they were.
+ */
+export async function restoreAiConditionRows(
+  tx: Tx,
+  data: Record<Tables, Record<string, unknown>[]>,
+  opts: { keep: boolean },
+): Promise<void> {
+  if (!opts.keep) {
     for (const t of TABLES) {
       await tx.execute(sql.raw(`TRUNCATE backup_kept_${t}`));
       if (!data[t].length) continue;

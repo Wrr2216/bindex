@@ -96,6 +96,15 @@ way they are.
   install used whatever pnpm was newest, and pnpm 12 stops on a dependency build
   script that pnpm 10 skipped. It now uses the pnpm version pinned in
   `package.json`.
+- Scanning a printed asset code could open a different item whose legacy
+  sticker read the same (`BX-0042` and sticker `BX-42`). Exact codes are now
+  matched before tag and sticker forms.
+- Readers and portals now resolve a tag commissioned onto one unit to that
+  unit, find EPCs assigned for encoding, and match NFC UIDs sent with dots or
+  dashes (`0044_tracking_normalize_separators`).
+- Restoring a current backup whose devices, teardown guides, crew, documents,
+  geofences or condition records were empty kept the existing ones, as if the
+  file predated them. Only a file without those tables keeps them now.
 
 ## [1.0.0] - 2026-08-31
 

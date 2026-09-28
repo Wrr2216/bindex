@@ -448,10 +448,21 @@ describe("teardown pipeline with Postgres", { skip: url ? (ffmpeg ? false : "ffm
     assert.deepEqual(afterRestore.parts.map((p) => p.name), before.parts.map((p) => p.name));
 
     // An older file without guides leaves them alone.
+    const full = JSON.stringify(backup);
     delete backup.data.teardown_guides;
     delete backup.data.teardown_steps;
     delete backup.data.teardown_parts;
     await restoreBackup(backup);
+    assert.equal((await td.getGuide(mainGuide)).steps.length, before.steps.length);
+
+    // A current file that has no guides removes them.
+    const none = JSON.parse(full);
+    none.data.teardown_guides = [];
+    none.data.teardown_steps = [];
+    none.data.teardown_parts = [];
+    await restoreBackup(none);
+    await assert.rejects(td.getGuide(mainGuide));
+    await restoreBackup(JSON.parse(full));
     assert.equal((await td.getGuide(mainGuide)).steps.length, before.steps.length);
   });
 

@@ -18,6 +18,11 @@ describe("normalizeCode", () => {
     assert.equal(normalizeCode("  e28011\t"), "E28011");
   });
 
+  it("strips dots and dashes from hex the way tag commissioning stores it", () => {
+    assert.equal(normalizeCode("04-a2-3b-11"), "04A23B11");
+    assert.equal(normalizeCode("04.A2.3B.11"), "04A23B11");
+  });
+
   it("leaves anything that is not hex alone apart from trimming", () => {
     assert.equal(normalizeCode(" INV-4F2K1B "), "INV-4F2K1B");
     assert.equal(normalizeCode("mac:AA:BB:CC"), "mac:AA:BB:CC");

@@ -260,11 +260,13 @@ values are fine; timestamps are microseconds since the epoch).
 ## How codes match
 
 A read resolves to an item or unit by, in order: an identifier on an item (any
-type, including `rfid`), a tag or tracker device attached to an item, an item's
-printed code, a unit's printed code, a unit's serial. Matching is exact first,
-then on the normalized form: a value made only of hex digits, ignoring spaces
-and colons, is compared uppercased with them removed, so `e2 80 11 60` on file
-matches `E2801160` from a reader. Anything else (a printed code, a beacon id
+type, including `rfid`; a tag commissioned onto one unit names that unit), an
+EPC assigned for encoding, a tag or tracker device attached to an item, an
+item's printed code, a unit's printed code, a unit's serial. Matching is exact
+first, then on the normalized form: a value made only of hex digits, ignoring
+spaces, colons, dots and dashes, is compared uppercased with them removed, so
+`e2 80 11 60` on file matches `E2801160` from a reader, and an NFC UID sent as
+`04-A2-3B-11` matches the tag stored as `04A23B11`. Anything else (a printed code, a beacon id
 such as `mac:AA:BB:CC:DD:EE:FF`) is only trimmed. A code that matches two
 different items equally well, such as a UPC shared by two items, resolves to
 neither rather than guessing.

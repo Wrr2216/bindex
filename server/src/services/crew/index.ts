@@ -68,5 +68,5 @@ export { verifierAvailable, verifyWorker, type VerifierResult } from "./verifier
 export { timesheetRows, timesheetXlsx, rosterFromRows, hoursByDay, type TimesheetFilters } from "./timesheet";
 export { badgePng, badgesPdf, badgePhoto, badgeUrl, type BadgeData } from "./badge";
 export { expiringCredentials, sendCrewDigest, startCrewDigest, describeExpiring } from "./digest";
-export { exportCrewTables, clearCrewTables, restoreCrewTables, predatesCrew, CREW_TABLES } from "./backup";
+export { exportCrewTables, clearCrewTables, restoreCrewTables, CREW_TABLES } from "./backup";
 export { isForeignKeyViolation, type CrewActor } from "./shared";

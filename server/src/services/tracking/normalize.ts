@@ -3,13 +3,14 @@
  * stores. No database or environment access, so they are cheap to test.
  */
 
-const SEPARATORS = /[\s:]/g;
+const SEPARATORS = /[\s:.-]/g;
 const HEX = /^[0-9A-Fa-f]+$/;
 
 /**
  * The form a code is stored and matched in. Readers disagree on how to print
- * an EPC ("e2 80 11...", "E2:80:11...", "E28011..."), so a value made only of
- * hex digits once spaces and colons are removed is uppercased and compacted.
+ * an EPC or NFC UID ("e2 80 11...", "E2:80:11...", "04-A2-3B-11"), so a value
+ * made only of hex digits once spaces, colons, dots and dashes are removed is
+ * uppercased and compacted, the same rule tag commissioning stores tags by.
  * Anything else (an asset code, a beacon identity such as "mac:AA:BB:...") is
  * only trimmed, because its colons and case may be meaningful.
  *

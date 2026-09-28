@@ -36,7 +36,7 @@ import {
   valuationBackupData,
   valuationTablesPresent,
 } from "./valuation/backup";
-import { clearCrewTables, exportCrewTables, predatesCrew, restoreCrewTables } from "./crew/backup";
+import { CREW_TABLES, clearCrewTables, exportCrewTables, restoreCrewTables } from "./crew/backup";
 import { clearCustodyTables, exportCustodyTables, restoreCustodyTables } from "./custody/backup";
 import { clearGpsTables, exportGpsTables, restoreGpsTables } from "./gps/backup";
 import { DOCUMENTS_DATE_FIELDS, exportDocumentsTables, restoreDocumentsTables } from "./documents/backup";
@@ -289,6 +289,11 @@ function parseBackup(input: unknown): Backup {
   return b as Backup;
 }
 
+function tablesPresent(input: unknown): Set<TableName> {
+  const data = (input as { data?: Record<string, unknown> } | null)?.data;
+  return new Set(data && typeof data === "object" ? TABLES.filter((t) => Array.isArray(data[t])) : []);
+}
+
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
@@ -302,6 +307,12 @@ function chunk<T>(arr: T[], size: number): T[][] {
  */
 export async function restoreBackup(input: unknown): Promise<{ restored: Record<TableName, number> }> {
   const valuationPresent = valuationTablesPresent(input);
+  // Which tables the file carries, read before parsing fills the absent ones
+  // with empty lists. A table the file never had means it predates that
+  // feature, whose records are kept; an empty list means there were none.
+  const present = tablesPresent(input);
+  const has = (...tables: TableName[]) => tables.every((t) => present.has(t));
+  const keepCrew = !has(...CREW_TABLES);
   const backup = parseBackup(input);
   const d = backup.data;
 
@@ -339,7 +350,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
 
     // Children before parents. The foreign keys would cascade anyway; doing it
     // explicitly keeps the order visible.
-    await clearCrewTables(tx, { keep: predatesCrew(d) });
+    await clearCrewTables(tx, { keep: keepCrew });
     await clearCustodyTables(tx);
     await clearGpsTables(tx);
     await clearClaimsTables(tx);
@@ -412,7 +423,7 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     unitCount = present.size;
 
     // Devices come after the zones, items and units they point at.
-    if (d.tracking_devices.length) {
+    if (has("tracking_devices")) {
       for (const part of chunk(d.tracking_devices, 500)) await tx.insert(trackingDevices).values(part as never);
       await tx.execute(sql`
         UPDATE tracking_devices t SET token_hash = k.token_hash, token_last4 = k.token_last4
@@ -434,17 +445,17 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
     await restoreJobsCoreTables(tx, d);
     await restoreConsumables(tx, d);
 
-    await restoreAiConditionRows(tx, d);
+    await restoreAiConditionRows(tx, d, { keep: !has("condition_reports", "container_captures", "condition_sweeps") });
     await restoreInspectionTables(tx, d);
     await afterValuationRestore(tx, d, valuationPresent);
-    await restoreCrewTables(tx, d, { keep: predatesCrew(d) });
+    await restoreCrewTables(tx, d, { keep: keepCrew });
     await restoreCustodyTables(tx, d);
 
     // Teardown guides point at items without a foreign key, so deleting the
     // items above left them in place. A file with guides replaces them; an
     // older file keeps them. Their videos and pictures are attachments, which
     // the file does not carry either way.
-    if (d.teardown_guides.length) {
+    if (has("teardown_guides")) {
       await tx.delete(teardownParts);
       await tx.delete(teardownSteps);
       await tx.delete(teardownGuides);
@@ -452,8 +463,10 @@ export async function restoreBackup(input: unknown): Promise<{ restored: Record<
       for (const part of chunk(d.teardown_steps, 500)) await tx.insert(teardownSteps).values(part as never);
       for (const part of chunk(d.teardown_parts, 500)) await tx.insert(teardownParts).values(part as never);
     }
-    await restoreGpsTables(tx, d);
-    await restoreDocumentsTables(tx, d);
+    await restoreGpsTables(tx, d, { keepGeofences: !has("geofences") });
+    await restoreDocumentsTables(tx, d, {
+      keepConfiguration: !has("document_templates", "document_custom_fields", "document_packets"),
+    });
     await restorePortalTables(tx, d);
     await restoreOpsIntelTables(tx, d);
     // Cleared with the jobs they hang off (ON DELETE CASCADE).
