@@ -222,4 +222,87 @@ describe("jobs core against Postgres", { skip: url ? false : "set JOBS_CORE_TEST
     const packed = await core.advanceStage(job.id, [r.epc], "packed", { via: "rfid", ...actor });
     assert.deepEqual(packed.advanced.map((l) => l.unitId), [r.u2.id]);
   });
+
+  it("never puts a whole item and its units on a job side by side", async () => {
+    const r = await radios("Mixed store");
+    const lines = async (jobId: string) =>
+      (await core.listJobItems(jobId)).lines.map((l) => l.unitId ?? "whole").sort();
+
+    // Both in one call: the whole item comes first and covers the unit.
+    const job = await newJob("Whole then unit");
+    const byCode = await core.addItemsByCodes(job.id, [r.item.assetCode, r.u1.assetCode], {}, actor);
+    assert.equal(byCode.added, 1);
+    assert.deepEqual(byCode.alreadyOnJob, [r.u1.assetCode]);
+    // Then everything at the location, one line per unit: covered too.
+    const fromLocation = await core.addItemsFromLocation(job.id, r.store, {}, actor);
+    assert.deepEqual(fromLocation, { added: 0, alreadyOnJob: 2, found: 2 });
+    assert.deepEqual(await lines(job.id), ["whole"]);
+
+    // The other way round: units on the job cover the whole item.
+    const other = await newJob("Unit then whole");
+    await core.addItemsByCodes(other.id, [r.u1.assetCode], {}, actor);
+    assert.equal((await core.addItemsFromLocation(other.id, r.store, { perUnit: false }, actor)).added, 0);
+    assert.deepEqual(await lines(other.id), [r.u1.id]);
+
+    // A move plan listing a unit and then its item adds the unit once and
+    // updates it for the item row.
+    const planned = await newJob("Plan");
+    const csv = await core.importManifestCsv(
+      planned.id,
+      `code,destination,floor,department,desk\n${r.u2.assetCode},,4,,\n${r.item.assetCode},,5,,\n`,
+      {},
+      actor,
+    );
+    assert.equal(csv.added, 1);
+    assert.equal(csv.updated, 1);
+    assert.deepEqual(await lines(planned.id), [r.u2.id]);
+  });
+
+  it("puts no line on a closed shipment, and changes no line on a finished job", async () => {
+    const r = await radios("Closed store");
+    const job = await newJob("Closed shipment");
+    await core.addItemsByCodes(job.id, [r.item.assetCode], {}, actor);
+    const [line] = (await core.listJobItems(job.id)).lines;
+    const truck = await core.createShipment({ jobId: job.id, name: "Truck" }, actor);
+    await core.setShipmentStatus(truck.id, "closed", {}, actor);
+
+    const closed = (err: Error) => /is closed/.test(err.message);
+    await assert.rejects(core.updateJobItems(job.id, [line!.id], { shipmentId: truck.id }), closed);
+    await assert.rejects(core.addItemsByCodes(job.id, [r.u1.assetCode], { shipmentId: truck.id }, actor), closed);
+    assert.equal((await core.listJobItems(job.id)).lines[0]!.shipmentId, null);
+
+    await core.updateJob(job.id, { status: "completed" }, actor);
+    await assert.rejects(core.updateJobItems(job.id, [line!.id], { notes: "Late edit" }), /Reopen it/);
+  });
+
+  it("does not load a shipment that is closing while the scan waits", async () => {
+    const r = await radios("Race store");
+    const job = await newJob("Race");
+    await core.addItemsByCodes(job.id, [r.item.assetCode], {}, actor);
+    const truck = await core.createShipment({ jobId: job.id, name: "Truck" }, actor);
+
+    // Stands in for setShipmentStatus closing the shipment: it holds the row
+    // locked until it commits.
+    const closer = await pool.connect();
+    try {
+      await closer.query("BEGIN");
+      await closer.query("SELECT 1 FROM shipments WHERE id = $1 FOR UPDATE", [truck.id]);
+      await closer.query("UPDATE shipments SET status = 'closed' WHERE id = $1", [truck.id]);
+      const scan = core.advanceStage(job.id, [r.item.assetCode], "loaded", {
+        via: "scan",
+        shipmentId: truck.id,
+        ...actor,
+      });
+      const settled = scan.then(
+        () => "loaded",
+        (err: Error) => err.message,
+      );
+      await new Promise((ok) => setTimeout(ok, 300));
+      await closer.query("COMMIT");
+      assert.match(await settled, /is closed/);
+    } finally {
+      closer.release();
+    }
+    assert.equal((await core.listJobItems(job.id)).lines[0]!.shipmentId, null);
+  });
 });
