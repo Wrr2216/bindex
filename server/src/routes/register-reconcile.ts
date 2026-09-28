@@ -1,7 +1,7 @@
 import { Router, raw } from "express";
 import { z } from "zod";
 import { asyncHandler, param, parse } from "../lib/http";
-import { badRequest } from "../lib/errors";
+import { badRequest, notFound } from "../lib/errors";
 import { currentUser } from "../auth/middleware";
 import { COPY_FIELDS, runAction } from "../services/register-reconcile/actions";
 import { commitImport, previewImport } from "../services/register-reconcile/importNew";
@@ -28,7 +28,17 @@ import {
   updateImport,
 } from "../services/register-reconcile/store";
 
-export const registerReconcileRouter = Router();
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A malformed id is a record that does not exist, not a database error. */
+function uuidParams(router: Router, ...names: string[]) {
+  for (const name of names) {
+    router.param(name, (_req, _res, next, value: string) => next(UUID.test(value) ? undefined : notFound("Not found")));
+  }
+  return router;
+}
+
+export const registerReconcileRouter = uuidParams(Router(), "id", "otherId");
 
 const presetSchema = z.enum(["generic", "snipeit", "homebox", "erp"]);
 const fieldSchema = z.enum(FIELDS.map((f) => f.key) as [string, ...string[]]);

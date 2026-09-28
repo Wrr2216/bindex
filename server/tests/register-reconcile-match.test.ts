@@ -382,7 +382,12 @@ describe("planImport", () => {
     { ...base, id: "f", rowNumber: 7, name: "Old", createdItemId: "item-9" },
     { ...base, id: "g", rowNumber: 8, name: "Crates", quantity: 12 },
   ];
-  const existing = { assetTags: new Map(), serials: new Map([["TAKEN", "INV-AAAAAA"]]), epcs: new Map() };
+  const existing = {
+    assetTags: new Map(),
+    serials: new Map([["TAKEN", "INV-AAAAAA"]]),
+    epcs: new Map(),
+    identities: new Map([["TAKEN", "INV-AAAAAA"]]),
+  };
   const plan = planImport(rows, existing, { importId: "imp", importName: "Q3", companyId: "co", defaultLocationId: "default" });
 
   it("creates items with identifiers, value and register provenance", () => {
@@ -422,6 +427,29 @@ describe("planImport", () => {
     assert.equal(again.hash, plan.hash);
     const moved = planImport(rows, existing, { importId: "imp", importName: "Q3", companyId: "co", defaultLocationId: "elsewhere" });
     assert.notEqual(moved.hash, plan.hash);
+  });
+
+  it("compares values across identifier types, as the database's identity index does", () => {
+    const mixed: PlanRow[] = [
+      { ...base, id: "m", rowNumber: 2, name: "MacBook", assetTag: "C02XK1", serial: "C02XK1" },
+      { ...base, id: "n", rowNumber: 3, name: "Phone", serial: "c02xk1" },
+      { ...base, id: "o", rowNumber: 4, name: "Router", assetTag: "00:1A:2B" },
+      { ...base, id: "p", rowNumber: 5, name: "Reader", epc: "E2-99" },
+    ];
+    const held = {
+      ...existing,
+      identities: new Map([
+        ["00:1A:2B", "INV-BBBBBB"], // another item's MAC
+        ["E299", "INV-CCCCCC"], // another item's NFC UID
+      ]),
+    };
+    const p = planImport(mixed, held, { importId: "imp", importName: "Q3", companyId: null, defaultLocationId: null });
+    assert.deepEqual(p.create.map((c) => [c.rowId, c.identifiers]), [["m", [{ type: "asset_tag", value: "C02XK1" }]]]);
+    assert.match(p.warnings.find((w) => w.rowId === "m")!.message, /Serial C02XK1 is the same as the asset tag/);
+    const reasons = Object.fromEntries(p.skip.map((s) => [s.rowId, s.reason]));
+    assert.match(reasons.n!, /same as row 2/);
+    assert.match(reasons.o!, /already on INV-BBBBBB/);
+    assert.match(reasons.p!, /already on INV-CCCCCC/);
   });
 });
 

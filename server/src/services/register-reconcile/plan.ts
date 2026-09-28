@@ -35,6 +35,11 @@ export type ExistingKeys = {
   assetTags: Map<string, string>;
   serials: Map<string, string>;
   epcs: Map<string, string>;
+  /**
+   * Every serial, asset tag, MAC, RFID, NFC and legacy value whatever its type,
+   * by normKey: the unique index from 0028 holds each value once across all six.
+   */
+  identities: Map<string, string>;
 };
 
 export type PlanOptions = {
@@ -71,11 +76,17 @@ export type ImportPlan = {
   hash: string;
 };
 
+/** One identity key a row carries; `norm` is compared within its type, against `taken`. */
+type Key = { label: string; type: IdentifierType; value: string; norm: string; taken: Map<string, string> };
+
+/** The stored value whatever its type, as the identity index compares it (normalized like tags and serials). */
+const identity = (k: Key) => normKey(k.value)!;
+
 export function planImport(rows: PlanRow[], existing: ExistingKeys, opts: PlanOptions): ImportPlan {
   const create: PlannedItem[] = [];
   const skip: PlanSkip[] = [];
   const warnings: PlanWarning[] = [];
-  const inFile = new Map<string, number>(); // "serial:ABC" -> first row number
+  const inFile = new Map<string, number>(); // normKey(value) -> first row number
 
   for (const row of [...rows].sort((a, b) => a.rowNumber - b.rowNumber)) {
     const skipRow = (reason: string) => skip.push({ rowId: row.id, rowNumber: row.rowNumber, reason });
@@ -89,7 +100,7 @@ export function planImport(rows: PlanRow[], existing: ExistingKeys, opts: PlanOp
       continue;
     }
 
-    const keys: { label: string; type: IdentifierType; value: string; norm: string; taken: Map<string, string> }[] = [];
+    const keys: Key[] = [];
     const tag = normKey(row.assetTag);
     if (tag) keys.push({ label: "Asset tag", type: "asset_tag", value: row.assetTag!.trim(), norm: tag, taken: existing.assetTags });
     const serial = normKey(row.serial);
@@ -97,17 +108,34 @@ export function planImport(rows: PlanRow[], existing: ExistingKeys, opts: PlanOp
     const epc = normalizeEpc(row.epc);
     if (epc) keys.push({ label: "EPC", type: "rfid", value: epc, norm: epc, taken: existing.epcs });
 
-    const clash = keys.find((k) => k.taken.has(k.norm));
+    // The identity index is on the value alone, so values are compared across
+    // types too: a tag that is also another item's MAC or serial clashes, and
+    // a row whose tag is also its serial keeps that value once, as the tag.
+    const heldBy = (k: Key) => k.taken.get(k.norm) ?? existing.identities.get(identity(k));
+    const clash = keys.find(heldBy);
     if (clash) {
-      skipRow(`${clash.label} ${clash.value} is already on ${clash.taken.get(clash.norm)}.`);
+      skipRow(`${clash.label} ${clash.value} is already on ${heldBy(clash)}.`);
       continue;
     }
-    const repeat = keys.find((k) => inFile.has(`${k.type}:${k.norm}`));
+    const repeat = keys.find((k) => inFile.has(identity(k)));
     if (repeat) {
-      skipRow(`${repeat.label} ${repeat.value} is the same as row ${inFile.get(`${repeat.type}:${repeat.norm}`)}.`);
+      skipRow(`${repeat.label} ${repeat.value} is the same as row ${inFile.get(identity(repeat))}.`);
       continue;
     }
-    for (const k of keys) inFile.set(`${k.type}:${k.norm}`, row.rowNumber);
+    const kept = new Map<string, Key>();
+    for (const k of keys) {
+      const first = kept.get(identity(k));
+      if (!first) {
+        kept.set(identity(k), k);
+        continue;
+      }
+      warnings.push({
+        rowId: row.id,
+        rowNumber: row.rowNumber,
+        message: `${k.label} ${k.value} is the same as the ${first.label.toLowerCase()}; recorded once, as the ${first.label.toLowerCase()}.`,
+      });
+    }
+    for (const id of kept.keys()) inFile.set(id, row.rowNumber);
 
     let locationId = row.registerLocationId;
     if (!locationId && row.locationText) {
@@ -140,7 +168,7 @@ export function planImport(rows: PlanRow[], existing: ExistingKeys, opts: PlanOp
       valueCents: row.costCents,
       locationId,
       companyId: opts.companyId,
-      identifiers: keys.map((k) => ({ type: k.type, value: k.value })),
+      identifiers: [...kept.values()].map((k) => ({ type: k.type, value: k.value })),
       metadata: { register },
     });
   }
