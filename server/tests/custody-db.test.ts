@@ -217,13 +217,50 @@ describe("custody against Postgres", { skip: url ? false : "set CUSTODY_TEST_DAT
     assert.equal(view.lines.length, 1);
 
     const tf = await custody.transferForToken(token);
-    const result = await custody.signByLink(tf.linkTokenHash!, { signerName: "Lee Chan", image: PNG }, {});
+    const result = await custody.signByLink(tf.linkTokenHash!, { signerName: "Lee Chan", image: PNG }, { fingerprint: view.fingerprint });
     assert.equal(result.completed, true);
     await assert.rejects(custody.publicView(token), (e: { status?: number }) => e.status === 410);
     const detail = await custody.getTransfer(t.id);
     assert.equal(detail.signing.to?.via, "link");
     assert.equal(detail.link.state, "used");
     assert.equal("linkTokenHash" in detail, false);
+    await custody.finalizeTransfer(t.id, null);
+    assert.equal((await custody.verifyTransfer(t.id)).valid, true);
+  });
+
+  it("refuses a link signature over a delivery that changed after the page loaded", async () => {
+    const [crate, extra] = await Promise.all([createItem({ name: `Crate ${tag}` }, null), createItem({ name: `Extra ${tag}` }, null)]);
+    const t = await custody.createTransfer(
+      { purpose: "delivery", from: { kind: "external", name: "Crew 5" }, to: { kind: "external", name: "Kim Ode" }, sealNumbers: ["S-9"] },
+      actor,
+    );
+    await custody.scanIntoTransfer(t.id, [crate.assetCode]);
+    const { token } = await custody.issueLink(t.id, "to", 24, actor);
+    const seen = await custody.publicView(token);
+    assert.equal(seen.editable, true);
+    assert.match(seen.fingerprint, /^[0-9a-f]{64}$/);
+    const hash = (await custody.transferForToken(token)).linkTokenHash!;
+    const changed = (e: { status?: number; code?: string }) => e.status === 409 && e.code === "content_changed";
+
+    // The crew adds a line and changes the seal while the receiver is reading.
+    await custody.scanIntoTransfer(t.id, [extra.assetCode]);
+    await custody.updateTransfer(t.id, { sealNumbers: ["S-10"] }, actor);
+    await assert.rejects(custody.signByLink(hash, { signerName: "Kim Ode", image: PNG }, { fingerprint: seen.fingerprint }), changed);
+    // A page that sends no fingerprint cannot say what it showed.
+    await assert.rejects(custody.signByLink(hash, { signerName: "Kim Ode", image: PNG }, {}), changed);
+    assert.equal((await custody.loadTransfer(t.id)).status, "draft", "nothing was signed or locked");
+
+    // Reloaded, the receiver sees both lines and the new seal, marks one, and signs.
+    const fresh = await custody.publicView(token);
+    assert.equal(fresh.lines.length, 2);
+    assert.deepEqual(fresh.seals, ["S-10"]);
+    const extraLine = fresh.lines.find((l) => l.code === extra.assetCode)!;
+    const result = await custody.signByLink(
+      hash,
+      { signerName: "Kim Ode", image: PNG },
+      { fingerprint: fresh.fingerprint, outcomes: [{ lineId: extraLine.id, outcome: "refused", note: "Not ours" }] },
+    );
+    assert.equal(result.completed, true);
     await custody.finalizeTransfer(t.id, null);
     assert.equal((await custody.verifyTransfer(t.id)).valid, true);
   });

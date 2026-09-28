@@ -2,6 +2,7 @@ import { pool } from "../../db/client";
 import { notFound } from "../../lib/errors";
 import { getConfig } from "../config";
 import { thumbnail } from "../media-ai-core";
+import { contentFingerprint } from "./content";
 import { OUTCOME_LABEL, statementFor } from "./model";
 import { hashLinkToken, linkState, looksLikeToken } from "./rules";
 import { countable, findByLinkHash, linkGone, transferLines } from "./transfers";
@@ -57,6 +58,8 @@ export async function publicView(token: string) {
     // A delivery is reviewed by the receiver; anything else was counted and fixed before the link was sent.
     editable: t.status === "draft" && t.purpose === "delivery" && party === "to",
     statement: statementFor(t.purpose, party, { code: t.code, fromName: t.fromName, toName: t.toName, count: countable(lines) }),
+    // Sent back with the signature: signing is refused if the transfer changed after this was read.
+    fingerprint: contentFingerprint(t, lines),
     // A person is named; an organisation or team is not a signature name.
     signerName: signer.kind === "external" ? signer.name : "",
     lines: lines.map((l) => ({

@@ -20,7 +20,7 @@ import { logger } from "../../lib/logger";
 import { actorFromOid, publish } from "../event-backbone";
 import { resolveScanCodes } from "../jobs-core";
 import { listSignatures, sign, type Signature } from "../media-ai-core";
-import { contentLines, itemsHash, transferContent } from "./content";
+import { contentFingerprint, contentLines, itemsHash, transferContent } from "./content";
 import {
   cleanSeals,
   genTransferCode,
@@ -583,19 +583,37 @@ export async function signTransfer(id: string, party: CustodyParty, signer: Sign
   return db.transaction(async (tx) => signInTx(tx, await lockRow(tx, id), party, signer, ctx));
 }
 
-/** Record the signature of whoever holds the one-time link. */
-export async function signByLink(tokenHash: string, signer: SignerInput, ctx: Omit<SignContext, "via" | "capturedBy">) {
+/**
+ * Record the signature of whoever holds the one-time link. `fingerprint` is
+ * the one publicView gave the page they signed on; a draft delivery can still
+ * change on the crew's side, so it must match what is stored now.
+ */
+export async function signByLink(
+  tokenHash: string,
+  signer: SignerInput,
+  ctx: Omit<SignContext, "via" | "capturedBy"> & { fingerprint?: string | null },
+) {
   const [found] = await db
     .select({ id: custodyTransfers.id })
     .from(custodyTransfers)
     .where(eq(custodyTransfers.linkTokenHash, tokenHash))
     .limit(1);
   if (!found) throw linkGone();
+  const { fingerprint, ...rest } = ctx;
   return db.transaction(async (tx) => {
     const t = await lockRow(tx, found.id);
     // Re-checked under the lock: the link may have been used or revoked since.
     if (t.linkTokenHash !== tokenHash || linkState(t) !== "active" || !t.linkParty) throw linkGone();
-    return signInTx(tx, t, t.linkParty, signer, { ...ctx, via: "link", capturedBy: null });
+    // Checked before the signer's own outcomes are applied, as the page saw it.
+    // A page that sent none (an older one) cannot show what it covered, so it is refused too.
+    if (fingerprint !== contentFingerprint(t, await transferLines(t.id, tx))) {
+      throw new HttpError(
+        409,
+        "content_changed",
+        `${t.code} changed since you opened it. Reload the page and check it again before signing.`,
+      );
+    }
+    return signInTx(tx, t, t.linkParty, signer, { ...rest, via: "link", capturedBy: null });
   });
 }
 

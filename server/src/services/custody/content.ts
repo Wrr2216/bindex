@@ -88,6 +88,14 @@ export function transferContent(t: TransferHeader, lines: ContentLine[]) {
 
 export type SignedContent = ReturnType<typeof transferContent>;
 
+/**
+ * The hash of what a signature would cover as the transfer stands now. A
+ * signing link's page is given it and sends it back, so a signature made by
+ * link covers exactly what the page showed.
+ */
+export const contentFingerprint = (t: TransferHeader, lines: readonly (TransferLine & { position: number })[]): string =>
+  contentHash(transferContent(t, contentLines(lines)));
+
 const lineKey = (l: Pick<ContentLine, "itemId" | "unitId">) => `${l.itemId}:${l.unitId ?? ""}`;
 
 export type LineChange = { key: string; before: ContentLine | null; after: ContentLine | null; fields: string[] };

@@ -295,4 +295,10 @@ describe("the receipt and the signing page", () => {
     assert.match(html, /<script src="\/custody-sign\/assets\/sign.js" defer><\/script>/);
     assert.equal(page.SIGN_PAGE_SCRIPT.includes("innerHTML"), false);
   });
+
+  it("sends back the fingerprint of what the signing page showed", () => {
+    // Parsed, not run: a syntax slip in the raw string would only show on a phone.
+    assert.doesNotThrow(() => new Function(page.SIGN_PAGE_SCRIPT));
+    assert.match(page.SIGN_PAGE_SCRIPT, /fingerprint: d\.fingerprint/);
+  });
 });
