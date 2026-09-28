@@ -80,6 +80,12 @@ way they are.
   documents, custody, insights and the shipment map when those features are on.
   A scanned crew badge opens its worker, and the portal offers claims.
 
+### Removed
+
+- The vendored `lm-observability` package, and the `winston`, `winston-syslog`
+  and `unix-dgram` packages it brought in. Bindex now sends Pushover and Wazuh
+  alerts itself, with the same settings and the same Wazuh line format.
+
 ### Fixed
 
 - The Docker image failed to build once pnpm 12 was released: the production

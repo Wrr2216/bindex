@@ -1,5 +1,5 @@
-import { sendWazuh } from "@loganmct/lm-observability";
 import { env } from "../env";
+import { sendWazuh } from "./wazuh";
 
 type Meta = Record<string, unknown>;
 type Level = "debug" | "info" | "warn" | "error";

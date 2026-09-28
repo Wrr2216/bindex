@@ -6,7 +6,6 @@ WORKDIR /app
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY server/package.json server/
-COPY server/vendor ./server/vendor
 COPY client/package.json client/
 RUN pnpm install --frozen-lockfile
 COPY . .
@@ -35,7 +34,6 @@ RUN apk add --no-cache ffmpeg poppler-utils
 # A standalone production install for the server alone, which keeps the client
 # toolchain out of the image.
 COPY server/package.json ./package.json
-COPY server/vendor ./vendor
 RUN pnpm install --prod --no-frozen-lockfile && pnpm store prune
 
 COPY --from=builder /app/server/dist ./dist
