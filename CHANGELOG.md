@@ -80,6 +80,13 @@ way they are.
   documents, custody, insights and the shipment map when those features are on.
   A scanned crew badge opens its worker, and the portal offers claims.
 
+### Fixed
+
+- The Docker image failed to build once pnpm 12 was released: the production
+  install used whatever pnpm was newest, and pnpm 12 stops on a dependency build
+  script that pnpm 10 skipped. It now uses the pnpm version pinned in
+  `package.json`.
+
 ## [1.0.0] - 2026-08-31
 
 First public release. The application was generalised so that one codebase
