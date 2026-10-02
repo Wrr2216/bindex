@@ -47,7 +47,13 @@ export const ChevronDownIcon = (props: IconProps) => (
   </Icon>
 );
 
-export const ExternalLinkIcon = (props: IconProps) => (
+export const MenuIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M4 6h16M4 12h16M4 18h16" />
+  </Icon>
+);
+
+export const ExternalLinkIcon =(props: IconProps) => (
   <Icon {...props}>
     <path d="M15 3h6v6M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
   </Icon>
