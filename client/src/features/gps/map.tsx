@@ -43,7 +43,14 @@ export function useLeafletMap(config: MapConfig | null): { ref: (el: HTMLDivElem
   useEffect(() => {
     if (!el || !config) return;
     const m = L.map(el, { worldCopyJump: true }).setView([20, 0], 2);
-    L.tileLayer(config.tileUrl, { attribution: config.attribution, maxZoom: config.maxZoom }).addTo(m);
+    // The server's helmet policy is no-referrer, but OpenStreetMap's tile
+    // servers block requests that carry no Referer. Send just the origin, and
+    // only for tiles, so the rest of the app keeps the stricter policy.
+    L.tileLayer(config.tileUrl, {
+      attribution: config.attribution,
+      maxZoom: config.maxZoom,
+      referrerPolicy: "strict-origin-when-cross-origin",
+    }).addTo(m);
     setMap(m);
     return () => {
       setMap(null);
